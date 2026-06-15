@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "prepare-lora-kit"
+version = "0.1.0"
+description = "LoRA dataset preparation pipeline for Flux and similar diffusion models"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+plk = "prepare_lora_kit.cli:cli"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["prepare_lora_kit*"]

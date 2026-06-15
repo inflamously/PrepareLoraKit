@@ -1,0 +1,46 @@
+name: flux-klein-9b
+display_name: "Flux Klein 9B"
+resolution_buckets:
+  - [1024, 1024]
+  - [1152, 896]
+  - [896, 1152]
+  - [1216, 832]
+  - [832, 1216]
+  - [1344, 768]
+  - [768, 1344]
+  - [1536, 640]
+  - [640, 1536]
+max_pixels: 1048576
+vae_model_id: "black-forest-labs/FLUX.1-dev"
+lr_range: [0.0002, 0.0008]
+rank_range: [16, 64]
+model_type: flux
+noise_scheduler: flowmatch
+lr_alpha_rank_ratio_range: [0.5, 2.0]
+requires_diff_guidance: false
+config_template:
+  model:
+    name: flux1
+    model_type: flux
+    is_flux: true
+  network:
+    type: lora
+    linear: 16
+    linear_alpha: 16
+  train:
+    batch_size: 1
+    steps: 3000
+    gradient_accumulation_steps: 1
+    train_unet: true
+    train_text_encoder: false
+    gradient_checkpointing: true
+    noise_scheduler: flowmatch
+    optimizer: adamw8bit
+    lr: 0.0004
+    ema:
+      enabled: false
+      decay: 0.99
+    dtype: bf16
+    xformers: false
+    train_text_encoder_lr: 1.0e-5
+    caption_dropout: 0.0
