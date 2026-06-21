@@ -50,3 +50,24 @@ pipeline:
         "AuditStep",
     ]
     assert data["pipeline"][0]["auto_only"] is True
+
+
+def test_bridge_load_project_returns_saved_input_dir_and_default_output(tmp_path, monkeypatch):
+    configs_dir = tmp_path / "configs" / "projects"
+    configs_dir.mkdir(parents=True)
+    monkeypatch.setattr(project_registry._registry, "configs_dir", configs_dir)
+    input_dir = tmp_path / "saved-dataset"
+    input_dir.mkdir()
+    project_path = configs_dir / "saved.yaml"
+    project_path.write_text(f"""\
+name: saved
+network: flux-klein-9b
+input_dir: {input_dir}
+pipeline: []
+""")
+
+    result = UiBridge().load_project("saved")
+
+    assert result["input_dir"] == str(input_dir)
+    assert result["project"]["input_dir"] == str(input_dir)
+    assert Path(result["output_dir"]).parts[-2:] == ("outputs", "saved-dataset")

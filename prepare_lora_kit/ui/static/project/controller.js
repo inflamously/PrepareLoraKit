@@ -1,7 +1,10 @@
 import { api } from "../core/api.js";
 import { $ } from "../core/dom.js";
 import { state } from "../core/state.js";
-import { applyCaptionConfigDefaults } from "../caption/config.js";
+import {
+  applyCaptionConfigDefaults,
+  resetCaptionConfigDefaults,
+} from "../caption/config.js";
 import { render } from "../shell/render.js";
 
 export async function loadProjects() {
@@ -16,7 +19,10 @@ export async function loadProjects() {
 
 export async function loadProject(options = {}) {
   const name = $("projectSelect").value;
-  if (!name) return;
+  if (!name) {
+    resetProjectSelection();
+    return;
+  }
 
   const output = state.outputCustomized
     ? $("outputDir").value.trim() || null
@@ -75,6 +81,20 @@ function ensureProjectOption(name) {
   $("projectSelect").append(new Option(name, name));
 }
 
+function resetProjectSelection() {
+  state.project = null;
+  state.selectedSteps = new Set();
+  state.outputDir = "";
+  state.outputCustomized = false;
+
+  $("inputDir").value = "";
+  $("outputDir").value = "";
+  $("tokenInput").value = "";
+  $("forceInput").checked = false;
+  resetCaptionConfigDefaults();
+  render();
+}
+
 function applyProjectResult(result, options = {}) {
   const previousSelectedSteps = options.preserveSelection
     ? new Set(state.selectedSteps)
@@ -82,13 +102,13 @@ function applyProjectResult(result, options = {}) {
 
   state.project = result.project;
 
-  if (options.updateInput && result.input_dir) {
-    $("inputDir").value = result.input_dir;
+  if (options.updateInput) {
+    $("inputDir").value = result.input_dir || result.project?.input_dir || "";
   }
 
-  if (!state.outputCustomized && result.output_dir) {
-    $("outputDir").value = result.output_dir;
-    state.outputDir = result.output_dir;
+  if (!state.outputCustomized) {
+    state.outputDir = result.output_dir || "";
+    $("outputDir").value = state.outputDir;
   }
 
   state.selectedSteps = previousSelectedSteps

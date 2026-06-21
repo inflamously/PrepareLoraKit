@@ -29,6 +29,12 @@ export function applyCaptionConfigDefaults() {
   $("captionVramMode").value = vramMap[cfg.vram_tier] || "auto";
 }
 
+export function resetCaptionConfigDefaults() {
+  $("captionModelPreset").value = "Qwen/Qwen2-VL-7B-Instruct";
+  $("captionModelCustom").value = "";
+  $("captionVramMode").value = "auto";
+}
+
 export function syncCaptionModelInput() {
   if ($("captionModelPreset").value !== "custom") {
     $("captionModelCustom").value = "";
