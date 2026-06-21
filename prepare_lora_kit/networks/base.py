@@ -7,6 +7,13 @@ import yaml
 
 @dataclass
 class NetworkProfile:
+    """Base-model profile: model id, VAE, scheduler, buckets, lr/rank ranges, and a
+    config_template merged into the ai-toolkit training YAML.
+
+    NOTE: this describes the *base model*, not the trainable adapter. The adapter
+    network (lora/lokr/dora) is ``NetworkConfig`` in ``config.py``; its block lives
+    under ``config_template.network`` here.
+    """
     name: str
     display_name: str
     resolution_buckets: list[tuple[int, int]]
@@ -20,6 +27,9 @@ class NetworkProfile:
     # effective_rank = alpha / rank; ratio outside this range triggers a warning
     lr_alpha_rank_ratio_range: tuple[float, float] = (0.5, 2.0)
     requires_diff_guidance: bool = False
+    # Base pixel-budget sides emitted to ai-toolkit datasets[].resolution.
+    # Empty → step 7 falls back to [max_bucket_side].
+    train_resolutions: list[int] = field(default_factory=list)
 
     @property
     def max_bucket_side(self) -> int:

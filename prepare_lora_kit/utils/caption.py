@@ -88,7 +88,9 @@ def build_bfl_prompt(
             label = ann.get("label", "").strip()
             region = ann.get("region_desc", "")
             if label:
-                lines.append(f"  Region {i} ({region}): {label}")
+                crop_name = ann.get("crop_name", "")
+                crop_note = f", saved crop {crop_name}" if crop_name else ""
+                lines.append(f"  Region {i} ({region}{crop_note}): {label}")
         annotation_text = "\n".join(lines) if lines else "  (no annotations provided)"
     else:
         annotation_text = "  (no annotations — describe the full image)"

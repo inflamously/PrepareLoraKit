@@ -1,0 +1,136 @@
+from pathlib import Path
+from typing import Any
+
+import yaml
+
+from .base import ProjectConfig
+from ..utils.registry import ConfigRegistry
+
+_registry: ConfigRegistry[ProjectConfig] = ConfigRegistry(
+    kind="project",
+    subdir="projects",
+    loader=ProjectConfig.from_yaml,
+    builtin_package="prepare_lora_kit.project",  # reserved for future built-ins
+    skip_example=True,
+)
+
+# Exposed for callers that resolve config paths directly (e.g. cli/run.py).
+_CONFIGS_DIR = _registry.configs_dir
+
+
+def _default_pipeline() -> list[dict[str, Any]]:
+    return [
+        {
+            "type": "QualityGateStep",
+            "scorers": [
+                {"name": "min_side", "enabled": True, "op": "lt", "threshold": 1024.0},
+                {"name": "blur", "enabled": True, "op": "lt", "threshold": 100.0, "borderline": 150.0},
+                {"name": "noise", "enabled": True, "op": "gt", "threshold": 25.0},
+                {"name": "jpeg", "enabled": True, "op": "gt", "threshold": 0.08},
+                {"name": "watermark", "enabled": True, "op": "gt", "threshold": 0.80},
+            ],
+            "manual_review": True,
+            "auto_only": False,
+            "manual_all": False,
+        },
+        {
+            "type": "DedupeStep",
+            "dedup_hamming_distance": 8,
+            "occlusion_threshold": 0.35,
+            "pca_umap_switch_threshold": 30,
+            "umap_n_neighbors": 15,
+            "umap_min_dist": 0.1,
+            "pca_n_components": 2,
+            "clip_model_id": "openai/clip-vit-base-patch32",
+        },
+        {
+            "type": "UpscaleStep",
+            "upscale_target": 3072,
+            "hallucination_ssim_threshold": 0.60,
+            "upscale_model": "seedvr",
+        },
+        {
+            "type": "VaeGateStep",
+            "diff_amplification": 4.0,
+            "gaussian_blur_sigma": 2.0,
+            "gaussian_blur_kernel": 21,
+            "otsu_enabled": True,
+            "output_previews": True,
+            "output_silhouettes": True,
+            "output_hard_silhouettes": True,
+            "outlier_sigma": 2.0,
+            "hf_cutoff_fraction": 0.25,
+            "max_side": None,
+            "seed": 42,
+        },
+        {
+            "type": "CaptionStep",
+            "qwen_model_id": "Qwen/Qwen2-VL-7B-Instruct",
+            "vram_tier": "auto",
+            "max_new_tokens": 200,
+            "spot_check_pct": 0.10,
+        },
+        {
+            "type": "AuditStep",
+            "min_caption": 5,
+            "max_caption": 600,
+            "check_pairing": True,
+            "check_corrupt": True,
+            "check_caption_length": True,
+            "check_resolution_gate": True,
+        },
+        {"type": "ConfigGenStep", "base_template_path": None},
+        {"type": "BucketDryRunStep", "thin_threshold": 2, "cache_mode": False, "bucket_overrides": None},
+    ]
+
+
+def config_path_for_name(name: str) -> Path:
+    return _registry.configs_dir / f"{name.replace('-', '_')}.yaml"
+
+
+def default_project_data(name: str, input_dir: Path | str | None = None) -> dict[str, Any]:
+    data: dict[str, Any] = {
+        "name": name,
+        "network": "flux-klein-9b",
+    }
+    if input_dir is not None:
+        data["input_dir"] = str(input_dir)
+    data["pipeline"] = _default_pipeline()
+    return data
+
+
+def write_default_project(name: str, path: Path | None = None, input_dir: Path | str | None = None) -> Path:
+    """Write a fully-defaulted project config and return its path."""
+    config_path = path or config_path_for_name(name)
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text(yaml.safe_dump(default_project_data(name, input_dir), sort_keys=False))
+    return config_path
+
+
+def set_project_input_dir(name: str, input_dir: Path | str) -> Path:
+    """Persist input_dir on an existing YAML project without changing pipeline data."""
+    config_path = config_path_for_name(name)
+    if not config_path.exists():
+        write_default_project(name, config_path, input_dir)
+        return config_path
+
+    data = yaml.safe_load(config_path.read_text()) or {}
+    data["input_dir"] = str(input_dir)
+    config_path.write_text(yaml.safe_dump(data, sort_keys=False))
+    return config_path
+
+
+def load_or_create_for_input(input_dir: Path | str) -> ProjectConfig:
+    resolved = Path(input_dir).expanduser().resolve()
+    name = resolved.name
+    set_project_input_dir(name, resolved)
+    return load(name)
+
+
+def load(name: str) -> ProjectConfig:
+    """Load a ProjectConfig by name. Checks built-ins then configs/projects/ dir."""
+    return _registry.load(name)
+
+
+def list_projects() -> list[str]:
+    return _registry.list()

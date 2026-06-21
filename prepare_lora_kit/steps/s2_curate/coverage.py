@@ -1,0 +1,60 @@
+"""CLIP coverage visualisation for Step 2 curation."""
+from __future__ import annotations
+from pathlib import Path
+
+from ...utils import report as rpt
+
+
+def _clip_embeddings(paths: list[Path]) -> "np.ndarray":
+    import torch
+    import numpy as np
+    from PIL import Image
+    from .clip_model import load_clip
+
+    model, processor = load_clip()
+
+    embeddings = []
+    for p in paths:
+        image = Image.open(p).convert("RGB")
+        inputs = processor(images=image, return_tensors="pt")
+        with torch.no_grad():
+            feat = model.get_image_features(**inputs)
+        # Flatten to 1D so the stacked array is 2D (N, D) for PCA/UMAP,
+        # regardless of whether the model returns pooled (D,) or spatial (C,H,W) features.
+        embeddings.append(feat[0].cpu().numpy().reshape(-1))
+    return np.stack(embeddings)
+
+
+def _save_umap(embeddings, paths: list[Path], out_path: Path) -> None:
+    import matplotlib.pyplot as plt
+    from umap import UMAP
+
+    reducer = UMAP(n_components=2, random_state=42)
+    coords = reducer.fit_transform(embeddings)
+
+    fig, ax = plt.subplots(figsize=(10, 8))
+    ax.scatter(coords[:, 0], coords[:, 1], alpha=0.7, s=60)
+    for i, p in enumerate(paths):
+        ax.annotate(p.name[:20], (coords[i, 0], coords[i, 1]), fontsize=6, alpha=0.6)
+    ax.set_title("Dataset Coverage — CLIP UMAP")
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=150)
+    plt.close()
+    rpt.ok(f"Coverage UMAP saved → {out_path}")
+
+
+def _save_pca(embeddings, paths: list[Path], out_path: Path) -> None:
+    import matplotlib.pyplot as plt
+    from sklearn.decomposition import PCA
+
+    coords = PCA(n_components=2).fit_transform(embeddings)
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+    ax.scatter(coords[:, 0], coords[:, 1], alpha=0.8, s=60)
+    for i, p in enumerate(paths):
+        ax.annotate(p.name[:20], (coords[i, 0], coords[i, 1]), fontsize=6, alpha=0.6)
+    ax.set_title("Dataset Coverage — CLIP PCA")
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=150)
+    plt.close()
+    rpt.ok(f"Coverage PCA saved → {out_path}")

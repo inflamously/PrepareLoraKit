@@ -2,6 +2,7 @@
 from __future__ import annotations
 from pathlib import Path
 import io
+import shutil
 import cv2
 import numpy as np
 from PIL import Image
@@ -16,6 +17,32 @@ def is_image(path: Path) -> bool:
 
 def iter_images(folder: Path) -> list[Path]:
     return sorted(p for p in folder.iterdir() if p.is_file() and is_image(p))
+
+
+def materialize(survivors, src_dir: Path, output_dir: Path) -> None:
+    """Make ``output_dir`` hold exactly the images in ``survivors``.
+
+    Two modes, picked by whether output_dir is the folder the images already
+    live in:
+
+    - **in-place** (output_dir == src_dir): the pipeline's single working dir.
+      Delete every image NOT in survivors; survivors stay put — no copy, no
+      per-step duplication.
+    - **copy** (output_dir != src_dir): standalone single-step CLI use, where
+      the caller points -i and -o at different folders. Copy survivors across.
+    """
+    output_dir.mkdir(parents=True, exist_ok=True)
+    keep = {Path(s).name for s in survivors}
+    if output_dir.resolve() == src_dir.resolve():
+        for p in iter_images(src_dir):
+            if p.name not in keep:
+                p.unlink()
+    else:
+        for s in survivors:
+            s = Path(s)
+            dst = output_dir / s.name
+            if not dst.exists():
+                shutil.copy2(s, dst)
 
 
 def load_cv2(path: Path) -> np.ndarray:

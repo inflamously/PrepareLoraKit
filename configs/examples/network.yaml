@@ -1,0 +1,54 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Reference: the generic ai-toolkit `network:` block, per adapter type.
+#
+# DOCUMENTATION ONLY. This file is NOT a loadable NetworkProfile and is not
+# discovered by `python main.py networks` (only files in configs/networks/ are).
+#
+# Each block below is what goes under a base-model profile's
+# `config_template.network` (see configs/networks/flux_klein_9b.yaml). It is
+# parsed and validated by prepare_lora_kit.networks.config.NetworkConfig and
+# rendered into config.process[0].network of the generated training YAML.
+#
+# Per-run `linear` / `linear_alpha` (rank / alpha) are overwritten at config-build
+# time by step 7; the values here are defaults / placeholders.
+#
+# Switching the adapter type for a single run WITHOUT editing the profile: set a
+# top-level `network_type:` in the project config (configs/projects/<name>.yaml):
+#
+#     name: my-project
+#     network: flux-klein-9b
+#     network_type: dora        # overrides the profile's default (lora|lokr|dora)
+#     pipeline: [ ... ]
+#
+# Run `python main.py network-types` to list supported types and their defaults.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── LoRA (default) — low-rank B·A on linear/attention layers ──────────────────
+lora:
+  type: lora
+  linear: 16            # rank (alias: `rank`)
+  linear_alpha: 16      # alpha (alias: `alpha`); defaults to `linear` if omitted
+  conv: 16              # optional conv rank; omit for transformer-only LoRA
+  conv_alpha: 16        # defaults to `conv` when `conv` is set
+  # transformer_only: true   # omit to use ai-toolkit's default (true)
+  # dropout: 0.0
+  # network_kwargs:          # generic per-type pass-through
+  #   only_if_contains: ["transformer.single_transformer_blocks"]
+
+# ── LoKr — Kronecker-factored; smallest files ─────────────────────────────────
+lokr:
+  type: lokr
+  linear: 16
+  linear_alpha: 16
+  lokr_full_rank: false   # true → full-rank Kronecker factor
+  lokr_factor: -1         # -1 = auto; or a positive int factor
+  # network_kwargs:
+  #   ignore_if_contains: []
+
+# ── DoRA — weight-decomposed (magnitude + direction); highest quality ─────────
+dora:
+  type: dora
+  linear: 16
+  linear_alpha: 16
+  # conv: 16
+  # conv_alpha: 16

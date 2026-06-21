@@ -1,0 +1,343 @@
+/* ═══════════════════════════════════════════════════════════
+   nflamously — Design System · complete stylesheet
+   Indigo night + gold · minimal · futurist · glassy
+   Single self-contained file: fonts, tokens, base reset.
+   ═══════════════════════════════════════════════════════════ */
+
+:root {
+  /* ═══════════════════════════════════════════════════════
+     COLOR
+     ═══════════════════════════════════════════════════════ */
+
+  /* ── Night (indigo-tinted neutral scale) ───────────────── */
+  --night-990: #05070F;   /* void — deepest backdrop */
+  --night-950: #070A18;   /* app background */
+  --night-900: #0B1024;   /* base surface */
+  --night-850: #10162E;   /* surface */
+  --night-800: #161D3A;   /* raised surface / card */
+  --night-750: #1B2347;   /* hover surface */
+  --night-700: #222C58;   /* border / divider strong */
+  --night-600: #2E3A6E;   /* subtle border */
+  --night-500: #3D4B86;   /* muted line */
+  --night-400: #5A689F;   /* disabled text */
+
+  /* ── Cobalt (the vivid royal blue of the brand image) ──── */
+  --cobalt-700: #1A28A6;
+  --cobalt-600: #2233CC;
+  --cobalt-500: #2D40E0;  /* secondary accent */
+  --cobalt-400: #4A5CF0;
+  --cobalt-300: #7C8AF8;
+  --cobalt-glow: rgba(45, 64, 224, 0.45);
+
+  /* ── Gold (primary brand) ──────────────────────────────── */
+  --gold-700: #B89400;
+  --gold-600: #E6C200;
+  --gold-500: #FFE000;    /* PRIMARY — the sun */
+  --gold-400: #FFE940;
+  --gold-300: #FFF27A;
+  --gold-glow: rgba(255, 224, 0, 0.30);
+
+  /* ── Amber (golden hour / coffee warmth) ───────────────── */
+  --amber-600: #C97B2C;   /* coffee */
+  --amber-500: #E8A33D;   /* golden hour */
+  --amber-400: #F4BE63;
+
+  /* ── Pure ──────────────────────────────────────────────── */
+  --white: #FFFFFF;
+  --black: #000000;
+  --ink: #0B1024;          /* text on gold/light */
+
+  /* ── Text (cool near-whites) ───────────────────────────── */
+  --text-1: #F3F5FF;       /* primary */
+  --text-2: #AEB7DC;       /* secondary */
+  --text-3: #7E89B6;       /* tertiary / captions */
+  --text-disabled: #5A689F;
+
+  /* ── Semantic hues ─────────────────────────────────────── */
+  --success-500: #38D6A0;
+  --success-bg: rgba(56, 214, 160, 0.12);
+  --warning-500: #FFC400;
+  --warning-bg: rgba(255, 196, 0, 0.12);
+  --danger-500: #FF5C6A;
+  --danger-bg: rgba(255, 92, 106, 0.12);
+  --info-500: #4A5CF0;
+  --info-bg: rgba(74, 92, 240, 0.12);
+
+  /* ── Semantic aliases — reach for these in product code ── */
+  --bg-app: var(--night-950);
+  --bg-base: var(--night-900);
+  --surface: var(--night-850);
+  --surface-raised: var(--night-800);
+  --surface-hover: var(--night-750);
+  --surface-glass: rgba(22, 29, 58, 0.55);   /* frosted panel fill */
+  --surface-glass-strong: rgba(11, 16, 36, 0.72);
+
+  --border: var(--night-700);
+  --border-subtle: var(--night-600);
+  --border-strong: var(--night-500);
+  --border-gold: rgba(255, 224, 0, 0.40);
+  --hairline: rgba(174, 183, 220, 0.10);
+
+  --text-body: var(--text-2);
+  --text-heading: var(--text-1);
+  --text-caption: var(--text-3);
+
+  --accent: var(--gold-500);
+  --accent-hover: var(--gold-400);
+  --accent-press: var(--gold-600);
+  --accent-ink: var(--ink);          /* foreground on accent */
+  --accent-secondary: var(--cobalt-500);
+
+  --focus-ring: rgba(255, 224, 0, 0.55);
+  --selection: rgba(255, 224, 0, 0.22);
+
+  /* ═══════════════════════════════════════════════════════
+     TYPOGRAPHY
+     ═══════════════════════════════════════════════════════ */
+
+  /* ── Families ──────────────────────────────────────────── */
+  --font-display: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Consolas, "Liberation Mono", monospace;
+
+  /* ── Weights ───────────────────────────────────────────── */
+  --weight-light: 300;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  /* ── Type scale (1.250 major-third, 16px base) ─────────── */
+  --text-2xs: 11px;
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-base: 16px;
+  --text-lg: 18px;
+  --text-xl: 22px;
+  --text-2xl: 28px;
+  --text-3xl: 36px;
+  --text-4xl: 46px;
+  --text-5xl: 60px;
+  --text-6xl: 78px;
+
+  /* ── Line heights ──────────────────────────────────────── */
+  --leading-none: 1;
+  --leading-tight: 1.12;
+  --leading-snug: 1.28;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.66;
+
+  /* ── Letter spacing ────────────────────────────────────── */
+  --tracking-tighter: -0.03em;   /* display headlines */
+  --tracking-tight: -0.015em;
+  --tracking-normal: 0em;
+  --tracking-wide: 0.04em;
+  --tracking-wider: 0.12em;      /* eyebrows / labels */
+  --tracking-widest: 0.22em;     /* all-caps micro labels */
+
+  /* ── Semantic roles ────────────────────────────────────── */
+  --type-display: var(--weight-bold) var(--text-6xl)/var(--leading-none) var(--font-display);
+  --type-h1: var(--weight-bold) var(--text-4xl)/var(--leading-tight) var(--font-display);
+  --type-h2: var(--weight-semibold) var(--text-3xl)/var(--leading-tight) var(--font-display);
+  --type-h3: var(--weight-semibold) var(--text-2xl)/var(--leading-snug) var(--font-display);
+  --type-h4: var(--weight-medium) var(--text-xl)/var(--leading-snug) var(--font-sans);
+  --type-body: var(--weight-regular) var(--text-base)/var(--leading-normal) var(--font-sans);
+  --type-body-sm: var(--weight-regular) var(--text-sm)/var(--leading-normal) var(--font-sans);
+  --type-caption: var(--weight-regular) var(--text-xs)/var(--leading-snug) var(--font-sans);
+  --type-mono: var(--weight-regular) var(--text-sm)/var(--leading-normal) var(--font-mono);
+
+  /* Eyebrow / overline preset values */
+  --eyebrow-size: var(--text-xs);
+  --eyebrow-tracking: var(--tracking-widest);
+  --eyebrow-weight: var(--weight-medium);
+
+  /* ═══════════════════════════════════════════════════════
+     SPACING & LAYOUT (4px base grid)
+     ═══════════════════════════════════════════════════════ */
+
+  /* ── Space scale ───────────────────────────────────────── */
+  --space-0: 0;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 40px;
+  --space-9: 48px;
+  --space-10: 64px;
+  --space-11: 80px;
+  --space-12: 96px;
+  --space-14: 128px;
+  --space-16: 160px;
+
+  /* ── Radii (subtle 4–8px house style) ──────────────────── */
+  --radius-xs: 3px;
+  --radius-sm: 5px;
+  --radius-md: 7px;    /* default control radius */
+  --radius-lg: 10px;
+  --radius-xl: 14px;   /* cards / panels */
+  --radius-2xl: 20px;  /* large surfaces */
+  --radius-pill: 999px;
+
+  /* ── Container widths ──────────────────────────────────── */
+  --container-sm: 640px;
+  --container-md: 880px;
+  --container-lg: 1120px;
+  --container-xl: 1320px;
+
+  /* ── Control sizing ────────────────────────────────────── */
+  --control-h-sm: 32px;
+  --control-h-md: 40px;
+  --control-h-lg: 48px;
+  --tap-min: 44px;      /* minimum touch target */
+
+  /* ── Z-index scale ─────────────────────────────────────── */
+  --z-base: 1;
+  --z-raised: 10;
+  --z-sticky: 100;
+  --z-overlay: 1000;
+  --z-modal: 1100;
+  --z-toast: 1200;
+  --z-tooltip: 1300;
+
+  /* ═══════════════════════════════════════════════════════
+     EFFECTS — shadow, glass, glow, gradients
+     ═══════════════════════════════════════════════════════ */
+
+  /* ── Elevation (deep indigo shadows) ───────────────────── */
+  --shadow-xs: 0 1px 2px rgba(3, 5, 14, 0.50);
+  --shadow-sm: 0 2px 8px rgba(3, 5, 14, 0.45);
+  --shadow-md: 0 8px 24px rgba(3, 5, 14, 0.50);
+  --shadow-lg: 0 18px 48px rgba(3, 5, 14, 0.55);
+  --shadow-xl: 0 32px 80px rgba(3, 5, 14, 0.62);
+
+  /* Inset hairline that reads as a top-edge catchlight on glass */
+  --edge-light: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --edge-light-strong: inset 0 1px 0 rgba(255, 255, 255, 0.10);
+
+  /* ── Glows (focus, accent emphasis) ────────────────────── */
+  --glow-gold: 0 0 0 1px rgba(255, 224, 0, 0.25), 0 0 24px var(--gold-glow);
+  --glow-gold-strong: 0 0 0 1px rgba(255, 224, 0, 0.45), 0 0 36px rgba(255, 224, 0, 0.40);
+  --glow-cobalt: 0 0 28px var(--cobalt-glow);
+
+  /* ── Glass (intensity ≈ 30% — subtle frost) ────────────── */
+  --glass-blur: blur(14px) saturate(140%);
+  --glass-blur-soft: blur(8px) saturate(125%);
+  --glass-fill: rgba(22, 29, 58, 0.55);
+  --glass-fill-strong: rgba(11, 16, 36, 0.72);
+  --glass-border: 1px solid rgba(174, 183, 220, 0.12);
+
+  /* ── Gradients ─────────────────────────────────────────── */
+  /* The hero: indigo night warming to a golden-hour horizon */
+  --grad-golden-hour: linear-gradient(180deg, #070A18 0%, #0F1430 46%, #2A2A4A 72%, #5A4A2E 92%, #8A6A2A 100%);
+  /* Sun flare — radial gold bloom on indigo */
+  --grad-sun: radial-gradient(120% 120% at 70% 12%, rgba(255,224,0,0.22) 0%, rgba(255,224,0,0) 42%), var(--night-950);
+  /* Accent sweep for buttons / bars */
+  --grad-gold: linear-gradient(135deg, #FFE940 0%, #FFE000 48%, #E8A33D 100%);
+  --grad-cobalt: linear-gradient(135deg, #4A5CF0 0%, #2233CC 100%);
+  /* Text-protection scrim for media overlays */
+  --scrim-bottom: linear-gradient(180deg, rgba(5,7,15,0) 0%, rgba(5,7,15,0.82) 88%);
+  --scrim-top: linear-gradient(0deg, rgba(5,7,15,0) 0%, rgba(5,7,15,0.78) 100%);
+
+  /* Hairline grid texture (subtle futurist scanline) */
+  --grid-line: rgba(174, 183, 220, 0.05);
+
+  /* ═══════════════════════════════════════════════════════
+     MOTION
+     ═══════════════════════════════════════════════════════ */
+
+  /* ── Durations ─────────────────────────────────────────── */
+  --dur-instant: 80ms;
+  --dur-fast: 140ms;
+  --dur-base: 220ms;
+  --dur-slow: 360ms;
+  --dur-slower: 560ms;
+
+  /* ── Easing ────────────────────────────────────────────── */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);      /* default — gentle settle */
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-in: cubic-bezier(0.55, 0, 1, 0.45);
+  --ease-emphasized: cubic-bezier(0.2, 0.9, 0.1, 1);
+
+  /* ── Composed transitions ──────────────────────────────── */
+  --transition-color: color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+  --transition-transform: transform var(--dur-base) var(--ease-out);
+  --transition-all: all var(--dur-base) var(--ease-out);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   BASE RESET & ELEMENT DEFAULTS
+   ═══════════════════════════════════════════════════════════ */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+* { margin: 0; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  font: var(--type-body);
+  color: var(--text-body);
+  background: var(--bg-app);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  color: var(--text-heading);
+  font-family: var(--font-display);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--leading-tight);
+  text-wrap: balance;
+}
+
+p { text-wrap: pretty; }
+
+a { color: var(--accent); text-decoration: none; }
+
+button, input, select, textarea { font: inherit; color: inherit; }
+
+code, pre, kbd, samp { font-family: var(--font-mono); }
+
+::selection { background: var(--selection); color: var(--text-1); }
+
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* Thin indigo scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--night-700) transparent;
+}
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-thumb {
+  background: var(--night-700);
+  border-radius: var(--radius-pill);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover { background: var(--night-600); }
+
+/* Utility: the signature frosted-glass panel */
+.nf-glass {
+  background: var(--glass-fill);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: var(--glass-border);
+  box-shadow: var(--shadow-md), var(--edge-light);
+}
+
+/* Utility: the eyebrow / overline label */
+.nf-eyebrow {
+  font-family: var(--font-mono);
+  font-size: var(--eyebrow-size);
+  letter-spacing: var(--eyebrow-tracking);
+  text-transform: uppercase;
+  font-weight: var(--eyebrow-weight);
+  color: var(--accent);
+}

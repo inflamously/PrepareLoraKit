@@ -15,3 +15,6 @@ plk = "prepare_lora_kit.cli:cli"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["prepare_lora_kit*"]
+
+[tool.setuptools.package-data]
+prepare_lora_kit = ["ui/static/*", "ui/static/**/*.js"]

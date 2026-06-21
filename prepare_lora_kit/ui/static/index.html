@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PrepareLoraKit</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div id="app" class="app-shell">
+      <header class="app-topbar">
+        <div class="brand">
+          <div class="mark">PLK</div>
+          <div class="brand-copy">
+            <h1>PrepareLoraKit</h1>
+            <p id="rootLabel"></p>
+          </div>
+        </div>
+        <div class="run-status" aria-live="polite">
+          <span>Run status</span>
+          <strong id="jobSummary">Idle</strong>
+        </div>
+      </header>
+
+      <aside class="sidebar config-rail">
+        <section class="rail-section">
+          <div class="rail-heading">
+            <h2>Dataset</h2>
+          </div>
+
+          <label class="field">
+            <span>Dataset folder</span>
+            <div class="row">
+              <input id="inputDir" type="text" placeholder="/path/to/source/images" />
+              <button id="chooseInput" class="icon-button" title="Choose folder">Browse</button>
+            </div>
+          </label>
+
+          <label class="field">
+            <span>Output folder</span>
+            <div class="row">
+              <input id="outputDir" type="text" placeholder="outputs/<dataset>" />
+              <button id="chooseOutput" class="icon-button" title="Choose folder">Browse</button>
+            </div>
+          </label>
+        </section>
+
+        <section class="rail-section">
+          <div class="rail-heading">
+            <h2>Project</h2>
+          </div>
+
+          <label class="field">
+            <span>Project preset</span>
+            <select id="projectSelect"></select>
+          </label>
+
+          <label class="field">
+            <span>Concept token</span>
+            <input id="tokenInput" type="text" placeholder="Optional; blank for style training" />
+          </label>
+        </section>
+
+        <section class="rail-section">
+          <div class="rail-heading">
+            <h2>Captioning</h2>
+          </div>
+
+          <label class="field">
+            <span>Caption model</span>
+            <select id="captionModelPreset">
+              <option value="Qwen/Qwen2-VL-7B-Instruct">Qwen2-VL 7B</option>
+              <option value="Qwen/Qwen2.5-VL-3B-Instruct">Qwen2.5-VL 3B</option>
+              <option value="Qwen/Qwen2.5-VL-7B-Instruct">Qwen2.5-VL 7B</option>
+              <option value="custom">Custom</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>Custom caption model</span>
+            <input id="captionModelCustom" type="text" placeholder="Hugging Face model id" />
+          </label>
+
+          <label class="field">
+            <span>Caption VRAM mode</span>
+            <select id="captionVramMode">
+              <option value="auto">Auto</option>
+              <option value="4bit">4-bit</option>
+              <option value="8bit">8-bit</option>
+              <option value="none">Unquantized</option>
+            </select>
+          </label>
+        </section>
+
+        <section class="rail-section">
+          <label class="check-row">
+            <input id="forceInput" type="checkbox" />
+            <span>Force re-run selected completed steps</span>
+          </label>
+        </section>
+      </aside>
+
+      <main class="workspace">
+        <section class="workspace-panel step-panel">
+          <div class="section-header">
+            <div>
+              <h2>Pipeline</h2>
+              <p id="projectSummary">Select a project and dataset.</p>
+            </div>
+            <button id="selectPending" class="secondary">Select pending</button>
+          </div>
+          <div id="stepList" class="step-list"></div>
+        </section>
+
+        <section class="workspace-panel run-panel">
+          <div class="section-header">
+            <div>
+              <h2>Run</h2>
+              <p>Session output</p>
+            </div>
+          </div>
+          <div id="currentStepLabel" class="current-step hidden"></div>
+          <pre id="logOutput" class="logs"></pre>
+        </section>
+      </main>
+
+      <footer class="actionbar">
+        <div class="actionbar-copy">
+          <strong>Controls</strong>
+          <span>Ready</span>
+        </div>
+        <div class="actions">
+          <button id="refreshProject" class="secondary">Refresh</button>
+          <button id="openOutput" class="secondary" disabled>Open output</button>
+          <button id="cancelButton" class="danger" disabled>Cancel</button>
+          <button id="runButton" class="primary">Run selected</button>
+        </div>
+      </footer>
+    </div>
+
+    <div id="modalLayer" class="modal-layer hidden"></div>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
