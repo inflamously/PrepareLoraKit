@@ -20,6 +20,7 @@ tqdm>=4.66
 lpips>=0.1.4
 easygui>=0.98
 pywebview>=5.0
+pytest>=9.1.1
 
 # Optional: 4-bit/8-bit VLM quantization in CaptionStep (graceful fallback if absent)
 bitsandbytes>=0.43
