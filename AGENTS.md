@@ -29,6 +29,11 @@ stage packages and name new step classes with the `*Step` suffix, for example
 `tests/<domain>/test_<area>.py`. Prefer `pathlib.Path` for filesystem paths and
 structured YAML parsing over ad hoc string handling.
 
+Keep `prepare_lora_kit/ui/static/core/api.js` JSDoc in sync with the pywebview
+bridge whenever `prepare_lora_kit/ui/bridge.py`, UI bridge payloads, or frontend
+API call sites change. Update `requirements.txt` whenever adding, removing, or
+changing runtime dependencies.
+
 ## Testing Guidelines
 
 Add or update tests whenever changing project config parsing, pipeline ordering,
