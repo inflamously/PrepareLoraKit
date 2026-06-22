@@ -94,6 +94,53 @@ def test_static_server_serves_local_image_media(tmp_path):
         server.server_close()
 
 
+def test_ui_interaction_provider_emits_vae_review_payload(tmp_path):
+    original = tmp_path / "input.png"
+    vae = tmp_path / "vae.png"
+    diff = tmp_path / "diff.png"
+    hard = tmp_path / "hard.png"
+    for path in [original, vae, diff, hard]:
+        path.write_bytes(b"png")
+
+    class FakeJob:
+        def request_input(self, kind, payload):
+            self.kind = kind
+            self.payload = payload
+            return {"decisions": {payload["items"][0]["path"]: "drop"}}
+
+    from prepare_lora_kit.ui.runner import UiInteractionProvider
+
+    job = FakeJob()
+    provider = UiInteractionProvider(job, media_base_url="http://127.0.0.1:9999/media")
+
+    decisions = provider.vae_review([
+        {
+            "path": str(original),
+            "name": original.name,
+            "width": 32,
+            "height": 24,
+            "hf_loss": 0.25,
+            "threshold": 0.2,
+            "diff_threshold": 12.0,
+            "flagged": True,
+            "initial_decision": "replace",
+            "views": {
+                "original": str(original),
+                "vae": str(vae),
+                "diff": str(diff),
+                "hard": str(hard),
+            },
+        }
+    ])
+
+    item = job.payload["items"][0]
+    assert job.kind == "vae_review"
+    assert item["path"] == str(original.resolve())
+    assert set(item["views"]) == {"original", "vae", "diff", "hard"}
+    assert item["views"]["hard"]["uri"].startswith("http://127.0.0.1:9999/media")
+    assert decisions == {str(original.resolve()): "drop"}
+
+
 def test_log_stream_accepts_unicode_output():
     job = PipelineJob(JobManager(), "test-job")
     stream = _LogStream(job)

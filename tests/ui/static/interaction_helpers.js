@@ -12,6 +12,8 @@ export function setupInteractionDom() {
   global.window = dom.window;
   global.document = dom.window.document;
   global.Element = dom.window.Element;
+  global.addEventListener = dom.window.addEventListener.bind(dom.window);
+  global.removeEventListener = dom.window.removeEventListener.bind(dom.window);
 
   const contextCalls = [];
   dom.window.HTMLCanvasElement.prototype.getContext = () =>
@@ -45,6 +47,7 @@ export function setupInteractionDom() {
       },
     },
   };
+  global.pywebview = window.pywebview;
 
   state.jobId = "job-1";
   state.handledRequestId = null;
@@ -52,6 +55,10 @@ export function setupInteractionDom() {
   window.prompt = () => "prompt label";
   window.innerWidth = 1280;
   window.innerHeight = 900;
+  global.alert = window.alert;
+  global.prompt = window.prompt;
+  global.innerWidth = window.innerWidth;
+  global.innerHeight = window.innerHeight;
 
   return { apiCalls, contextCalls };
 }
@@ -103,6 +110,56 @@ export function annotationPending(id = "annotation-1") {
       path: "/images/annotate.png",
       name: "annotate.png",
       uri: "http://example.invalid/annotate.png",
+    },
+  };
+}
+
+export function vaeReviewPending() {
+  const imagePayload = (name) => ({
+    path: `/review/${name}.png`,
+    name: `${name}.png`,
+    uri: `http://example.invalid/${name}.png`,
+  });
+  return {
+    id: "vae-review-1",
+    kind: "vae_review",
+    payload: {
+      items: [
+        {
+          path: "/images/first.png",
+          name: "first.png",
+          width: 640,
+          height: 480,
+          hf_loss: 0.12345,
+          threshold: 0.2,
+          diff_threshold: 12,
+          flagged: false,
+          initial_decision: "keep",
+          views: {
+            original: imagePayload("first-original"),
+            vae: imagePayload("first-vae"),
+            diff: imagePayload("first-diff"),
+            hard: imagePayload("first-hard"),
+          },
+        },
+        {
+          path: "/images/second.png",
+          name: "second.png",
+          width: 320,
+          height: 512,
+          hf_loss: 0.456,
+          threshold: 0.2,
+          diff_threshold: 18,
+          flagged: true,
+          initial_decision: "replace",
+          views: {
+            original: imagePayload("second-original"),
+            vae: imagePayload("second-vae"),
+            diff: imagePayload("second-diff"),
+            hard: imagePayload("second-hard"),
+          },
+        },
+      ],
     },
   };
 }

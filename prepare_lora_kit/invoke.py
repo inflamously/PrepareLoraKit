@@ -59,7 +59,7 @@ def _invoke_UpscaleStep(working_dir: Path, output_dir: Path, cfg: UpscaleConfig,
 def _invoke_VaeGateStep(working_dir: Path, output_dir: Path, cfg: VaeGateConfig,
                          *, network, **_kw) -> None:
     if _kw.get("mock_runtime"):
-        _mock_vae_gate(working_dir, output_dir)
+        _mock_vae_gate(working_dir, output_dir, interaction=_kw.get("interaction"))
         return
 
     from .steps import s4_vae_gate
@@ -69,6 +69,15 @@ def _invoke_VaeGateStep(working_dir: Path, output_dir: Path, cfg: VaeGateConfig,
         output_dir=working_dir,
         outlier_sigma=cfg.outlier_sigma,
         report_path=output_dir / "reports" / "VaeGateStep_report.json",
+        interaction=_kw.get("interaction"),
+        diff_amplification=cfg.diff_amplification,
+        gaussian_blur_sigma=cfg.gaussian_blur_sigma,
+        gaussian_blur_kernel=cfg.gaussian_blur_kernel,
+        otsu_enabled=cfg.otsu_enabled,
+        output_previews=cfg.output_previews,
+        output_silhouettes=cfg.output_silhouettes,
+        output_hard_silhouettes=cfg.output_hard_silhouettes,
+        max_side=cfg.max_side,
     )
 
 
@@ -152,19 +161,62 @@ STEP_INVOKE_MAP: dict[str, Callable] = {
 }
 
 
-def _mock_vae_gate(working_dir: Path, output_dir: Path) -> dict:
+def _mock_vae_gate(working_dir: Path, output_dir: Path, *, interaction=None) -> dict:
     from .utils import image as img_utils
     from .utils import report as rpt
+    from .steps.s4_vae_gate.review import _save_review_artifacts
+    import numpy as np
+    from PIL import Image, ImageFilter
 
     rpt.step_header(4, "VAE Reconstruction Gate")
     images = img_utils.iter_images(working_dir)
     scores = {str(path): 0.0 for path in images}
+    preview_root = output_dir / "reports" / "VaeGateStep_previews"
+    review_items = []
+    for index, path in enumerate(images):
+        with Image.open(path).convert("RGB") as img:
+            recon = img.filter(ImageFilter.GaussianBlur(radius=1.6 if index == 0 else 0.6))
+            recon_arr = np.array(recon)
+        artifact = _save_review_artifacts(path, recon_arr, preview_root)
+        review_items.append({
+            "path": str(path),
+            "name": path.name,
+            "width": artifact["width"],
+            "height": artifact["height"],
+            "hf_loss": 0.0,
+            "threshold": 0.0,
+            "diff_threshold": artifact["diff_threshold"],
+            "flagged": False,
+            "initial_decision": "keep",
+            "views": artifact["views"],
+        })
+
+    decisions = interaction.vae_review(review_items) if interaction and review_items else {}
+    survivors = [
+        path for path in images
+        if decisions.get(str(path), decisions.get(str(path.resolve()), "keep")) != "drop"
+    ]
+    img_utils.materialize(survivors, working_dir, working_dir)
     report = {
         "mock_runtime": True,
         "hf_scores": scores,
         "threshold": 0.0,
         "flagged": [],
-        "needs_replacement": [],
+        "review_items": [
+            {
+                **item,
+                "decision": decisions.get(
+                    item["path"],
+                    decisions.get(str(Path(item["path"]).resolve()), "keep"),
+                ),
+            }
+            for item in review_items
+        ],
+        "needs_replacement": [
+            str(path)
+            for path in images
+            if decisions.get(str(path), decisions.get(str(path.resolve()), "keep")) == "replace"
+        ],
     }
     rpt.info(f"Mock runtime: recorded deterministic VAE pass for {len(images)} image(s).")
     rpt.save_report(report, output_dir / "reports" / "VaeGateStep_report.json")

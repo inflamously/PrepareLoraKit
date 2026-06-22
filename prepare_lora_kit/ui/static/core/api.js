@@ -71,10 +71,32 @@
  */
 
 /**
+ * @typedef {Object} VaeReviewViews
+ * @property {ImagePayload} original
+ * @property {ImagePayload} vae
+ * @property {ImagePayload} diff
+ * @property {ImagePayload} hard
+ */
+
+/**
+ * @typedef {Object} VaeReviewItem
+ * @property {string} path Original working dataset image path.
+ * @property {string} name
+ * @property {number | null} width
+ * @property {number | null} height
+ * @property {number | null} hf_loss
+ * @property {number | null} threshold
+ * @property {number | null} diff_threshold
+ * @property {boolean} flagged
+ * @property {"keep" | "drop" | "replace"} initial_decision Decision for the original input image.
+ * @property {VaeReviewViews} views Review-only Original/VAE/Diff/Hard Mask images.
+ */
+
+/**
  * @typedef {Object} PendingInput
  * @property {string} id
- * @property {"source_review" | "bbox_annotation"} kind
- * @property {ImagePayload | {items: SourceReviewItem[]}} payload
+ * @property {"source_review" | "bbox_annotation" | "vae_review"} kind
+ * @property {ImagePayload | {items: SourceReviewItem[]} | {items: VaeReviewItem[]}} payload
  */
 
 /**

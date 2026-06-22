@@ -4,6 +4,7 @@
 @import "./job/job.css";
 @import "./interaction/modal.css";
 @import "./interaction/source_review.css";
+@import "./interaction/vae_review.css";
 @import "./interaction/annotator.css";
 
 .hidden {

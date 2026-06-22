@@ -167,6 +167,37 @@ def test_mock_project_quality_gate_runs_with_good_and_bad_images(tmp_path, monke
     assert len(list((fixture.output_dir / "dataset").glob("*.png"))) == 4
 
 
+def test_mock_vae_gate_decisions_apply_only_to_original_dataset_images(tmp_path):
+    from prepare_lora_kit.invoke import _mock_vae_gate
+
+    working_dir = tmp_path / "run" / "dataset"
+    output_dir = tmp_path / "run"
+    working_dir.mkdir(parents=True)
+    first = working_dir / "first.png"
+    second = working_dir / "second.png"
+    make_image(first)
+    make_image(second)
+
+    class FakeInteraction:
+        def vae_review(self, items):
+            assert all(
+                str(output_dir / "reports" / "VaeGateStep_previews") in item["views"]["vae"]
+                for item in items
+            )
+            return {
+                str(first.resolve()): "drop",
+                str(second.resolve()): "replace",
+            }
+
+    report = _mock_vae_gate(working_dir, output_dir, interaction=FakeInteraction())
+
+    assert not first.exists()
+    assert second.exists()
+    assert report["needs_replacement"] == [str(second)]
+    assert not list(working_dir.glob("vae.png"))
+    assert list((output_dir / "reports" / "VaeGateStep_previews").glob("*/vae.png"))
+
+
 def test_project_yaml_can_parse_dedupe_skip_clip(tmp_path):
     path = tmp_path / "project.yaml"
     path.write_text(
@@ -182,3 +213,9 @@ pipeline:
     project = ProjectConfig.from_yaml(path)
 
     assert project.pipeline[0].config.skip_clip is True
+
+
+def make_image(path):
+    from PIL import Image
+
+    Image.new("RGB", (32, 24), (80, 120, 160)).save(path)

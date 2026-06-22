@@ -27,6 +27,9 @@ class InteractionProvider(Protocol):
     ) -> tuple[list[dict], bool, bool]:
         """Return annotations, skipped flag, and skip-all flag for one image."""
 
+    def vae_review(self, items: list[dict]) -> dict[str, str]:
+        """Return per-original VAE gate decisions: keep, drop, or replace."""
+
 
 class CliInteractionProvider:
     """Default provider preserving the existing CLI UI/fallback behavior."""
@@ -45,3 +48,8 @@ class CliInteractionProvider:
         from .steps.s5_caption.annotate import _annotate_image
 
         return _annotate_image(path, captioner=captioner)
+
+    def vae_review(self, items: list[dict]) -> dict[str, str]:
+        from .steps.s4_vae_gate.review import _review_artifact_decisions
+
+        return _review_artifact_decisions(items)

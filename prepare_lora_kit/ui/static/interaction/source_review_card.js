@@ -59,7 +59,8 @@ export function sourceReviewCard(
   };
 
   control.querySelectorAll("button").forEach((button) => {
-    button.addEventListener("click", () => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
       setDecision(button.dataset.decision);
     });
   });
@@ -71,11 +72,12 @@ export function sourceReviewCard(
     ) {
       return;
     }
-    cycleDecision(1);
+    event.preventDefault();
+    onSelect?.(item);
   });
   card.addEventListener("click", (event) => {
     event.preventDefault();
-    onSelect?.(item);
+    cycleDecision(1);
   });
 
   setDecision(decisions[item.path], { notify: false });

@@ -253,6 +253,33 @@ class UiInteractionProvider(InteractionProvider):
             bool(answer.get("skip_all", False)),
         )
 
+    def vae_review(self, items: list[dict]) -> dict[str, str]:
+        payload_items = []
+        for item in items:
+            views = item.get("views", {}) if isinstance(item.get("views"), dict) else {}
+            view_payloads = {
+                name: _image_payload(Path(path), self._media_base_url)
+                for name, path in views.items()
+                if path
+            }
+            original_path = Path(str(item.get("path")))
+            payload_items.append({
+                "path": str(original_path.resolve()),
+                "name": str(item.get("name") or original_path.name),
+                "width": item.get("width"),
+                "height": item.get("height"),
+                "hf_loss": item.get("hf_loss"),
+                "threshold": item.get("threshold"),
+                "diff_threshold": item.get("diff_threshold"),
+                "flagged": bool(item.get("flagged")),
+                "initial_decision": str(item.get("initial_decision") or "keep"),
+                "views": view_payloads,
+            })
+
+        answer = self._job.request_input("vae_review", {"items": payload_items})
+        decisions = answer.get("decisions", {}) if isinstance(answer, dict) else {}
+        return {str(k): str(v) for k, v in decisions.items()}
+
     def caption_region(self, image_path: str, box: dict[str, Any]) -> dict[str, Any]:
         with self._caption_lock:
             captioner = self._captioner

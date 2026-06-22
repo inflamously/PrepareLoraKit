@@ -4,6 +4,7 @@ import { state } from "../core/state.js";
 import { selectedCaptionModel } from "../caption/config.js";
 import { showAnnotator } from "../interaction/annotator.js";
 import { showSourceReview } from "../interaction/source_review.js";
+import { showVaeReview } from "../interaction/vae_review.js";
 import { loadProject } from "../project/controller.js";
 import { selectedStepArray } from "../project/selection.js";
 import { render } from "../shell/render.js";
@@ -111,5 +112,9 @@ function handlePendingInput(pending) {
 
   if (pending.kind === "bbox_annotation") {
     showAnnotator(pending, { onSubmitted: pollJob });
+  }
+
+  if (pending.kind === "vae_review") {
+    showVaeReview(pending, { onSubmitted: pollJob });
   }
 }
