@@ -9,7 +9,7 @@ from ...project.configs import (
     BucketDryRunConfig,
     CaptionConfig,
     ConfigGenConfig,
-    DedupeConfig,
+    CurateConfig,
     QualityGateConfig,
     ScorerEntry,
     UpscaleConfig,
@@ -37,7 +37,7 @@ def mock_project(input_dir: Path) -> ProjectConfig:
                     auto_only=False,
                 ),
             ),
-            PipelineStep("DedupeStep", DedupeConfig(skip_clip=True)),
+            PipelineStep("CurateStep", CurateConfig(skip_clip=True)),
             PipelineStep(
                 "UpscaleStep",
                 UpscaleConfig(upscale_target=1664, upscale_model="lanczos"),

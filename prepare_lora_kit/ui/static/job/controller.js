@@ -3,6 +3,7 @@ import { $, setText } from "../core/dom.js";
 import { state } from "../core/state.js";
 import { selectedCaptionModel } from "../caption/config.js";
 import { showAnnotator } from "../steps/bbox_annotation/bbox_annotation.js";
+import { showCurateDetails } from "../steps/curate_details/curate_details.js";
 import { showSourceReview } from "../steps/source_review/source_review.js";
 import { showVaeReview } from "../steps/vae_review/vae_review.js";
 import { loadProject } from "../project/controller.js";
@@ -108,6 +109,10 @@ function handlePendingInput(pending) {
 
   if (pending.kind === "source_review") {
     showSourceReview(pending, { onSubmitted: pollJob });
+  }
+
+  if (pending.kind === "curate_details") {
+    showCurateDetails(pending, { onSubmitted: pollJob });
   }
 
   if (pending.kind === "bbox_annotation") {

@@ -1,11 +1,11 @@
-"""Config schema for DedupeStep."""
+"""Config schema for CurateStep."""
 from __future__ import annotations
 from dataclasses import dataclass
 
 
 @dataclass
-class DedupeConfig:
-    """Config for DedupeStep."""
+class CurateConfig:
+    """Config for CurateStep."""
     dedup_hamming_distance: int = 8
     occlusion_threshold: float = 0.35
     pca_umap_switch_threshold: int = 30
@@ -17,6 +17,6 @@ class DedupeConfig:
 
     def __post_init__(self) -> None:
         if not (0.0 <= self.occlusion_threshold <= 1.0):
-            raise ValueError("DedupeStep: occlusion_threshold must be in [0, 1]")
+            raise ValueError("CurateStep: occlusion_threshold must be in [0, 1]")
         if self.dedup_hamming_distance < 0:
-            raise ValueError("DedupeStep: dedup_hamming_distance must be >= 0")
+            raise ValueError("CurateStep: dedup_hamming_distance must be >= 0")

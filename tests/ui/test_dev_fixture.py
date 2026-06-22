@@ -14,9 +14,9 @@ from prepare_lora_kit.utils.state import RunState
 
 
 def test_resolve_mock_steps_accepts_aliases_and_all():
-    assert resolve_mock_steps("s2") == ["DedupeStep"]
-    assert resolve_mock_steps("2") == ["DedupeStep"]
-    assert resolve_mock_steps("dedupestep") == ["DedupeStep"]
+    assert resolve_mock_steps("s2") == ["CurateStep"]
+    assert resolve_mock_steps("2") == ["CurateStep"]
+    assert resolve_mock_steps("curatestep") == ["CurateStep"]
     assert resolve_mock_steps("all")[0] == "QualityGateStep"
     assert resolve_mock_steps("all")[-1] == "BucketDryRunStep"
 
@@ -47,13 +47,13 @@ def test_mock_fixture_generates_dataset_and_prerequisite_state(tmp_path):
 
 
 def test_mock_fixture_does_not_seed_captions_before_caption_step(tmp_path):
-    fixture = create_mock_ui_fixture("DedupeStep", root=tmp_path / "mock")
+    fixture = create_mock_ui_fixture("CurateStep", root=tmp_path / "mock")
 
     assert len(list((fixture.output_dir / "dataset").glob("*.png"))) == 4
     assert not (fixture.output_dir / "dataset" / "mock_bad_too_small.png").exists()
     assert not list((fixture.output_dir / "dataset").glob("*.txt"))
     assert RunState(fixture.output_dir).is_done("QualityGateStep")
-    assert not RunState(fixture.output_dir).is_done("DedupeStep")
+    assert not RunState(fixture.output_dir).is_done("CurateStep")
 
 
 def test_mock_quality_gate_fixture_includes_reviewable_good_and_bad_images(tmp_path):
@@ -74,11 +74,11 @@ def test_mock_fixture_rejects_non_empty_unmarked_root(tmp_path):
     (root / "input").mkdir()
 
     with pytest.raises(ValueError, match="Mock output root must be empty"):
-        create_mock_ui_fixture("DedupeStep", root=root)
+        create_mock_ui_fixture("CurateStep", root=root)
 
 
 def test_bridge_exposes_in_memory_mock_project(tmp_path):
-    fixture = create_mock_ui_fixture("DedupeStep", root=tmp_path / "mock")
+    fixture = create_mock_ui_fixture("CurateStep", root=tmp_path / "mock")
     bridge = UiBridge(
         projects={fixture.project.name: fixture.project},
         bootstrap=fixture.bootstrap_payload(),
@@ -95,10 +95,23 @@ def test_bridge_exposes_in_memory_mock_project(tmp_path):
     assert result["output_dir"] == str(fixture.output_dir)
 
 
-def test_mock_project_dedupe_runs_through_job_manager(tmp_path):
-    fixture = create_mock_ui_fixture("DedupeStep", root=tmp_path / "mock")
+def test_mock_project_curate_runs_through_job_manager(tmp_path, monkeypatch):
+    import prepare_lora_kit.ui.runner as runner
+
+    class FakeInteractionProvider:
+        def __init__(self, job, media_base_url=None):
+            self.job = job
+            self.media_base_url = media_base_url
+
+        def curate_details(self, report, report_path):
+            self.job.curate_report = report
+            self.job.curate_report_path = report_path
+            return True
+
+    fixture = create_mock_ui_fixture("CurateStep", root=tmp_path / "mock")
     manager = JobManager(projects={fixture.project.name: fixture.project})
     job = PipelineJob(manager, "mock-job")
+    monkeypatch.setattr(runner, "UiInteractionProvider", FakeInteractionProvider)
 
     manager._execute(
         job,
@@ -109,14 +122,15 @@ def test_mock_project_dedupe_runs_through_job_manager(tmp_path):
             "token": fixture.token,
             "force": True,
             "mock_runtime": True,
-            "steps": ["DedupeStep"],
+            "steps": ["CurateStep"],
         },
     )
 
     snapshot = job.snapshot()
     assert snapshot["status"] == "completed"
-    assert snapshot["completed_steps"] == ["DedupeStep"]
-    assert (fixture.output_dir / "reports" / "DedupeStep_report.json").exists()
+    assert snapshot["completed_steps"] == ["CurateStep"]
+    assert (fixture.output_dir / "reports" / "CurateStep_report.json").exists()
+    assert job.curate_report_path == fixture.output_dir / "reports" / "CurateStep_report.json"
 
 
 def test_mock_project_quality_gate_runs_with_good_and_bad_images(tmp_path, monkeypatch):
@@ -198,14 +212,14 @@ def test_mock_vae_gate_decisions_apply_only_to_original_dataset_images(tmp_path)
     assert list((output_dir / "reports" / "VaeGateStep_previews").glob("*/vae.png"))
 
 
-def test_project_yaml_can_parse_dedupe_skip_clip(tmp_path):
+def test_project_yaml_can_parse_curate_skip_clip(tmp_path):
     path = tmp_path / "project.yaml"
     path.write_text(
         """\
 name: mock
 network: flux-klein-9b
 pipeline:
-  - type: DedupeStep
+  - type: CurateStep
     skip_clip: true
 """
     )

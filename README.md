@@ -99,7 +99,7 @@ example pipeline has eight stages.
 | Step | Type | Purpose | Main outputs |
 | --- | --- | --- | --- |
 | 1 | `QualityGateStep` | Scores source images for size, blur, noise, JPEG artifacts, and watermark likelihood. Supports manual review. | Working `dataset/`, `QualityGateStep_report.json` |
-| 2 | `DedupeStep` | Removes perceptual-hash duplicates, creates CLIP coverage plots, and flags occlusion or ambiguous images. | Updated `dataset/`, coverage image, `DedupeStep_report.json` |
+| 2 | `CurateStep` | Removes perceptual-hash duplicates, creates CLIP coverage plots, and flags occlusion or ambiguous images. | Updated `dataset/`, coverage image, `CurateStep_report.json` |
 | 3 | `UpscaleStep` | Upscales images below the target minimum side with the configured algorithm; unavailable algorithms warn and skip. | Updated images, `UpscaleStep_report.json` |
 | 4 | `VaeGateStep` | Reconstructs images through the target VAE and flags high-frequency loss outliers. | Updated `dataset/`, `VaeGateStep_report.json` |
 | 5 | `CaptionStep` | Opens bbox annotation UI, captions with Qwen VL, enforces concept token when supplied, and writes `.txt` sidecars. | Caption sidecars, `CaptionStep_report.json` |
@@ -179,7 +179,7 @@ outputs/<dataset-name>/
     image_002.txt
   reports/
     QualityGateStep_report.json
-    DedupeStep_report.json
+    CurateStep_report.json
     coverage_pca.png
     UpscaleStep_report.json
     VaeGateStep_report.json

@@ -25,12 +25,15 @@ def _clip_embeddings(paths: list[Path]) -> "np.ndarray":
     return np.stack(embeddings)
 
 
-def _save_umap(embeddings, paths: list[Path], out_path: Path) -> None:
+def _save_umap(embeddings, paths: list[Path], out_path: Path) -> dict:
     import matplotlib.pyplot as plt
+    from sklearn.decomposition import PCA
     from umap import UMAP
 
+    pca_components = min(50, embeddings.shape[0] - 1, embeddings.shape[1])
+    reduced = PCA(n_components=pca_components).fit_transform(embeddings)
     reducer = UMAP(n_components=2, random_state=42)
-    coords = reducer.fit_transform(embeddings)
+    coords = reducer.fit_transform(reduced)
 
     fig, ax = plt.subplots(figsize=(10, 8))
     ax.scatter(coords[:, 0], coords[:, 1], alpha=0.7, s=60)
@@ -41,9 +44,15 @@ def _save_umap(embeddings, paths: list[Path], out_path: Path) -> None:
     plt.savefig(out_path, dpi=150)
     plt.close()
     rpt.ok(f"Coverage UMAP saved → {out_path}")
+    return {
+        "method": "umap",
+        "embedding": "clip",
+        "preprocess": "pca",
+        "pca_components": int(pca_components),
+    }
 
 
-def _save_pca(embeddings, paths: list[Path], out_path: Path) -> None:
+def _save_pca(embeddings, paths: list[Path], out_path: Path) -> dict:
     import matplotlib.pyplot as plt
     from sklearn.decomposition import PCA
 
@@ -58,3 +67,8 @@ def _save_pca(embeddings, paths: list[Path], out_path: Path) -> None:
     plt.savefig(out_path, dpi=150)
     plt.close()
     rpt.ok(f"Coverage PCA saved → {out_path}")
+    return {
+        "method": "pca",
+        "embedding": "clip",
+        "pca_components": 2,
+    }

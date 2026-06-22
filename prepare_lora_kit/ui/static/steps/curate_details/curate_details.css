@@ -1,0 +1,124 @@
+.curate-details-modal {
+  width: min(1180px, 96vw);
+}
+
+.curate-details-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
+  min-height: min(680px, calc(92vh - 73px));
+  overflow: hidden;
+}
+
+.curate-coverage {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  place-items: center;
+  overflow: auto;
+  background: rgba(5, 7, 15, 0.82);
+  padding: 16px;
+}
+
+.curate-coverage figure {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+}
+
+.curate-coverage img {
+  display: block;
+  width: 100%;
+  max-height: min(68vh, 620px);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  background: var(--night-990);
+  object-fit: contain;
+}
+
+.curate-coverage figcaption {
+  color: var(--caption);
+  font-size: 12px;
+  text-align: center;
+}
+
+.curate-coverage-missing {
+  display: grid;
+  gap: 5px;
+  color: var(--caption);
+  text-align: center;
+}
+
+.curate-coverage-missing strong {
+  color: var(--text);
+}
+
+.curate-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  overflow: auto;
+  border-left: 1px solid var(--hairline);
+  background: rgba(7, 10, 24, 0.72);
+  padding: 16px;
+}
+
+.curate-summary h3 {
+  font-size: 15px;
+}
+
+.curate-metrics {
+  display: grid;
+  gap: 10px;
+}
+
+.curate-metrics > div {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  background: rgba(11, 16, 36, 0.58);
+  padding: 10px;
+}
+
+.curate-metrics dt,
+.curate-report-path span {
+  color: var(--caption);
+  font-size: 12px;
+}
+
+.curate-metrics dd {
+  margin-top: 3px;
+  color: var(--text);
+  font-size: 22px;
+  font-weight: 750;
+}
+
+.curate-report-path {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  margin-top: auto;
+}
+
+.curate-report-path code {
+  display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  background: rgba(5, 7, 15, 0.62);
+  color: var(--muted);
+  padding: 9px;
+  font-size: 12px;
+}
+
+@media (max-width: 820px) {
+  .curate-details-body {
+    grid-template-columns: 1fr;
+  }
+
+  .curate-summary {
+    border-top: 1px solid var(--hairline);
+    border-left: 0;
+  }
+}

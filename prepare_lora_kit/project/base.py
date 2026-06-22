@@ -19,7 +19,7 @@ import yaml
 
 from .configs import (
     ScorerEntry,
-    QualityGateConfig, DedupeConfig, UpscaleConfig, VaeGateConfig,
+    QualityGateConfig, CurateConfig, UpscaleConfig, VaeGateConfig,
     CaptionConfig, AuditConfig, ConfigGenConfig, BucketDryRunConfig,
 )
 
@@ -28,7 +28,7 @@ from .configs import (
 
 STEP_TYPE_MAP: dict[str, type] = {
     "QualityGateStep":  QualityGateConfig,
-    "DedupeStep":       DedupeConfig,
+    "CurateStep":       CurateConfig,
     "UpscaleStep":      UpscaleConfig,
     "VaeGateStep":      VaeGateConfig,
     "CaptionStep":      CaptionConfig,

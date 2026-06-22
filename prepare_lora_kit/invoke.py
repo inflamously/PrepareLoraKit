@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from .project.configs import (
-    QualityGateConfig, DedupeConfig, UpscaleConfig, VaeGateConfig,
+    QualityGateConfig, CurateConfig, UpscaleConfig, VaeGateConfig,
     CaptionConfig, AuditConfig, ConfigGenConfig, BucketDryRunConfig,
 )
 
@@ -31,15 +31,15 @@ def _invoke_QualityGateStep(working_dir: Path, output_dir: Path, cfg: QualityGat
     )
 
 
-def _invoke_DedupeStep(working_dir: Path, output_dir: Path, cfg: DedupeConfig,
+def _invoke_CurateStep(working_dir: Path, output_dir: Path, cfg: CurateConfig,
                         **_kw) -> None:
     from .steps import s2_curate
-    s2_curate.run(
+    return s2_curate.run(
         working_dir,
         output_dir=working_dir,
         auto_dedupe=True,
         skip_clip=cfg.skip_clip,
-        report_path=output_dir / "reports" / "DedupeStep_report.json",
+        report_path=output_dir / "reports" / "CurateStep_report.json",
     )
 
 
@@ -151,7 +151,7 @@ def _invoke_BucketDryRunStep(working_dir: Path, output_dir: Path, cfg: BucketDry
 
 STEP_INVOKE_MAP: dict[str, Callable] = {
     "QualityGateStep":  _invoke_QualityGateStep,
-    "DedupeStep":       _invoke_DedupeStep,
+    "CurateStep":       _invoke_CurateStep,
     "UpscaleStep":      _invoke_UpscaleStep,
     "VaeGateStep":      _invoke_VaeGateStep,
     "CaptionStep":      _invoke_CaptionStep,

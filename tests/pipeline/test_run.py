@@ -7,7 +7,7 @@ from prepare_lora_kit.project.configs import (
     BucketDryRunConfig,
     CaptionConfig,
     ConfigGenConfig,
-    DedupeConfig,
+    CurateConfig,
     QualityGateConfig,
     UpscaleConfig,
     VaeGateConfig,
@@ -20,7 +20,7 @@ def _project() -> ProjectConfig:
         network="flux-klein-9b",
         pipeline=[
             PipelineStep("QualityGateStep", QualityGateConfig(auto_only=True)),
-            PipelineStep("DedupeStep", DedupeConfig()),
+            PipelineStep("CurateStep", CurateConfig()),
             PipelineStep("UpscaleStep", UpscaleConfig()),
             PipelineStep("VaeGateStep", VaeGateConfig()),
             PipelineStep("CaptionStep", CaptionConfig()),
@@ -45,7 +45,7 @@ def test_pipeline_runs_project_steps_in_order(tmp_path):
         step_type: invoke_for(step_type)
         for step_type in [
             "QualityGateStep",
-            "DedupeStep",
+            "CurateStep",
             "UpscaleStep",
             "VaeGateStep",
             "CaptionStep",

@@ -31,7 +31,7 @@ def test_default_project_creation_writes_input_dir_and_pipeline(tmp_path):
     assert data["input_dir"] == str(input_dir)
     assert [step["type"] for step in data["pipeline"]] == [
         "QualityGateStep",
-        "DedupeStep",
+        "CurateStep",
         "UpscaleStep",
         "VaeGateStep",
         "CaptionStep",

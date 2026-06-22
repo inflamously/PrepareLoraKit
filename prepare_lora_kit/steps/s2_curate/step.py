@@ -50,18 +50,21 @@ def run(
 
     # Coverage
     coverage_path: Path | None = None
+    coverage_metadata: dict | None = None
     if not skip_clip:
         try:
             emb = _clip_embeddings(kept_images)
             if len(kept_images) > 30:
                 rpt.info("Computing CLIP embeddings for UMAP coverage …")
                 coverage_path = artifact_dir / "coverage_umap.png"
-                _save_umap(emb, kept_images, coverage_path)
+                coverage_metadata = _save_umap(emb, kept_images, coverage_path)
             else:
                 rpt.info("Computing CLIP embeddings for PCA coverage …")
                 coverage_path = artifact_dir / "coverage_pca.png"
-                _save_pca(emb, kept_images, coverage_path)
+                coverage_metadata = _save_pca(emb, kept_images, coverage_path)
         except Exception as exc:
+            coverage_path = None
+            coverage_metadata = None
             rpt.warn(f"Coverage visualisation failed: {exc}")
 
     # Occlusion filter
@@ -86,6 +89,7 @@ def run(
         "kept_images": [str(p) for p in kept_images],
         "occluded_flagged": occluded,
         "coverage_image": str(coverage_path) if coverage_path else None,
+        "coverage": coverage_metadata,
     }
     rpt.save_report(report, report_path)
     return report

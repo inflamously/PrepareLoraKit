@@ -34,7 +34,7 @@ def _default_pipeline() -> list[dict[str, Any]]:
             "manual_all": False,
         },
         {
-            "type": "DedupeStep",
+            "type": "CurateStep",
             "dedup_hamming_distance": 8,
             "occlusion_threshold": 0.35,
             "pca_umap_switch_threshold": 30,

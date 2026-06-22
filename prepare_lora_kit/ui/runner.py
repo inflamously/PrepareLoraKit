@@ -280,6 +280,30 @@ class UiInteractionProvider(InteractionProvider):
         decisions = answer.get("decisions", {}) if isinstance(answer, dict) else {}
         return {str(k): str(v) for k, v in decisions.items()}
 
+    def curate_details(self, report: dict[str, Any], report_path: Path) -> bool:
+        coverage_path = report.get("coverage_image")
+        coverage_image = None
+        if coverage_path:
+            path = Path(str(coverage_path))
+            if path.is_file():
+                coverage_image = _image_payload(path, self._media_base_url)
+
+        coverage = report.get("coverage") if isinstance(report.get("coverage"), dict) else {}
+        payload = {
+            "report_path": str(report_path.resolve()),
+            "coverage_image": coverage_image,
+            "coverage_method": coverage.get("method"),
+            "coverage": _jsonable(coverage),
+            "summary": {
+                "kept_images": len(report.get("kept_images") or []),
+                "duplicate_pairs": len(report.get("duplicate_pairs") or []),
+                "dropped_duplicates": len(report.get("dropped_duplicates") or []),
+                "occluded_flagged": len(report.get("occluded_flagged") or []),
+            },
+        }
+        answer = self._job.request_input("curate_details", payload)
+        return bool(answer.get("confirmed", False)) if isinstance(answer, dict) else False
+
     def caption_region(self, image_path: str, box: dict[str, Any]) -> dict[str, Any]:
         with self._caption_lock:
             captioner = self._captioner
@@ -424,6 +448,11 @@ class JobManager:
             result = invoke(working_dir, cfg.resolved_output_dir, step.config, **shared_kw)
             if step.type == "AuditStep" and isinstance(result, dict) and not result.get("pass"):
                 job.add_log("AuditStep found issues; review reports/AuditStep_report.json")
+            if step.type == "CurateStep" and isinstance(result, dict):
+                interaction.curate_details(
+                    result,
+                    cfg.resolved_output_dir / "reports" / "CurateStep_report.json",
+                )
             state.mark_done(step.type)
             job.completed_steps.append(step.type)
 

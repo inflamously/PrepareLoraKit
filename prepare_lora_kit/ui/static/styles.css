@@ -4,6 +4,7 @@
 @import "./job/job.css";
 @import "./components/modal.css";
 @import "./steps/source_review/source_review.css";
+@import "./steps/curate_details/curate_details.css";
 @import "./steps/vae_review/vae_review.css";
 @import "./steps/bbox_annotation/bbox_annotation.css";
 

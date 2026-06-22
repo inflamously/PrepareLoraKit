@@ -93,10 +93,19 @@
  */
 
 /**
+ * @typedef {Object} CurateDetailsPayload
+ * @property {string} report_path
+ * @property {ImagePayload | null} coverage_image
+ * @property {string | null} coverage_method
+ * @property {Record<string, unknown>} coverage
+ * @property {{kept_images: number, duplicate_pairs: number, dropped_duplicates: number, occluded_flagged: number}} summary
+ */
+
+/**
  * @typedef {Object} PendingInput
  * @property {string} id
- * @property {"source_review" | "bbox_annotation" | "vae_review"} kind
- * @property {ImagePayload | {items: SourceReviewItem[]} | {items: VaeReviewItem[]}} payload
+ * @property {"source_review" | "bbox_annotation" | "vae_review" | "curate_details"} kind
+ * @property {ImagePayload | {items: SourceReviewItem[]} | {items: VaeReviewItem[]} | CurateDetailsPayload} payload
  */
 
 /**

@@ -141,6 +141,49 @@ def test_ui_interaction_provider_emits_vae_review_payload(tmp_path):
     assert decisions == {str(original.resolve()): "drop"}
 
 
+def test_ui_interaction_provider_emits_curate_details_payload(tmp_path):
+    coverage = tmp_path / "coverage_umap.png"
+    coverage.write_bytes(b"png")
+    report = {
+        "duplicate_pairs": [("a.png", "b.png", 4)],
+        "dropped_duplicates": ["b.png"],
+        "kept_images": ["a.png", "c.png"],
+        "occluded_flagged": ["c.png"],
+        "coverage_image": str(coverage),
+        "coverage": {
+            "method": "umap",
+            "preprocess": "pca",
+            "pca_components": 50,
+        },
+    }
+    report_path = tmp_path / "CurateStep_report.json"
+
+    class FakeJob:
+        def request_input(self, kind, payload):
+            self.kind = kind
+            self.payload = payload
+            return {"confirmed": True}
+
+    from prepare_lora_kit.ui.runner import UiInteractionProvider
+
+    job = FakeJob()
+    provider = UiInteractionProvider(job, media_base_url="http://127.0.0.1:9999/media")
+
+    assert provider.curate_details(report, report_path) is True
+
+    assert job.kind == "curate_details"
+    assert job.payload["report_path"] == str(report_path.resolve())
+    assert job.payload["coverage_image"]["uri"].startswith("http://127.0.0.1:9999/media")
+    assert job.payload["coverage_method"] == "umap"
+    assert job.payload["coverage"]["pca_components"] == 50
+    assert job.payload["summary"] == {
+        "kept_images": 2,
+        "duplicate_pairs": 1,
+        "dropped_duplicates": 1,
+        "occluded_flagged": 1,
+    }
+
+
 def test_log_stream_accepts_unicode_output():
     job = PipelineJob(JobManager(), "test-job")
     stream = _LogStream(job)

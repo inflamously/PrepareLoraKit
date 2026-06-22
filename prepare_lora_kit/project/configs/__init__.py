@@ -12,7 +12,7 @@ here so callers can keep importing from ``project.configs``.
 from __future__ import annotations
 
 from .quality_gate_config import ScorerEntry, QualityGateConfig
-from .dedupe_config import DedupeConfig
+from .curate_config import CurateConfig
 from .upscale_config import UpscaleConfig
 from .vae_gate_config import VaeGateConfig
 from .caption_config import CaptionConfig
@@ -23,7 +23,7 @@ from .bucket_dry_run_config import BucketDryRunConfig
 __all__ = [
     "ScorerEntry",
     "QualityGateConfig",
-    "DedupeConfig",
+    "CurateConfig",
     "UpscaleConfig",
     "VaeGateConfig",
     "CaptionConfig",
