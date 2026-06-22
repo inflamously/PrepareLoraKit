@@ -1,0 +1,74 @@
+.step-list {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  overflow: auto;
+  padding: 14px;
+}
+
+.step {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  background: rgba(11, 16, 36, 0.62);
+  padding: 10px;
+}
+
+.step:hover {
+  border-color: rgba(174, 183, 220, 0.22);
+  background: rgba(22, 29, 58, 0.72);
+}
+
+.step input {
+  width: 18px;
+  min-height: 18px;
+  accent-color: var(--accent);
+}
+
+.step strong,
+.step small {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.step small {
+  color: var(--caption);
+  font-size: 12px;
+}
+
+.badge {
+  min-width: 78px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  color: var(--muted);
+  padding: 3px 9px;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.badge.done {
+  border-color: rgba(56, 214, 160, 0.42);
+  background: var(--success-bg);
+  color: var(--success-500);
+}
+
+.badge.running {
+  border-color: rgba(74, 92, 240, 0.48);
+  background: var(--info-bg);
+  color: var(--cobalt-300);
+}
+
+.badge.waiting {
+  border-color: rgba(255, 196, 0, 0.45);
+  background: var(--warning-bg);
+  color: var(--warning-500);
+}

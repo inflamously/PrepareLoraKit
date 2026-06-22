@@ -1,0 +1,24 @@
+.current-step {
+  flex: 0 0 auto;
+  border-bottom: 1px solid rgba(74, 92, 240, 0.28);
+  background: var(--info-bg);
+  color: #cfd6ff;
+  font-weight: 700;
+  padding: 10px 14px;
+}
+
+.logs {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  user-select: text;
+  -webkit-user-select: text;
+  white-space: pre-wrap;
+  border: 0;
+  background: rgba(5, 7, 15, 0.82);
+  color: #dce2ff;
+  cursor: text;
+  padding: 14px;
+  line-height: 1.46;
+  font-size: 12px;
+}

@@ -4,5 +4,6 @@ vscode
 .venv
 __pycache__
 outputs
+node_modules
 configs/projects/*.yaml
 !configs/projects/exampe.yaml

@@ -72,7 +72,7 @@ export async function pollJob() {
     return;
   }
 
-  window.setTimeout(pollJob, 800);
+  globalThis.setTimeout(pollJob, 800);
 }
 
 function isActiveJob(job) {

@@ -52,10 +52,10 @@
  * @property {string} name
  * @property {string} uri
  * @property {Record<string, unknown>} scores
- * @property {string | null} quality
+ * @property {number | null} quality
  * @property {boolean} auto_reject
  * @property {string[]} auto_reasons
- * @property {"keep" | "reject"} initial_decision
+ * @property {"keep" | "reject" | "flag"} initial_decision
  */
 
 /**
@@ -127,5 +127,5 @@
  * @returns {PyWebviewApi}
  */
 export function api() {
-  return /** @type {PyWebviewWindow} */ (window).pywebview.api;
+  return /** @type {PyWebviewWindow} */ (globalThis).pywebview.api;
 }

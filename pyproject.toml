@@ -17,4 +17,4 @@ where = ["."]
 include = ["prepare_lora_kit*"]
 
 [tool.setuptools.package-data]
-prepare_lora_kit = ["ui/static/*", "ui/static/**/*.js"]
+prepare_lora_kit = ["ui/static/*", "ui/static/**/*.js", "ui/static/**/*.css"]
