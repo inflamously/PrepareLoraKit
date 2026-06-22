@@ -1,8 +1,10 @@
+import json
+
 import pytest
 
 from prepare_lora_kit.project.base import ProjectConfig
 from prepare_lora_kit.ui.bridge import UiBridge
-from prepare_lora_kit.ui.dev_fixture import (
+from prepare_lora_kit.ui.e2e import (
     MOCK_PROJECT_NAME,
     create_mock_ui_fixture,
     resolve_mock_steps,
@@ -19,14 +21,24 @@ def test_resolve_mock_steps_accepts_aliases_and_all():
     assert resolve_mock_steps("all")[-1] == "BucketDryRunStep"
 
 
+def test_dev_fixture_module_reexports_e2e_fixture_api():
+    from prepare_lora_kit.ui import dev_fixture
+
+    assert dev_fixture.MOCK_PROJECT_NAME == MOCK_PROJECT_NAME
+    assert dev_fixture.create_mock_ui_fixture is create_mock_ui_fixture
+    assert dev_fixture.resolve_mock_steps is resolve_mock_steps
+
+
 def test_mock_fixture_generates_dataset_and_prerequisite_state(tmp_path):
     fixture = create_mock_ui_fixture("AuditStep", root=tmp_path / "mock")
 
     assert fixture.project.name == MOCK_PROJECT_NAME
     assert fixture.selected_steps == ["AuditStep"]
-    assert len(list(fixture.input_dir.glob("*.png"))) == 4
+    assert len(list(fixture.input_dir.glob("*.png"))) == 5
     assert len(list((fixture.output_dir / "dataset").glob("*.png"))) == 4
     assert len(list((fixture.output_dir / "dataset").glob("*.txt"))) == 4
+    assert (fixture.input_dir / "mock_bad_too_small.png").exists()
+    assert not (fixture.output_dir / "dataset" / "mock_bad_too_small.png").exists()
 
     state = RunState(fixture.output_dir)
     assert state.is_done("QualityGateStep")
@@ -37,9 +49,23 @@ def test_mock_fixture_generates_dataset_and_prerequisite_state(tmp_path):
 def test_mock_fixture_does_not_seed_captions_before_caption_step(tmp_path):
     fixture = create_mock_ui_fixture("DedupeStep", root=tmp_path / "mock")
 
+    assert len(list((fixture.output_dir / "dataset").glob("*.png"))) == 4
+    assert not (fixture.output_dir / "dataset" / "mock_bad_too_small.png").exists()
     assert not list((fixture.output_dir / "dataset").glob("*.txt"))
     assert RunState(fixture.output_dir).is_done("QualityGateStep")
     assert not RunState(fixture.output_dir).is_done("DedupeStep")
+
+
+def test_mock_quality_gate_fixture_includes_reviewable_good_and_bad_images(tmp_path):
+    fixture = create_mock_ui_fixture("QualityGateStep", root=tmp_path / "mock")
+    quality_config = fixture.project.pipeline[0].config
+
+    assert len(list(fixture.input_dir.glob("*.png"))) == 5
+    assert len(list((fixture.output_dir / "dataset").glob("*.png"))) == 5
+    assert quality_config.auto_only is False
+    assert [(s.name, s.op, s.threshold) for s in quality_config.scorers] == [
+        ("min_side", "lt", 1024.0)
+    ]
 
 
 def test_mock_fixture_rejects_non_empty_unmarked_root(tmp_path):
@@ -91,6 +117,54 @@ def test_mock_project_dedupe_runs_through_job_manager(tmp_path):
     assert snapshot["status"] == "completed"
     assert snapshot["completed_steps"] == ["DedupeStep"]
     assert (fixture.output_dir / "reports" / "DedupeStep_report.json").exists()
+
+
+def test_mock_project_quality_gate_runs_with_good_and_bad_images(tmp_path, monkeypatch):
+    import prepare_lora_kit.ui.runner as runner
+
+    class FakeInteractionProvider:
+        def __init__(self, job, media_base_url=None):
+            self.job = job
+            self.media_base_url = media_base_url
+
+        def source_review(self, scored):
+            return {
+                str(path): "reject" if info["auto_reject"] else "keep"
+                for path, info in scored
+            }
+
+    fixture = create_mock_ui_fixture("QualityGateStep", root=tmp_path / "mock")
+    manager = JobManager(projects={fixture.project.name: fixture.project})
+    job = PipelineJob(manager, "mock-job")
+    monkeypatch.setattr(runner, "UiInteractionProvider", FakeInteractionProvider)
+
+    manager._execute(
+        job,
+        {
+            "input_dir": str(fixture.input_dir),
+            "output_dir": str(fixture.output_dir),
+            "project": fixture.project.name,
+            "token": fixture.token,
+            "force": True,
+            "mock_runtime": True,
+            "steps": ["QualityGateStep"],
+        },
+    )
+
+    report_path = fixture.output_dir / "reports" / "QualityGateStep_report.json"
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    bad_entry = next(
+        entry
+        for path, entry in report.items()
+        if path.endswith("mock_bad_too_small.png")
+    )
+
+    assert job.snapshot()["status"] == "completed"
+    assert {entry["decision"] for entry in report.values()} == {"keep", "reject"}
+    assert bad_entry["kept"] is False
+    assert "min_side" in bad_entry["reason"]
+    assert not (fixture.output_dir / "dataset" / "mock_bad_too_small.png").exists()
+    assert len(list((fixture.output_dir / "dataset").glob("*.png"))) == 4
 
 
 def test_project_yaml_can_parse_dedupe_skip_clip(tmp_path):
