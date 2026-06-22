@@ -25,6 +25,12 @@ describe("vae review interaction", () => {
     assert.equal(layer.classList.contains("hidden"), false);
     assert.equal(cards.length, 2);
     assert.equal(cards[0].querySelectorAll(".vae-thumb").length, 4);
+    assert.deepEqual(
+      [...cards[0].querySelectorAll(".vae-thumb figcaption")].map((caption) =>
+        caption.textContent.trim(),
+      ),
+      ["Original", "VAE", "Diff", "Hard Mask"],
+    );
     assert.equal(cards[0].classList.contains("keep"), true);
     assert.equal(cards[1].classList.contains("replace"), true);
     assert.equal(cards[0].classList.contains("selected"), true);
