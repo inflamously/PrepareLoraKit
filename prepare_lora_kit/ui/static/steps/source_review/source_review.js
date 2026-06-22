@@ -1,9 +1,9 @@
-import { api } from "../core/api.js";
-import { state } from "../core/state.js";
-import { closeModal, showModal } from "./modal.js";
-import { sourceReviewCard } from "./source_review_card.js";
-import { normalizeDecision } from "./source_review_decisions.js";
-import { renderSourceReviewDetail } from "./source_review_detail.js";
+import { api } from "../../core/api.js";
+import { state } from "../../core/state.js";
+import { closeModal, showModal } from "../../components/modal.js";
+import { sourceReviewCard } from "./card.js";
+import { normalizeDecision } from "./decisions.js";
+import { renderSourceReviewDetail } from "./detail.js";
 
 export function showSourceReview(pending, { onSubmitted }) {
   const items = pending.payload.items || [];

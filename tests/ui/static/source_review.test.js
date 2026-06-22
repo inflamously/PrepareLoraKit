@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
-import { showSourceReview } from "../../../prepare_lora_kit/ui/static/interaction/source_review.js";
+import { showSourceReview } from "../../../prepare_lora_kit/ui/static/steps/source_review/source_review.js";
 import {
   calls,
   nextTick,

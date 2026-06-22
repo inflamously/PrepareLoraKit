@@ -1,4 +1,4 @@
-import { escapeText } from "../core/dom.js";
+import { escapeText } from "../../core/dom.js";
 
 export function createBoxPanel({
   boxList,

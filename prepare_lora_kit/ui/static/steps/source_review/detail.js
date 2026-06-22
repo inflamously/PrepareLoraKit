@@ -1,6 +1,6 @@
-import { escapeText } from "../core/dom.js";
-import { normalizeDecision, optionForDecision } from "./source_review_decisions.js";
-import { formatQuality, formatScoreValue } from "./source_review_format.js";
+import { escapeText } from "../../core/dom.js";
+import { normalizeDecision, optionForDecision } from "./decisions.js";
+import { formatQuality, formatScoreValue } from "./format.js";
 
 export function renderSourceReviewDetail(detail, item, decision) {
   if (!item) {

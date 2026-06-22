@@ -2,10 +2,10 @@
 @import "./shell/shell.css";
 @import "./project/project.css";
 @import "./job/job.css";
-@import "./interaction/modal.css";
-@import "./interaction/source_review.css";
-@import "./interaction/vae_review.css";
-@import "./interaction/annotator.css";
+@import "./components/modal.css";
+@import "./steps/source_review/source_review.css";
+@import "./steps/vae_review/vae_review.css";
+@import "./steps/bbox_annotation/bbox_annotation.css";
 
 .hidden {
   display: none;

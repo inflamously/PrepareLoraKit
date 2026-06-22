@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
-import { closeModal, showModal } from "../../../prepare_lora_kit/ui/static/interaction/modal.js";
+import { closeModal, showModal } from "../../../prepare_lora_kit/ui/static/components/modal.js";
 import { setupInteractionDom } from "./interaction_helpers.js";
 
 beforeEach(() => {

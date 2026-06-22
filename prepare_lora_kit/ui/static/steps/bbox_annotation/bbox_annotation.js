@@ -1,9 +1,9 @@
-import { api } from "../core/api.js";
-import { escapeText } from "../core/dom.js";
-import { state } from "../core/state.js";
-import { closeModal, showModal } from "./modal.js";
-import { createBoxPanel } from "./annotator_box_panel.js";
-import { createAnnotationCanvas } from "./annotator_canvas.js";
+import { api } from "../../core/api.js";
+import { escapeText } from "../../core/dom.js";
+import { state } from "../../core/state.js";
+import { closeModal, showModal } from "../../components/modal.js";
+import { createBoxPanel } from "./box_panel.js";
+import { createAnnotationCanvas } from "./canvas.js";
 
 export function showAnnotator(pending, { onSubmitted }) {
   const image = pending.payload;

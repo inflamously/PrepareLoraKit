@@ -1,7 +1,7 @@
-import { api } from "../core/api.js";
-import { escapeText } from "../core/dom.js";
-import { state } from "../core/state.js";
-import { closeModal, showModal } from "./modal.js";
+import { api } from "../../core/api.js";
+import { escapeText } from "../../core/dom.js";
+import { state } from "../../core/state.js";
+import { closeModal, showModal } from "../../components/modal.js";
 
 const VAE_DECISIONS = [
   { value: "keep", label: "Keep Input" },
@@ -47,7 +47,6 @@ export function showVaeReview(pending, { onSubmitted }) {
   const cards = items.map((item) => {
     const card = vaeReviewCard(item, decisions, {
       onSelect: selectItem,
-      onDecisionChange: renderDetail,
     });
     cardsByPath.set(item.path, card);
     return card;
@@ -88,7 +87,7 @@ function vaeReviewModal(itemCount) {
   return modal;
 }
 
-function vaeReviewCard(item, decisions, { onSelect, onDecisionChange }) {
+function vaeReviewCard(item, decisions, { onSelect }) {
   const card = document.createElement("div");
   const decision = normalizeVaeDecision(decisions[item.path]);
   card.className = `vae-review-card ${decision}`;
@@ -96,31 +95,9 @@ function vaeReviewCard(item, decisions, { onSelect, onDecisionChange }) {
     <div class="vae-card-views">
       ${VAE_VIEWS.map((view) => renderVaeThumb(item, view)).join("")}
     </div>
-    <div class="vae-card-meta">
-      <strong title="${escapeText(item.name)}">${escapeText(item.name)}</strong>
-      <small>${escapeText(formatDimensions(item))} · HF ${escapeText(formatNumber(item.hf_loss))}</small>
-      <small>${item.flagged ? "flagged outlier" : "within threshold"}</small>
-    </div>
-    <div class="vae-card-actions" role="group" aria-label="Input decision">
-      ${VAE_DECISIONS.map(
-        (option) => `
-          <button type="button" data-decision="${option.value}">
-            ${escapeText(option.label)}
-          </button>
-        `,
-      ).join("")}
-    </div>
   `;
 
   card.addEventListener("click", () => onSelect?.(item));
-  card.querySelectorAll("[data-decision]").forEach((button) => {
-    button.addEventListener("click", (event) => {
-      event.stopPropagation();
-      decisions[item.path] = normalizeVaeDecision(button.dataset.decision);
-      updateVaeCardDecision(card, decisions[item.path]);
-      onDecisionChange?.();
-    });
-  });
 
   updateVaeCardDecision(card, decision);
   return card;
@@ -128,16 +105,15 @@ function vaeReviewCard(item, decisions, { onSelect, onDecisionChange }) {
 
 function renderVaeThumb(item, view) {
   const payload = item.views?.[view.value];
-  const ratio = aspectRatio(item);
   if (!payload?.uri) {
     return `
-      <div class="vae-thumb missing" style="${ratio}">
+      <div class="vae-thumb missing">
         <span>${escapeText(view.label)}</span>
       </div>
     `;
   }
   return `
-    <figure class="vae-thumb" style="${ratio}">
+    <figure class="vae-thumb">
       <img src="${escapeText(payload.uri)}" alt="${escapeText(`${item.name} ${view.label}`)}" />
       <figcaption>${escapeText(view.label)}</figcaption>
     </figure>
@@ -224,22 +200,10 @@ function updateVaeCardDecision(card, decision) {
   const normalized = normalizeVaeDecision(decision);
   card.classList.remove(...VAE_DECISIONS.map((entry) => entry.value));
   card.classList.add(normalized);
-  card.querySelectorAll("[data-decision]").forEach((button) => {
-    button.setAttribute("aria-pressed", String(button.dataset.decision === normalized));
-  });
 }
 
 function normalizeVaeDecision(decision) {
   return VAE_DECISIONS.some((entry) => entry.value === decision) ? decision : "keep";
-}
-
-function aspectRatio(item) {
-  const width = Number(item.width);
-  const height = Number(item.height);
-  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
-    return "";
-  }
-  return `aspect-ratio: ${width} / ${height}`;
 }
 
 function formatDimensions(item) {

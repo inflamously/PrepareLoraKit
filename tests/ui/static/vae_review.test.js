@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
-import { showVaeReview } from "../../../prepare_lora_kit/ui/static/interaction/vae_review.js";
+import { showVaeReview } from "../../../prepare_lora_kit/ui/static/steps/vae_review/vae_review.js";
 import {
   calls,
   nextTick,
@@ -37,8 +37,8 @@ describe("vae review interaction", () => {
       "http://example.invalid/first-hard.png",
     );
 
-    cards[0]
-      .querySelector('[data-decision="drop"]')
+    layer
+      .querySelector('.vae-detail-actions [data-decision="drop"]')
       .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
     assert.equal(cards[0].classList.contains("drop"), true);
 
@@ -122,7 +122,10 @@ describe("vae review interaction", () => {
     );
 
     const layer = document.getElementById("modalLayer");
-    assert.equal(layer.querySelectorAll(".vae-card-meta img").length, 0);
+    const injected = [...layer.querySelectorAll("img")].filter(
+      (img) => img.getAttribute("onerror") !== null,
+    );
+    assert.equal(injected.length, 0);
     assert.match(layer.textContent, /<img onerror=alert\(1\)>/);
   });
 });

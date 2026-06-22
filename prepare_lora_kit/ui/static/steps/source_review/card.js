@@ -1,6 +1,6 @@
-import { escapeText } from "../core/dom.js";
-import { REVIEW_DECISIONS, normalizeDecision } from "./source_review_decisions.js";
-import { formatQuality } from "./source_review_format.js";
+import { escapeText } from "../../core/dom.js";
+import { REVIEW_DECISIONS, normalizeDecision } from "./decisions.js";
+import { formatQuality } from "./format.js";
 
 export function sourceReviewCard(
   item,

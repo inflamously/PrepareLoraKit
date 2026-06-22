@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
-import { showAnnotator } from "../../../prepare_lora_kit/ui/static/interaction/annotator.js";
+import { showAnnotator } from "../../../prepare_lora_kit/ui/static/steps/bbox_annotation/bbox_annotation.js";
 import {
   annotationPending,
   calls,
