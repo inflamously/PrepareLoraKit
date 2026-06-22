@@ -9,7 +9,7 @@ export function sourceReviewCard(
 ) {
   const card = document.createElement("div");
   card.className = "review-card";
-  card.title = "Left-click card to cycle decision; right-click card to show details";
+  card.title = "Left-click card to show details; right-click card  to cycle decision";
   card.innerHTML = `
     <img
       src="${escapeText(item.uri)}"
@@ -65,7 +65,7 @@ export function sourceReviewCard(
     });
   });
 
-  card.addEventListener("contextmenu", (event) => {
+  card.addEventListener("click", (event) => {
     if (
       event.target instanceof Element &&
       event.target.closest(".review-actions")
@@ -75,7 +75,7 @@ export function sourceReviewCard(
     event.preventDefault();
     onSelect?.(item);
   });
-  card.addEventListener("click", (event) => {
+  card.addEventListener("contextmenu", (event) => {
     event.preventDefault();
     cycleDecision(1);
   });
