@@ -16,4 +16,5 @@ MOCK_SOURCE_SPECS = [
 ]
 MOCK_DUPLICATE_SOURCE = "mock_square.png"
 MOCK_DUPLICATE_NAME = "mock_square_duplicate.png"
+MOCK_PCA_EXTRA_COUNT = 10
 MOCK_UMAP_EXTRA_COUNT = 32

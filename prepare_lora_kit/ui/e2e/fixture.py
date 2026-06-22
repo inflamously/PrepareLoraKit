@@ -35,7 +35,11 @@ def create_mock_ui_fixture(
 
     reset_dir(input_dir)
     reset_dir(output_dir)
-    write_source_images(input_dir, include_umap_set=curate_coverage == "umap")
+    write_source_images(
+        input_dir,
+        include_pca_set=curate_coverage == "pca",
+        include_umap_set=curate_coverage == "umap",
+    )
     seed_working_dataset(input_dir, working_dir, selected_steps)
 
     project = mock_project(input_dir)

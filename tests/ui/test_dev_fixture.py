@@ -197,6 +197,7 @@ def test_mock_project_curate_writes_requested_coverage_plot(
     assert report["coverage_image"] == str(coverage_path)
     assert coverage_path.exists()
     assert job.curate_report["coverage"]["method"] == expected_method
+    assert report["coverage"]["dense_clusters"]
     if expected_method == "umap":
         assert len(report["kept_images"]) > fixture.project.pipeline[1].config.pca_umap_switch_threshold
 

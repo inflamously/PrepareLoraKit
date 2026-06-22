@@ -11,6 +11,7 @@ from .constants import (
     FIXTURE_MARKER,
     MOCK_DUPLICATE_NAME,
     MOCK_DUPLICATE_SOURCE,
+    MOCK_PCA_EXTRA_COUNT,
     MOCK_UMAP_EXTRA_COUNT,
     MOCK_SOURCE_SPECS,
     MOCK_TOKEN,
@@ -36,7 +37,12 @@ def reset_dir(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
 
 
-def write_source_images(input_dir: Path, *, include_umap_set: bool = False) -> None:
+def write_source_images(
+    input_dir: Path,
+    *,
+    include_pca_set: bool = False,
+    include_umap_set: bool = False,
+) -> None:
     for index, (name, size, color, _survives_quality) in enumerate(
         MOCK_SOURCE_SPECS,
         start=1,
@@ -46,36 +52,16 @@ def write_source_images(input_dir: Path, *, include_umap_set: bool = False) -> N
 
     shutil.copy2(input_dir / MOCK_DUPLICATE_SOURCE, input_dir / MOCK_DUPLICATE_NAME)
 
+    if include_pca_set:
+        for index in range(MOCK_PCA_EXTRA_COUNT):
+            name = f"mock_pca_{index + 1:02d}.png"
+            image = mock_dense_image(index, prefix="PCA")
+            image.save(input_dir / name)
+
     if include_umap_set:
         for index in range(MOCK_UMAP_EXTRA_COUNT):
             name = f"mock_umap_{index + 1:02d}.png"
-            width = 1280 + (index % 5) * 48
-            height = 1280 + (index % 7) * 40
-            color = (
-                38 + (index * 37) % 180,
-                52 + (index * 53) % 170,
-                68 + (index * 71) % 160,
-            )
-            image = mock_image((width, height), color, f"UMAP {index + 1}")
-            draw = ImageDraw.Draw(image)
-            x = 80 + (index * 97) % max(1, width - 360)
-            y = 220 + (index * 131) % max(1, height - 520)
-            accent = (
-                255 - color[0] // 2,
-                255 - color[1] // 2,
-                255 - color[2] // 2,
-            )
-            draw.ellipse((x, y, x + 220, y + 180), outline=accent, width=18)
-            draw.rectangle(
-                (
-                    width - 420 - (index % 4) * 32,
-                    280 + (index % 6) * 48,
-                    width - 120,
-                    580 + (index % 6) * 48,
-                ),
-                outline=accent,
-                width=16,
-            )
+            image = mock_dense_image(index, prefix="UMAP")
             image.save(input_dir / name)
 
 
@@ -96,6 +82,37 @@ def mock_image(
         draw.line((offset, 0, 0, offset), fill=shade, width=8)
     draw.rectangle((96, 96, width - 96, height - 96), outline=(235, 232, 216), width=12)
     draw.text((128, 128), label, fill=(255, 255, 255))
+    return image
+
+
+def mock_dense_image(index: int, *, prefix: str) -> Image.Image:
+    width = 1280 + (index % 5) * 48
+    height = 1280 + (index % 7) * 40
+    color = (
+        38 + (index * 37) % 180,
+        52 + (index * 53) % 170,
+        68 + (index * 71) % 160,
+    )
+    image = mock_image((width, height), color, f"{prefix} {index + 1}")
+    draw = ImageDraw.Draw(image)
+    x = 80 + (index * 97) % max(1, width - 360)
+    y = 220 + (index * 131) % max(1, height - 520)
+    accent = (
+        255 - color[0] // 2,
+        255 - color[1] // 2,
+        255 - color[2] // 2,
+    )
+    draw.ellipse((x, y, x + 220, y + 180), outline=accent, width=18)
+    draw.rectangle(
+        (
+            width - 420 - (index % 4) * 32,
+            280 + (index % 6) * 48,
+            width - 120,
+            580 + (index % 6) * 48,
+        ),
+        outline=accent,
+        width=16,
+    )
     return image
 
 
@@ -121,6 +138,7 @@ def source_image_names(input_dir: Path | None = None) -> list[str]:
         MOCK_DUPLICATE_NAME
     ]
     if input_dir is not None:
+        names.extend(sorted(path.name for path in input_dir.glob("mock_pca_*.png")))
         names.extend(sorted(path.name for path in input_dir.glob("mock_umap_*.png")))
     return names
 
@@ -133,6 +151,7 @@ def quality_survivor_names(input_dir: Path | None = None) -> list[str]:
     ]
     names.append(MOCK_DUPLICATE_NAME)
     if input_dir is not None:
+        names.extend(sorted(path.name for path in input_dir.glob("mock_pca_*.png")))
         names.extend(sorted(path.name for path in input_dir.glob("mock_umap_*.png")))
     return names
 
