@@ -1,0 +1,4 @@
+interface:
+  display_name: "Vertical Slice Source"
+  short_description: "Split UI modules into focused vertical slices"
+  default_prompt: "Use $vertical-slice-source to split this feature module into entrypoint, components, and utils while preserving behavior."
