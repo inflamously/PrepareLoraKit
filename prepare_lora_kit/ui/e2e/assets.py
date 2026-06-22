@@ -11,6 +11,7 @@ from .constants import (
     FIXTURE_MARKER,
     MOCK_DUPLICATE_NAME,
     MOCK_DUPLICATE_SOURCE,
+    MOCK_UMAP_EXTRA_COUNT,
     MOCK_SOURCE_SPECS,
     MOCK_TOKEN,
 )
@@ -35,7 +36,7 @@ def reset_dir(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
 
 
-def write_source_images(input_dir: Path) -> None:
+def write_source_images(input_dir: Path, *, include_umap_set: bool = False) -> None:
     for index, (name, size, color, _survives_quality) in enumerate(
         MOCK_SOURCE_SPECS,
         start=1,
@@ -44,6 +45,38 @@ def write_source_images(input_dir: Path) -> None:
         image.save(input_dir / name)
 
     shutil.copy2(input_dir / MOCK_DUPLICATE_SOURCE, input_dir / MOCK_DUPLICATE_NAME)
+
+    if include_umap_set:
+        for index in range(MOCK_UMAP_EXTRA_COUNT):
+            name = f"mock_umap_{index + 1:02d}.png"
+            width = 1280 + (index % 5) * 48
+            height = 1280 + (index % 7) * 40
+            color = (
+                38 + (index * 37) % 180,
+                52 + (index * 53) % 170,
+                68 + (index * 71) % 160,
+            )
+            image = mock_image((width, height), color, f"UMAP {index + 1}")
+            draw = ImageDraw.Draw(image)
+            x = 80 + (index * 97) % max(1, width - 360)
+            y = 220 + (index * 131) % max(1, height - 520)
+            accent = (
+                255 - color[0] // 2,
+                255 - color[1] // 2,
+                255 - color[2] // 2,
+            )
+            draw.ellipse((x, y, x + 220, y + 180), outline=accent, width=18)
+            draw.rectangle(
+                (
+                    width - 420 - (index % 4) * 32,
+                    280 + (index % 6) * 48,
+                    width - 120,
+                    580 + (index % 6) * 48,
+                ),
+                outline=accent,
+                width=16,
+            )
+            image.save(input_dir / name)
 
 
 def mock_image(
@@ -75,27 +108,32 @@ def seed_working_dataset(
     first_index = min(list(STEP_TYPE_MAP).index(step) for step in selected_steps)
     quality_index = list(STEP_TYPE_MAP).index("QualityGateStep")
     names = (
-        quality_survivor_names()
+        quality_survivor_names(input_dir)
         if first_index > quality_index
-        else source_image_names()
+        else source_image_names(input_dir)
     )
     for name in names:
         shutil.copy2(input_dir / name, working_dir / name)
 
 
-def source_image_names() -> list[str]:
-    return [name for name, _size, _color, _survives_quality in MOCK_SOURCE_SPECS] + [
+def source_image_names(input_dir: Path | None = None) -> list[str]:
+    names = [name for name, _size, _color, _survives_quality in MOCK_SOURCE_SPECS] + [
         MOCK_DUPLICATE_NAME
     ]
+    if input_dir is not None:
+        names.extend(sorted(path.name for path in input_dir.glob("mock_umap_*.png")))
+    return names
 
 
-def quality_survivor_names() -> list[str]:
+def quality_survivor_names(input_dir: Path | None = None) -> list[str]:
     names = [
         name
         for name, _size, _color, survives_quality in MOCK_SOURCE_SPECS
         if survives_quality
     ]
     names.append(MOCK_DUPLICATE_NAME)
+    if input_dir is not None:
+        names.extend(sorted(path.name for path in input_dir.glob("mock_umap_*.png")))
     return names
 
 

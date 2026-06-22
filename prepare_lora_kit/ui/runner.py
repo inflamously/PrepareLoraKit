@@ -430,6 +430,7 @@ class JobManager:
                 "vram_mode": request.get("caption_vram_mode") or None,
             },
             mock_runtime=bool(request.get("mock_runtime", False)),
+            mock_curate_coverage=str(request.get("mock_curate_coverage") or "auto"),
         )
 
         selected = set(selected_steps)

@@ -33,6 +33,14 @@ def _invoke_QualityGateStep(working_dir: Path, output_dir: Path, cfg: QualityGat
 
 def _invoke_CurateStep(working_dir: Path, output_dir: Path, cfg: CurateConfig,
                         **_kw) -> None:
+    if _kw.get("mock_runtime"):
+        return _mock_curate(
+            working_dir,
+            output_dir,
+            cfg,
+            coverage_mode=str(_kw.get("mock_curate_coverage") or "auto"),
+        )
+
     from .steps import s2_curate
     return s2_curate.run(
         working_dir,
@@ -159,6 +167,87 @@ STEP_INVOKE_MAP: dict[str, Callable] = {
     "ConfigGenStep":    _invoke_ConfigGenStep,
     "BucketDryRunStep": _invoke_BucketDryRunStep,
 }
+
+
+def _mock_curate(
+    working_dir: Path,
+    output_dir: Path,
+    cfg: CurateConfig,
+    *,
+    coverage_mode: str = "auto",
+) -> dict:
+    from .steps.s2_curate.coverage import _save_pca, _save_umap
+    from .steps.s2_curate.dedupe import _compute_hashes, _find_duplicates, _resolve_duplicates
+    from .utils import image as img_utils
+    from .utils import report as rpt
+
+    rpt.step_header(2, "Curation — Mock Runtime")
+    reports_dir = output_dir / "reports"
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    report_path = reports_dir / "CurateStep_report.json"
+
+    images = img_utils.iter_images(working_dir)
+    if not images:
+        rpt.warn(f"No images in {working_dir}")
+        return {}
+
+    hashes = _compute_hashes(images)
+    pairs = _find_duplicates(hashes)
+    to_drop = _resolve_duplicates(pairs, auto_drop=True) if pairs else set()
+    kept_images = [p for p in images if p not in to_drop]
+    img_utils.materialize(kept_images, working_dir, working_dir)
+
+    coverage_path: Path | None = None
+    coverage_metadata: dict | None = None
+    mode = coverage_mode.lower().strip()
+    if mode not in {"auto", "pca", "umap"}:
+        mode = "auto"
+
+    if len(kept_images) >= 2:
+        embeddings = _mock_embeddings(kept_images)
+        use_umap = mode == "umap" or (
+            mode == "auto" and len(kept_images) > cfg.pca_umap_switch_threshold
+        )
+        if use_umap:
+            coverage_path = reports_dir / "coverage_umap.png"
+            coverage_metadata = _save_umap(embeddings, kept_images, coverage_path)
+        else:
+            coverage_path = reports_dir / "coverage_pca.png"
+            coverage_metadata = _save_pca(embeddings, kept_images, coverage_path)
+
+    report = {
+        "mock_runtime": True,
+        "duplicate_pairs": [(str(a), str(b), d) for a, b, d in pairs],
+        "dropped_duplicates": [str(p) for p in to_drop],
+        "kept_images": [str(p) for p in kept_images],
+        "occluded_flagged": [],
+        "coverage_image": str(coverage_path) if coverage_path else None,
+        "coverage": coverage_metadata,
+    }
+    rpt.info(f"Mock runtime: curated {len(kept_images)} image(s).")
+    rpt.save_report(report, report_path)
+    return report
+
+
+def _mock_embeddings(paths: list[Path]) -> "np.ndarray":
+    import numpy as np
+
+    rows = []
+    total = max(1, len(paths) - 1)
+    for index, path in enumerate(paths):
+        t = index / total
+        name_value = (sum(path.name.encode("utf-8")) % 97) / 97.0
+        rows.append([
+            t,
+            t * t,
+            np.sin(t * np.pi * 2.0),
+            np.cos(t * np.pi * 2.0),
+            name_value,
+            (index % 5) / 5.0,
+            (index % 7) / 7.0,
+            1.0,
+        ])
+    return np.asarray(rows, dtype=np.float32)
 
 
 def _mock_vae_gate(working_dir: Path, output_dir: Path, *, interaction=None) -> dict:

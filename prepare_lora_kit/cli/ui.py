@@ -80,7 +80,19 @@ def _static_server(static_dir):
     default=None,
     help="Root directory for --mock fixture data (default: outputs/_ui_mock).",
 )
-def ui(debug: bool, mock_step: str | None, mock_output: Path | None) -> None:
+@click.option(
+    "--mock-curate-coverage",
+    type=click.Choice(["auto", "pca", "umap"], case_sensitive=False),
+    default="auto",
+    show_default=True,
+    help="Coverage branch to exercise for --mock CurateStep runs.",
+)
+def ui(
+    debug: bool,
+    mock_step: str | None,
+    mock_output: Path | None,
+    mock_curate_coverage: str,
+) -> None:
     """Launch the PrepareLoraKit desktop UI."""
     try:
         import webview
@@ -97,7 +109,11 @@ def ui(debug: bool, mock_step: str | None, mock_output: Path | None) -> None:
     bootstrap = None
     if mock_step:
         try:
-            fixture = create_mock_ui_fixture(mock_step, root=mock_output)
+            fixture = create_mock_ui_fixture(
+                mock_step,
+                root=mock_output,
+                curate_coverage=mock_curate_coverage,
+            )
         except ValueError as exc:
             raise click.ClickException(str(exc)) from exc
         projects = {fixture.project.name: fixture.project}

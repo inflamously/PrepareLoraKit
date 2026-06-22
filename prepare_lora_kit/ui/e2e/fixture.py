@@ -18,8 +18,15 @@ from .project import mock_project
 from .steps import resolve_mock_steps
 
 
-def create_mock_ui_fixture(raw_step: str, root: Path | None = None) -> MockUiFixture:
+def create_mock_ui_fixture(
+    raw_step: str,
+    root: Path | None = None,
+    curate_coverage: str = "auto",
+) -> MockUiFixture:
     selected_steps = resolve_mock_steps(raw_step)
+    curate_coverage = curate_coverage.lower().strip()
+    if curate_coverage not in {"auto", "pca", "umap"}:
+        raise ValueError("Mock curate coverage must be one of: auto, pca, umap")
     root = (root or PROJECT_ROOT / "outputs" / "_ui_mock").expanduser().resolve()
     prepare_root(root)
     input_dir = root / "input"
@@ -28,7 +35,7 @@ def create_mock_ui_fixture(raw_step: str, root: Path | None = None) -> MockUiFix
 
     reset_dir(input_dir)
     reset_dir(output_dir)
-    write_source_images(input_dir)
+    write_source_images(input_dir, include_umap_set=curate_coverage == "umap")
     seed_working_dataset(input_dir, working_dir, selected_steps)
 
     project = mock_project(input_dir)
@@ -42,6 +49,7 @@ def create_mock_ui_fixture(raw_step: str, root: Path | None = None) -> MockUiFix
         output_dir=output_dir,
         project=project,
         selected_steps=selected_steps,
+        curate_coverage=curate_coverage,
     )
 
 

@@ -16,6 +16,7 @@ class MockUiFixture:
     output_dir: Path
     project: ProjectConfig
     selected_steps: list[str]
+    curate_coverage: str = "auto"
     token: str = MOCK_TOKEN
 
     def bootstrap_payload(self) -> dict[str, Any]:
@@ -27,4 +28,5 @@ class MockUiFixture:
             "force": True,
             "token": self.token,
             "mock_runtime": True,
+            "mock_curate_coverage": self.curate_coverage,
         }

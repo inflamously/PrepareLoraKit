@@ -30,6 +30,7 @@ export async function applyBootstrap(bootstrap) {
   state.outputCustomized = Boolean(state.outputDir);
   state.mockRuntime = Boolean(bootstrap.mock_runtime);
   state.mockProjectName = bootstrap.mock_runtime ? bootstrap.project : null;
+  state.mockCurateCoverage = bootstrap.mock_curate_coverage || "auto";
 
   const result = await api().load_project(
     bootstrap.project,
@@ -120,6 +121,7 @@ function resetProjectSelection() {
   state.outputCustomized = false;
   state.mockRuntime = false;
   state.mockProjectName = null;
+  state.mockCurateCoverage = "auto";
 
   $("inputDir").value = "";
   $("outputDir").value = "";

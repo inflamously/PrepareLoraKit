@@ -10,4 +10,5 @@ export const state = {
   outputCustomized: false,
   mockRuntime: false,
   mockProjectName: null,
+  mockCurateCoverage: "auto",
 };

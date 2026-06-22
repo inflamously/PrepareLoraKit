@@ -98,6 +98,8 @@ function buildRunRequest() {
     caption_model_id: selectedCaptionModel() || null,
     caption_vram_mode: $("captionVramMode").value || "auto",
     mock_runtime: state.mockRuntime === true,
+    mock_curate_coverage:
+      state.mockRuntime === true ? state.mockCurateCoverage : "auto",
     steps,
   };
 }

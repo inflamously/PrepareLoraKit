@@ -37,6 +37,7 @@
  * @property {string | null} caption_model_id
  * @property {string} caption_vram_mode
  * @property {boolean} [mock_runtime]
+ * @property {"auto" | "pca" | "umap"} [mock_curate_coverage]
  * @property {string[]} steps
  */
 
@@ -49,6 +50,7 @@
  * @property {boolean} force
  * @property {string} token
  * @property {boolean} mock_runtime
+ * @property {"auto" | "pca" | "umap"} mock_curate_coverage
  */
 
 /**
