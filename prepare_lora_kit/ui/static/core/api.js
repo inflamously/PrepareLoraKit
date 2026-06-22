@@ -36,7 +36,19 @@
  * @property {boolean} force
  * @property {string | null} caption_model_id
  * @property {string} caption_vram_mode
+ * @property {boolean} [mock_runtime]
  * @property {string[]} steps
+ */
+
+/**
+ * @typedef {Object} BootstrapPayload
+ * @property {string} project
+ * @property {string} input_dir
+ * @property {string} output_dir
+ * @property {string[]} selected_steps
+ * @property {boolean} force
+ * @property {string} token
+ * @property {boolean} mock_runtime
  */
 
 /**
@@ -100,7 +112,7 @@
 
 /**
  * @typedef {Object} PyWebviewApi
- * @property {() => Promise<{project_root: string, default_outputs: string}>} app_info
+ * @property {() => Promise<{project_root: string, default_outputs: string, bootstrap: BootstrapPayload | null}>} app_info
  * @property {() => Promise<{projects: string[]}>} list_projects
  * @property {() => Promise<{path: string | null, error?: string}>} choose_folder
  * @property {(input_dir: string) => Promise<{output_dir: string}>} default_output

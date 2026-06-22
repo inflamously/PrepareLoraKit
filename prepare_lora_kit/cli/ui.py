@@ -68,7 +68,19 @@ def _static_server(static_dir):
 
 @cli.command()
 @click.option("--debug", is_flag=True, help="Open webview developer tools where supported.")
-def ui(debug: bool) -> None:
+@click.option(
+    "--mock",
+    "mock_step",
+    default=None,
+    help="Launch with a generated UI smoke-test fixture and preselect STEP, alias s1..s8, or all.",
+)
+@click.option(
+    "--mock-output",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+    help="Root directory for --mock fixture data (default: outputs/_ui_mock).",
+)
+def ui(debug: bool, mock_step: str | None, mock_output: Path | None) -> None:
     """Launch the PrepareLoraKit desktop UI."""
     try:
         import webview
@@ -78,7 +90,18 @@ def ui(debug: bool) -> None:
         ) from exc
 
     from ..paths import PACKAGE_ROOT
+    from ..ui.dev_fixture import create_mock_ui_fixture
     from ..ui.bridge import UiBridge
+
+    projects = None
+    bootstrap = None
+    if mock_step:
+        try:
+            fixture = create_mock_ui_fixture(mock_step, root=mock_output)
+        except ValueError as exc:
+            raise click.ClickException(str(exc)) from exc
+        projects = {fixture.project.name: fixture.project}
+        bootstrap = fixture.bootstrap_payload()
 
     index = PACKAGE_ROOT / "ui" / "static" / "index.html"
     if not index.exists():
@@ -90,7 +113,11 @@ def ui(debug: bool) -> None:
     webview.create_window(
         "PrepareLoraKit",
         f"{origin}/index.html",
-        js_api=UiBridge(media_base_url=f"{origin}/media"),
+        js_api=UiBridge(
+            media_base_url=f"{origin}/media",
+            projects=projects,
+            bootstrap=bootstrap,
+        ),
         width=1320,
         height=860,
         min_size=(1040, 680),

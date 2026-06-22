@@ -95,6 +95,7 @@ function buildRunRequest() {
     force: $("forceInput").checked,
     caption_model_id: selectedCaptionModel() || null,
     caption_vram_mode: $("captionVramMode").value || "auto",
+    mock_runtime: state.mockRuntime === true,
     steps,
   };
 }

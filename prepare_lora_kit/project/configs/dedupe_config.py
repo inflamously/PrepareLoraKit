@@ -13,6 +13,7 @@ class DedupeConfig:
     umap_min_dist: float = 0.1
     pca_n_components: int = 2
     clip_model_id: str = "openai/clip-vit-base-patch32"
+    skip_clip: bool = False
 
     def __post_init__(self) -> None:
         if not (0.0 <= self.occlusion_threshold <= 1.0):

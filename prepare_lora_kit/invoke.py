@@ -38,7 +38,7 @@ def _invoke_DedupeStep(working_dir: Path, output_dir: Path, cfg: DedupeConfig,
         working_dir,
         output_dir=working_dir,
         auto_dedupe=True,
-        skip_clip=False,
+        skip_clip=cfg.skip_clip,
         report_path=output_dir / "reports" / "DedupeStep_report.json",
     )
 
@@ -58,6 +58,10 @@ def _invoke_UpscaleStep(working_dir: Path, output_dir: Path, cfg: UpscaleConfig,
 
 def _invoke_VaeGateStep(working_dir: Path, output_dir: Path, cfg: VaeGateConfig,
                          *, network, **_kw) -> None:
+    if _kw.get("mock_runtime"):
+        _mock_vae_gate(working_dir, output_dir)
+        return
+
     from .steps import s4_vae_gate
     s4_vae_gate.run(
         working_dir,
@@ -70,6 +74,16 @@ def _invoke_VaeGateStep(working_dir: Path, output_dir: Path, cfg: VaeGateConfig,
 
 def _invoke_CaptionStep(working_dir: Path, output_dir: Path, cfg: CaptionConfig,
                          *, concept_token: Optional[str], **_kw) -> None:
+    if _kw.get("mock_runtime"):
+        _mock_caption(
+            working_dir,
+            output_dir,
+            concept_token=concept_token,
+            interaction=_kw.get("interaction"),
+            force=bool(_kw.get("force", False)),
+        )
+        return
+
     from .steps import s5_caption
     runtime = _kw.get("caption_runtime") or {}
     qwen_model_id = runtime.get("model_id") or cfg.qwen_model_id
@@ -136,3 +150,86 @@ STEP_INVOKE_MAP: dict[str, Callable] = {
     "ConfigGenStep":    _invoke_ConfigGenStep,
     "BucketDryRunStep": _invoke_BucketDryRunStep,
 }
+
+
+def _mock_vae_gate(working_dir: Path, output_dir: Path) -> dict:
+    from .utils import image as img_utils
+    from .utils import report as rpt
+
+    rpt.step_header(4, "VAE Reconstruction Gate")
+    images = img_utils.iter_images(working_dir)
+    scores = {str(path): 0.0 for path in images}
+    report = {
+        "mock_runtime": True,
+        "hf_scores": scores,
+        "threshold": 0.0,
+        "flagged": [],
+        "needs_replacement": [],
+    }
+    rpt.info(f"Mock runtime: recorded deterministic VAE pass for {len(images)} image(s).")
+    rpt.save_report(report, output_dir / "reports" / "VaeGateStep_report.json")
+    return report
+
+
+def _mock_caption(
+    working_dir: Path,
+    output_dir: Path,
+    *,
+    concept_token: Optional[str],
+    interaction,
+    force: bool,
+) -> dict:
+    from .interaction import CliInteractionProvider
+    from .utils import image as img_utils
+    from .utils import report as rpt
+
+    rpt.step_header(5, "Caption — Mock Runtime")
+    working_dir.mkdir(parents=True, exist_ok=True)
+    provider = interaction or CliInteractionProvider()
+    images = img_utils.iter_images(working_dir)
+    token_prefix = f"{concept_token}, " if concept_token else ""
+
+    captions: dict[str, str] = {}
+    annotation_log: dict[str, list] = {}
+    skipped_annotation: list[str] = []
+    skip_all = False
+
+    def _region_captioner(_crop, _metadata=None):
+        return {"caption": f"{token_prefix}mock region caption".strip(", ")}
+
+    for path in images:
+        txt_path = path.with_suffix(".txt")
+        if txt_path.exists() and not force:
+            captions[str(path)] = txt_path.read_text(encoding="utf-8").strip()
+            rpt.info(f"Skip (exists): {path.name}")
+            continue
+
+        if skip_all:
+            annotations, skipped = [], True
+        else:
+            annotations, skipped, skip_all = provider.annotate_image(
+                path,
+                captioner=_region_captioner,
+            )
+        annotation_log[str(path)] = annotations
+        if skipped:
+            skipped_annotation.append(str(path))
+
+        caption = f"{token_prefix}mock caption for {path.stem}".strip()
+        txt_path.write_text(caption, encoding="utf-8")
+        captions[str(path)] = caption
+        rpt.ok(f"{path.name} -> {caption}")
+
+    report = {
+        "mock_runtime": True,
+        "total": len(images),
+        "captioned": len(captions),
+        "annotations": annotation_log,
+        "skipped_annotation": skipped_annotation,
+        "missing_token": [],
+        "short_captions": [],
+        "long_captions": [],
+        "spot_check_sample": [],
+    }
+    rpt.save_report(report, output_dir / "reports" / "CaptionStep_report.json")
+    return report

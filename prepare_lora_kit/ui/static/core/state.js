@@ -8,4 +8,6 @@ export const state = {
   handledRequestId: null,
   outputDir: "",
   outputCustomized: false,
+  mockRuntime: false,
+  mockProjectName: null,
 };

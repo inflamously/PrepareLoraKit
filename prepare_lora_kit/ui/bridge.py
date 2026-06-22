@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from ..paths import PROJECT_ROOT
+from ..project.base import ProjectConfig
 from ..project import registry as project_registry
 from .runner import JobManager, _default_output, project_payload
 
@@ -15,17 +16,26 @@ from .runner import JobManager, _default_output, project_payload
 class UiBridge:
     """Synchronous API object consumed through window.pywebview.api."""
 
-    def __init__(self, media_base_url: str | None = None) -> None:
-        self.jobs = JobManager(media_base_url=media_base_url)
+    def __init__(
+        self,
+        media_base_url: str | None = None,
+        projects: dict[str, ProjectConfig] | None = None,
+        bootstrap: dict[str, Any] | None = None,
+    ) -> None:
+        self._projects = projects or {}
+        self._bootstrap = bootstrap
+        self.jobs = JobManager(media_base_url=media_base_url, projects=self._projects)
 
     def app_info(self) -> dict[str, Any]:
         return {
             "project_root": str(PROJECT_ROOT),
             "default_outputs": str(PROJECT_ROOT / "outputs"),
+            "bootstrap": self._bootstrap,
         }
 
     def list_projects(self) -> dict[str, Any]:
-        return {"projects": project_registry.list_projects()}
+        projects = sorted(set(project_registry.list_projects()) | set(self._projects))
+        return {"projects": projects}
 
     def choose_folder(self) -> dict[str, Any]:
         try:
@@ -45,7 +55,7 @@ class UiBridge:
         return {"output_dir": str(_default_output(Path(input_dir).expanduser()))}
 
     def load_project(self, project: str, output_dir: str | None = None) -> dict[str, Any]:
-        loaded = project_registry.load(project)
+        loaded = self._load_project(project)
         out = Path(output_dir).expanduser() if output_dir else None
         if out is None and loaded.input_dir:
             out = _default_output(Path(loaded.input_dir).expanduser())
@@ -105,3 +115,8 @@ class UiBridge:
         else:
             subprocess.Popen(["xdg-open", str(target)])
         return {"opened": True}
+
+    def _load_project(self, name: str) -> ProjectConfig:
+        if name in self._projects:
+            return self._projects[name]
+        return project_registry.load(name)

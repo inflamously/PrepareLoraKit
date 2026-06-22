@@ -6,7 +6,7 @@ Commands:
   step  Run a single pipeline step manually (dynamic, by name/alias)
   networks   List available network profiles
   projects   List available project configs
-  ui         Launch desktop webview UI
+  ui         Launch desktop webview UI, optionally with --mock STEP
 """
 from __future__ import annotations
 

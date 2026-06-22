@@ -17,6 +17,36 @@ export async function loadProjects() {
   select.replaceChildren(placeholder, ...options);
 }
 
+export async function applyBootstrap(bootstrap) {
+  if (!bootstrap) return;
+
+  ensureProjectOption(bootstrap.project);
+  $("projectSelect").value = bootstrap.project || "";
+  $("inputDir").value = bootstrap.input_dir || "";
+  $("outputDir").value = bootstrap.output_dir || "";
+  $("tokenInput").value = bootstrap.token || "";
+  $("forceInput").checked = Boolean(bootstrap.force);
+  state.outputDir = bootstrap.output_dir || "";
+  state.outputCustomized = Boolean(state.outputDir);
+  state.mockRuntime = Boolean(bootstrap.mock_runtime);
+  state.mockProjectName = bootstrap.mock_runtime ? bootstrap.project : null;
+
+  const result = await api().load_project(
+    bootstrap.project,
+    bootstrap.output_dir || null,
+  );
+  applyProjectResult(result, { updateInput: true });
+
+  $("inputDir").value = bootstrap.input_dir || result.input_dir || "";
+  $("outputDir").value = bootstrap.output_dir || result.output_dir || "";
+  $("tokenInput").value = bootstrap.token || "";
+  $("forceInput").checked = Boolean(bootstrap.force);
+  state.outputDir = $("outputDir").value;
+  state.outputCustomized = Boolean(state.outputDir.trim());
+  state.selectedSteps = selectedAvailableSteps(new Set(bootstrap.selected_steps || []));
+  render();
+}
+
 export async function loadProject(options = {}) {
   const name = $("projectSelect").value;
   if (!name) {
@@ -28,6 +58,7 @@ export async function loadProject(options = {}) {
     ? $("outputDir").value.trim() || null
     : null;
   const result = await api().load_project(name, output);
+  state.mockRuntime = state.mockProjectName === name;
   applyProjectResult(result, {
     updateInput: true,
     preserveSelection: options.preserveSelection === true,
@@ -59,6 +90,7 @@ export async function loadProjectForInput() {
 
   ensureProjectOption(result.project_name);
   $("projectSelect").value = result.project_name;
+  state.mockRuntime = state.mockProjectName === result.project_name;
   applyProjectResult(result, { updateInput: true });
 }
 
@@ -86,6 +118,8 @@ function resetProjectSelection() {
   state.selectedSteps = new Set();
   state.outputDir = "";
   state.outputCustomized = false;
+  state.mockRuntime = false;
+  state.mockProjectName = null;
 
   $("inputDir").value = "";
   $("outputDir").value = "";

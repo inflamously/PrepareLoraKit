@@ -282,10 +282,15 @@ class UiInteractionProvider(InteractionProvider):
 class JobManager:
     """Starts and tracks one pipeline job at a time."""
 
-    def __init__(self, media_base_url: str | None = None) -> None:
+    def __init__(
+        self,
+        media_base_url: str | None = None,
+        projects: dict[str, ProjectConfig] | None = None,
+    ) -> None:
         self._jobs: dict[str, PipelineJob] = {}
         self._active_job_id: str | None = None
         self._media_base_url = media_base_url
+        self._projects = projects or {}
         self._lock = threading.Lock()
 
     def start_run(self, request: dict[str, Any]) -> str:
@@ -347,7 +352,7 @@ class JobManager:
         selected_steps = [str(s) for s in request.get("steps", [])]
         force = bool(request.get("force", False))
 
-        project = project_registry.load(project_name)
+        project = self._load_project(project_name)
         self._validate_selection(project, selected_steps, output_dir)
         network = self._load_network(project)
         state = RunState(output_dir)
@@ -373,6 +378,7 @@ class JobManager:
                 "model_id": request.get("caption_model_id") or None,
                 "vram_mode": request.get("caption_vram_mode") or None,
             },
+            mock_runtime=bool(request.get("mock_runtime", False)),
         )
 
         selected = set(selected_steps)
@@ -433,6 +439,11 @@ class JobManager:
         from ..networks import registry as net_registry
 
         return net_registry.load(project.network)
+
+    def _load_project(self, name: str) -> ProjectConfig:
+        if name in self._projects:
+            return self._projects[name]
+        return project_registry.load(name)
 
 
 def project_payload(project: ProjectConfig, output_dir: Path | None = None) -> dict[str, Any]:
