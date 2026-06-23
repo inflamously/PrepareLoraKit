@@ -9,6 +9,7 @@ Phase B: tkinter gallery — all images shown with pass/fail borders, click to
 from __future__ import annotations
 from pathlib import Path
 
+from ...cancellation import CancelCheck, check_cancel
 from ...interaction import CliInteractionProvider, InteractionProvider
 from ...utils import image as img_utils
 from ...utils import report as rpt
@@ -24,6 +25,7 @@ def run(
     scorers: list[dict] | None = None,
     report_path: Path | None = None,
     interaction: InteractionProvider | None = None,
+    cancel_check: CancelCheck | None = None,
 ) -> dict:
     """
     Run Step 1.
@@ -51,6 +53,7 @@ def run(
 
     # ── Phase A: score everything ───────────────────────────────────────────
     for path in images:
+        check_cancel(cancel_check)
         key = str(path)
         try:
             info = _score_image(path, thresholds, scorers)
@@ -66,10 +69,13 @@ def run(
     if auto_only:
         decisions = {str(p): ("reject" if i["auto_reject"] else "keep") for p, i in scored}
     else:
+        check_cancel(cancel_check)
         provider = interaction or CliInteractionProvider()
         decisions = provider.source_review(scored)
+        check_cancel(cancel_check)
 
     for path, info in scored:
+        check_cancel(cancel_check)
         key = str(path)
         decision = decisions.get(key, "reject" if info["auto_reject"] else "keep")
         kept_bool = decision == "keep"
@@ -91,8 +97,10 @@ def run(
     rpt.summary_counts(kept, rejected, flagged)
 
     survivors = [path_str for path_str, info in report.items() if info.get("kept")]
+    check_cancel(cancel_check)
     img_utils.materialize(survivors, input_dir, output_dir)
 
     report_path = report_path or (output_dir / "step1_report.json")
+    check_cancel(cancel_check)
     rpt.save_report(report, report_path)
     return report

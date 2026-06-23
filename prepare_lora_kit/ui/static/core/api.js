@@ -8,6 +8,7 @@
  * @property {Record<string, unknown>} config
  * @property {string} status
  * @property {string[]} prerequisites
+ * @property {boolean} optional
  */
 
 /**
@@ -155,6 +156,7 @@
  * @property {(job_id: string) => Promise<{job: JobPayload}>} get_job_status
  * @property {(job_id: string, request_id: string, value: unknown) => Promise<{accepted: boolean}>} submit_interaction
  * @property {(job_id: string) => Promise<{cancel_requested: boolean}>} cancel_job
+ * @property {() => Promise<{cancel_requested: boolean}>} shutdown
  * @property {(job_id: string, image_path: string, box: BoundingBox) => Promise<{caption: string, crop_path?: string, crop_name?: string, sidecar_path?: string}>} caption_region
  * @property {(path: string) => Promise<{opened: boolean, error?: string}>} open_path
  */

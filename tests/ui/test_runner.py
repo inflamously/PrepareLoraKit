@@ -2,13 +2,18 @@ import pytest
 from urllib.parse import parse_qs, quote, urlparse
 from urllib.request import urlopen
 
+from prepare_lora_kit.cancellation import CancelledRun
 from prepare_lora_kit.cli.ui import _static_server
 from prepare_lora_kit.project.base import ProjectConfig, PipelineStep
 from prepare_lora_kit.project.configs import (
     AuditConfig,
     CaptionConfig,
     ConfigGenConfig,
+    CurateConfig,
+    ImportConfig,
     QualityGateConfig,
+    UpscaleConfig,
+    VaeGateConfig,
 )
 from prepare_lora_kit.ui.runner import (
     JobManager,
@@ -25,7 +30,11 @@ def _project() -> ProjectConfig:
         name="test",
         network="flux-klein-9b",
         pipeline=[
+            PipelineStep("ImportStep", ImportConfig()),
             PipelineStep("QualityGateStep", QualityGateConfig(auto_only=True)),
+            PipelineStep("CurateStep", CurateConfig()),
+            PipelineStep("UpscaleStep", UpscaleConfig()),
+            PipelineStep("VaeGateStep", VaeGateConfig()),
             PipelineStep("CaptionStep", CaptionConfig()),
             PipelineStep("AuditStep", AuditConfig()),
             PipelineStep("ConfigGenStep", ConfigGenConfig()),
@@ -49,15 +58,52 @@ def test_validate_selection_accepts_completed_prerequisite(tmp_path):
     manager._validate_selection(_project(), ["AuditStep"], out)
 
 
+def test_validate_selection_requires_import_for_quality_gate(tmp_path):
+    manager = JobManager()
+
+    with pytest.raises(ValueError, match="QualityGateStep requires"):
+        manager._validate_selection(_project(), ["QualityGateStep"], tmp_path / "out")
+
+
+def test_validate_selection_accepts_existing_dataset_for_import_prerequisite(tmp_path):
+    out = tmp_path / "out"
+    (out / "dataset").mkdir(parents=True)
+
+    manager = JobManager()
+    manager._validate_selection(_project(), ["QualityGateStep"], out)
+
+
+def test_validate_selection_allows_vae_without_optional_upscale_when_curate_done(tmp_path):
+    out = tmp_path / "out"
+    (out / "dataset").mkdir(parents=True)
+    state = RunState(out)
+    state.mark_done("ImportStep")
+    state.mark_done("QualityGateStep")
+    state.mark_done("CurateStep")
+
+    manager = JobManager()
+    manager._validate_selection(_project(), ["VaeGateStep"], out)
+
+
 def test_project_payload_includes_run_state(tmp_path):
     out = tmp_path / "out"
+    RunState(out).mark_done("ImportStep")
     RunState(out).mark_done("QualityGateStep")
 
     payload = project_payload(_project(), out)
 
     statuses = {step["type"]: step["status"] for step in payload["steps"]}
+    assert statuses["ImportStep"] == "done"
     assert statuses["QualityGateStep"] == "done"
     assert statuses["CaptionStep"] == "pending"
+
+
+def test_project_payload_includes_optional_step_metadata(tmp_path):
+    payload = project_payload(_project(), tmp_path / "out")
+    optional = {step["type"]: step["optional"] for step in payload["steps"]}
+
+    assert optional["UpscaleStep"] is True
+    assert optional["VaeGateStep"] is False
 
 
 def test_image_payload_uses_media_endpoint_when_available(tmp_path):
@@ -89,6 +135,19 @@ def test_static_server_serves_local_image_media(tmp_path):
             assert response.status == 200
             assert response.headers["Content-Type"] == "image/png"
             assert response.read() == b"png-bytes"
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_static_server_uses_fast_shutdown_thread_settings(tmp_path):
+    static_dir = tmp_path / "static"
+    static_dir.mkdir()
+    server = _static_server(static_dir)
+
+    try:
+        assert server.daemon_threads is True
+        assert server.block_on_close is False
     finally:
         server.shutdown()
         server.server_close()
@@ -227,6 +286,23 @@ def test_ui_job_uses_plain_rich_console(monkeypatch):
     assert "external framework warning" in logs
 
 
+def test_cancelled_run_sets_clean_cancelled_status_without_traceback(monkeypatch):
+    manager = JobManager()
+    job = PipelineJob(manager, "test-job")
+
+    def fake_execute(job_arg, request):
+        raise CancelledRun("Run cancelled")
+
+    monkeypatch.setattr(manager, "_execute", fake_execute)
+
+    manager._run_job(job, {})
+
+    snapshot = job.snapshot()
+    assert snapshot["status"] == "cancelled"
+    assert snapshot["error"] == "Run cancelled"
+    assert not any("Traceback" in line for line in snapshot["logs"])
+
+
 def test_cancel_updates_visible_job_status():
     job = PipelineJob(JobManager(), "test-job")
     job.set_status("running", current_step="CaptionStep")
@@ -237,3 +313,17 @@ def test_cancel_updates_visible_job_status():
     assert snapshot["cancel_requested"] is True
     assert snapshot["status"] == "cancelling"
     assert snapshot["current_step"] == "CaptionStep"
+
+
+def test_cancel_active_marks_active_job_cancelling():
+    manager = JobManager()
+    job = PipelineJob(manager, "test-job")
+    job.set_status("running", current_step="CaptionStep")
+    manager._jobs[job.id] = job
+    manager._active_job_id = job.id
+
+    assert manager.cancel_active() is True
+
+    snapshot = job.snapshot()
+    assert snapshot["cancel_requested"] is True
+    assert snapshot["status"] == "cancelling"

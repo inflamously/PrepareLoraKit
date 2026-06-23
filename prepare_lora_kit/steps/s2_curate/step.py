@@ -8,6 +8,7 @@ Step 2 — Curation
 from __future__ import annotations
 from pathlib import Path
 
+from ...cancellation import CancelCheck, CancelledRun, check_cancel
 from ...utils import image as img_utils
 from ...utils import report as rpt
 
@@ -22,6 +23,7 @@ def run(
     auto_dedupe: bool = True,
     skip_clip: bool = False,
     report_path: Path | None = None,
+    cancel_check: CancelCheck | None = None,
 ) -> dict:
     rpt.step_header(2, "Curation — Dedupe + Coverage")
 
@@ -39,11 +41,15 @@ def run(
         return {}
 
     rpt.info(f"Found {len(images)} images. Computing perceptual hashes …")
-    hashes = _compute_hashes(images)
+    hashes = _compute_hashes(images, cancel_check=cancel_check)
 
-    pairs = _find_duplicates(hashes)
+    pairs = _find_duplicates(hashes, cancel_check=cancel_check)
     rpt.info(f"Near-duplicate pairs: {len(pairs)}")
-    to_drop = _resolve_duplicates(pairs, auto_drop=auto_dedupe) if pairs else set()
+    to_drop = _resolve_duplicates(
+        pairs,
+        auto_drop=auto_dedupe,
+        cancel_check=cancel_check,
+    ) if pairs else set()
 
     kept_images = [p for p in images if p not in to_drop]
     rpt.ok(f"After dedupe: {len(kept_images)} images ({len(to_drop)} dropped)")
@@ -53,7 +59,7 @@ def run(
     coverage_metadata: dict | None = None
     if not skip_clip:
         try:
-            emb = _clip_embeddings(kept_images)
+            emb = _clip_embeddings(kept_images, cancel_check=cancel_check)
             if len(kept_images) > 30:
                 rpt.info("Computing CLIP embeddings for UMAP coverage …")
                 coverage_path = artifact_dir / "coverage_umap.png"
@@ -62,6 +68,8 @@ def run(
                 rpt.info("Computing CLIP embeddings for PCA coverage …")
                 coverage_path = artifact_dir / "coverage_pca.png"
                 coverage_metadata = _save_pca(emb, kept_images, coverage_path)
+        except CancelledRun:
+            raise
         except Exception as exc:
             coverage_path = None
             coverage_metadata = None
@@ -72,15 +80,18 @@ def run(
     if not skip_clip:
         try:
             rpt.info("Running occlusion filter (CLIP zero-shot) …")
-            occ_scores = _occlusion_scores(kept_images)
+            occ_scores = _occlusion_scores(kept_images, cancel_check=cancel_check)
             occluded = [str(p) for p, s in occ_scores.items() if s < OCCLUSION_THRESHOLD]
             if occluded:
                 rpt.warn(f"{len(occluded)} images flagged as possibly occluded/ambiguous:")
                 for o in occluded:
                     rpt.warn(f"  {Path(o).name}")
+        except CancelledRun:
+            raise
         except Exception as exc:
             rpt.warn(f"Occlusion filter failed: {exc}")
 
+    check_cancel(cancel_check)
     img_utils.materialize(kept_images, dataset_dir, output_dir)
 
     report = {
@@ -91,5 +102,6 @@ def run(
         "coverage_image": str(coverage_path) if coverage_path else None,
         "coverage": coverage_metadata,
     }
+    check_cancel(cancel_check)
     rpt.save_report(report, report_path)
     return report

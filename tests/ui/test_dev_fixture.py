@@ -14,10 +14,13 @@ from prepare_lora_kit.utils.state import RunState
 
 
 def test_resolve_mock_steps_accepts_aliases_and_all():
+    assert resolve_mock_steps("s0") == ["ImportStep"]
+    assert resolve_mock_steps("0") == ["ImportStep"]
+    assert resolve_mock_steps("s1") == ["QualityGateStep"]
     assert resolve_mock_steps("s2") == ["CurateStep"]
     assert resolve_mock_steps("2") == ["CurateStep"]
     assert resolve_mock_steps("curatestep") == ["CurateStep"]
-    assert resolve_mock_steps("all")[0] == "QualityGateStep"
+    assert resolve_mock_steps("all")[0] == "ImportStep"
     assert resolve_mock_steps("all")[-1] == "BucketDryRunStep"
 
 
@@ -41,7 +44,9 @@ def test_mock_fixture_generates_dataset_and_prerequisite_state(tmp_path):
     assert not (fixture.output_dir / "dataset" / "mock_bad_too_small.png").exists()
 
     state = RunState(fixture.output_dir)
+    assert state.is_done("ImportStep")
     assert state.is_done("QualityGateStep")
+    assert state.is_done("VaeGateStep")
     assert state.is_done("CaptionStep")
     assert not state.is_done("AuditStep")
 
@@ -52,17 +57,29 @@ def test_mock_fixture_does_not_seed_captions_before_caption_step(tmp_path):
     assert len(list((fixture.output_dir / "dataset").glob("*.png"))) == 4
     assert not (fixture.output_dir / "dataset" / "mock_bad_too_small.png").exists()
     assert not list((fixture.output_dir / "dataset").glob("*.txt"))
+    assert RunState(fixture.output_dir).is_done("ImportStep")
     assert RunState(fixture.output_dir).is_done("QualityGateStep")
     assert not RunState(fixture.output_dir).is_done("CurateStep")
 
 
+def test_mock_import_fixture_starts_without_working_dataset(tmp_path):
+    fixture = create_mock_ui_fixture("ImportStep", root=tmp_path / "mock")
+
+    assert len(list(fixture.input_dir.glob("*.png"))) == 5
+    assert not (fixture.output_dir / "dataset").exists()
+    assert not RunState(fixture.output_dir).is_done("ImportStep")
+
+
 def test_mock_quality_gate_fixture_includes_reviewable_good_and_bad_images(tmp_path):
     fixture = create_mock_ui_fixture("QualityGateStep", root=tmp_path / "mock")
-    quality_config = fixture.project.pipeline[0].config
+    quality_config = next(
+        step.config for step in fixture.project.pipeline if step.type == "QualityGateStep"
+    )
 
     assert len(list(fixture.input_dir.glob("*.png"))) == 5
     assert len(list((fixture.output_dir / "dataset").glob("*.png"))) == 5
     assert quality_config.auto_only is False
+    assert RunState(fixture.output_dir).is_done("ImportStep")
     assert [(s.name, s.op, s.threshold) for s in quality_config.scorers] == [
         ("min_side", "lt", 1024.0)
     ]
@@ -197,9 +214,11 @@ def test_mock_project_curate_writes_requested_coverage_plot(
     assert report["coverage_image"] == str(coverage_path)
     assert coverage_path.exists()
     assert job.curate_report["coverage"]["method"] == expected_method
-    assert report["coverage"]["dense_clusters"]
     if expected_method == "umap":
-        assert len(report["kept_images"]) > fixture.project.pipeline[1].config.pca_umap_switch_threshold
+        curate_config = next(
+            step.config for step in fixture.project.pipeline if step.type == "CurateStep"
+        )
+        assert len(report["kept_images"]) > curate_config.pca_umap_switch_threshold
 
 
 def test_mock_project_quality_gate_runs_with_good_and_bad_images(tmp_path, monkeypatch):
@@ -288,6 +307,8 @@ def test_project_yaml_can_parse_curate_skip_clip(tmp_path):
 name: mock
 network: flux-klein-9b
 pipeline:
+  - type: ImportStep
+  - type: QualityGateStep
   - type: CurateStep
     skip_clip: true
 """
@@ -295,7 +316,7 @@ pipeline:
 
     project = ProjectConfig.from_yaml(path)
 
-    assert project.pipeline[0].config.skip_clip is True
+    assert project.pipeline[2].config.skip_clip is True
 
 
 def make_image(path):

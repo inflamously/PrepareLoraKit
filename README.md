@@ -77,7 +77,8 @@ plk step -s CaptionStep -p example -i /path/to/images -o outputs/example -t my_t
 plk step -s s5 -p example -i /path/to/images -o outputs/example -t my_trigger
 ```
 
-Step aliases are `s1` through `s8` in pipeline order.
+Step aliases are `s0` through `s8` in pipeline order. `s0` imports the source
+images; existing `s1` through `s8` aliases keep their historical meanings.
 
 `plk projects`
 
@@ -94,11 +95,12 @@ Lists supported adapter network types: `lora`, `lokr`, and `dora`.
 ## Pipeline Stages
 
 Pipeline stages are configured in `configs/projects/<name>.yaml`. The default
-example pipeline has eight stages.
+example pipeline has nine stages.
 
 | Step | Type | Purpose | Main outputs |
 | --- | --- | --- | --- |
-| 1 | `QualityGateStep` | Scores source images for size, blur, noise, JPEG artifacts, and watermark likelihood. Supports manual review. | Working `dataset/`, `QualityGateStep_report.json` |
+| 0 | `ImportStep` | Copies source images into the working dataset. | Working `dataset/`, `ImportStep_report.json` |
+| 1 | `QualityGateStep` | Scores imported images for size, blur, noise, JPEG artifacts, and watermark likelihood. Supports manual review. | Updated `dataset/`, `QualityGateStep_report.json` |
 | 2 | `CurateStep` | Removes perceptual-hash duplicates, creates CLIP coverage plots, and flags occlusion or ambiguous images. | Updated `dataset/`, coverage image, `CurateStep_report.json` |
 | 3 | `UpscaleStep` | Upscales images below the target minimum side with the configured algorithm; unavailable algorithms warn and skip. | Updated images, `UpscaleStep_report.json` |
 | 4 | `VaeGateStep` | Reconstructs images through the target VAE and flags high-frequency loss outliers. | Updated `dataset/`, `VaeGateStep_report.json` |
@@ -107,12 +109,10 @@ example pipeline has eight stages.
 | 7 | `ConfigGenStep` | Builds ai-toolkit training YAML from dataset stats, project settings, and network profile defaults. | `run_config.yaml`, `ConfigGenStep_report.json` |
 | 8 | `BucketDryRunStep` | Simulates bucket assignment and flags thin buckets before training. | Bucket report, optional `cache_info.json` |
 
-Ordering rules are enforced when project configs load:
-
-- `AuditStep` requires `CaptionStep` earlier in the pipeline.
-- `ConfigGenStep` requires `CaptionStep` earlier in the pipeline.
-- `BucketDryRunStep` requires `ConfigGenStep` earlier in the pipeline.
-- Duplicate step types are rejected.
+Ordering rules are enforced when project configs load. Each step after
+`ImportStep` requires the previous step to appear earlier in the pipeline, and
+duplicate step types are rejected. Legacy configs that start with
+`QualityGateStep` are loaded with `ImportStep` inserted in memory.
 
 ## Configuration Model
 
@@ -140,7 +140,11 @@ network: flux-klein-9b
 network_type: dora
 
 pipeline:
+  - type: ImportStep
   - type: QualityGateStep
+  - type: CurateStep
+  - type: UpscaleStep
+  - type: VaeGateStep
   - type: CaptionStep
   - type: AuditStep
   - type: ConfigGenStep
@@ -178,6 +182,7 @@ outputs/<dataset-name>/
     image_002.png
     image_002.txt
   reports/
+    ImportStep_report.json
     QualityGateStep_report.json
     CurateStep_report.json
     coverage_pca.png
@@ -204,9 +209,52 @@ The project depends on image processing, ML, and CLI libraries listed in
 - easygui for fallback manual review flows
 - bitsandbytes for optional 4-bit or 8-bit VLM quantization
 
-SeedVR upscaling is optional. If `upscale_model: seedvr` is configured and
-`SEEDVR_PATH` is unset, the upscale step warns and skips candidates. Use
-`upscale_model: lanczos` explicitly when you want the Lanczos fallback algorithm.
+SeedVR2 upscaling is optional and uses the pinned submodule at
+`third_party/seedvr2`. Initialize it before using `upscale_model: seedvr2`:
+
+```bash
+git submodule update --init --recursive third_party/seedvr2
+python -m pip install -e third_party/seedvr2
+```
+
+PLK imports SeedVR2's standalone `inference_cli.py` lazily at Step 3 runtime and
+does not import ComfyUI nodes. SeedVR2 models are downloaded into
+`~/.cache/prepare_lora_kit/seedvr2` by default, configurable with
+`seedvr2_model_dir`.
+
+Select a supported DiT checkpoint with `seedvr2_dit_model`. Leaving the field
+out, setting it to `null`, or leaving the YAML value empty uses the default
+`seedvr2_ema_3b_fp8_e4m3fn.safetensors`.
+
+```yaml
+upscale_model: seedvr2
+seedvr2_dit_model: seedvr2_ema_7b_fp8_e4m3fn_mixed_block35_fp16.safetensors
+```
+
+Supported SeedVR2 DiT models:
+
+| Model | Size | Precision / quantization | Format | Variant | Label |
+| --- | --- | --- | --- | --- | --- |
+| `seedvr2_ema_3b_fp8_e4m3fn.safetensors` | 3B | fp8 e4m3fn | safetensors | base | default |
+| `seedvr2_ema_3b_fp16.safetensors` | 3B | fp16 | safetensors | base | 3B quality |
+| `seedvr2_ema_3b-Q4_K_M.gguf` | 3B | Q4_K_M | gguf | base | lower VRAM |
+| `seedvr2_ema_3b-Q8_0.gguf` | 3B | Q8_0 | gguf | base | balanced GGUF |
+| `seedvr2_ema_7b_fp8_e4m3fn_mixed_block35_fp16.safetensors` | 7B | fp8 e4m3fn mixed block35 fp16 | safetensors | base | higher quality |
+| `seedvr2_ema_7b_fp16.safetensors` | 7B | fp16 | safetensors | base | highest quality |
+| `seedvr2_ema_7b-Q4_K_M.gguf` | 7B | Q4_K_M | gguf | base | lower VRAM 7B |
+| `seedvr2_ema_7b_sharp_fp8_e4m3fn_mixed_block35_fp16.safetensors` | 7B | fp8 e4m3fn mixed block35 fp16 | safetensors | sharp | sharp |
+| `seedvr2_ema_7b_sharp_fp16.safetensors` | 7B | fp16 | safetensors | sharp | sharp highest quality |
+| `seedvr2_ema_7b_sharp-Q4_K_M.gguf` | 7B | Q4_K_M | gguf | sharp | sharp lower VRAM |
+
+For a 20-24 GB 7B path, start with
+`seedvr2_ema_7b_fp8_e4m3fn_mixed_block35_fp16.safetensors`. Unknown filenames
+emit a warning but are still accepted so local or experimental checkpoints can
+be used.
+
+If the submodule, SeedVR2 runtime dependencies, or SeedVR2 models are not
+available, `upscale_model: seedvr2` skips upscale candidates with a report
+reason. It does not fall back to Lanczos; use `upscale_model: lanczos`
+explicitly when you want that algorithm.
 
 ## Extension Points
 
@@ -228,7 +276,7 @@ Add a new network profile:
 Add a new pipeline step:
 
 1. Add a step config dataclass under `prepare_lora_kit/project/configs/`.
-2. Register it in `STEP_TYPE_MAP` in `prepare_lora_kit/project/base.py`.
+2. Register it in `STEP_TYPE_MAP` in `prepare_lora_kit/project/steps.py`.
 3. Implement the step module under `prepare_lora_kit/steps/`.
 4. Add an invoke adapter in `prepare_lora_kit/invoke.py`.
 5. Add any ordering rules to `STEP_PREREQUISITES`.

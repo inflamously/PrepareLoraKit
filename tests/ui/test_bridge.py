@@ -4,6 +4,7 @@ import yaml
 
 from prepare_lora_kit.project import registry as project_registry
 from prepare_lora_kit.ui.bridge import UiBridge
+from prepare_lora_kit.ui.runner import PipelineJob
 
 
 def test_bridge_folder_first_creates_missing_project(tmp_path, monkeypatch):
@@ -35,6 +36,9 @@ network: flux-klein-9b
 pipeline:
   - type: QualityGateStep
     auto_only: true
+  - type: CurateStep
+  - type: UpscaleStep
+  - type: VaeGateStep
   - type: CaptionStep
   - type: AuditStep
 """)
@@ -46,9 +50,13 @@ pipeline:
     assert result["project"]["input_dir"] == str(input_dir.resolve())
     assert [step["type"] for step in data["pipeline"]] == [
         "QualityGateStep",
+        "CurateStep",
+        "UpscaleStep",
+        "VaeGateStep",
         "CaptionStep",
         "AuditStep",
     ]
+    assert result["project"]["steps"][0]["type"] == "ImportStep"
     assert data["pipeline"][0]["auto_only"] is True
 
 
@@ -71,3 +79,16 @@ pipeline: []
     assert result["input_dir"] == str(input_dir)
     assert result["project"]["input_dir"] == str(input_dir)
     assert Path(result["output_dir"]).parts[-2:] == ("outputs", "saved-dataset")
+
+
+def test_bridge_shutdown_cancels_active_job():
+    bridge = UiBridge()
+    job = PipelineJob(bridge.jobs, "active-job")
+    job.set_status("running", current_step="CaptionStep")
+    bridge.jobs._jobs[job.id] = job
+    bridge.jobs._active_job_id = job.id
+
+    result = bridge.shutdown()
+
+    assert result == {"cancel_requested": True}
+    assert job.snapshot()["status"] == "cancelling"

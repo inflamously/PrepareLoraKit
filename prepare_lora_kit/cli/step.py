@@ -14,14 +14,16 @@ from ._shared import cli, cli_option_input, cli_option_output, cli_option_token
 from ..invoke import STEP_INVOKE_MAP
 from ..project import registry as project_registry
 from ..project.base import STEP_TYPE_MAP
+from ..project.steps import (
+    STEP_PREREQUISITES,
+    mark_legacy_import_satisfied,
+    step_aliases,
+)
 from ..pipeline import RunConfig
 
 
-# Short aliases (sN / bare index) → canonical step type, in pipeline order.
-_STEP_ALIASES: dict[str, str] = {}
-for _i, _t in enumerate(STEP_TYPE_MAP, start=1):
-    _STEP_ALIASES[f"s{_i}"] = _t
-    _STEP_ALIASES[str(_i)] = _t
+# Short aliases (sN / bare index) → canonical step type, preserving s1..s8.
+_STEP_ALIASES = step_aliases()
 
 
 def _resolve_step_type(raw: str) -> str:
@@ -35,7 +37,7 @@ def _resolve_step_type(raw: str) -> str:
     raise click.BadParameter(
         f"Unknown step '{raw}'.\n"
         f"  Types:   {', '.join(STEP_TYPE_MAP)}\n"
-        f"  Aliases: {', '.join(f's{i}' for i in range(1, len(STEP_TYPE_MAP) + 1))}",
+        f"  Aliases: {', '.join(sorted(_STEP_ALIASES))}",
         param_hint="--step",
     )
 
@@ -50,7 +52,7 @@ def _load_project(name: str):
 @cli.command()
 @click.pass_context
 @click.option("--step", "-s", "step_name", required=True,
-              help="Step to run: type name (e.g. CaptionStep) or alias s1..s8.")
+              help="Step to run: type name (e.g. CaptionStep) or alias s0..s8.")
 @click.option("--project", "-p", "project_name", required=True,
               help="Project config name (configs/projects/<name>.yaml).")
 @cli_option_input
@@ -92,9 +94,27 @@ def step(ctx, step_name, project_name, input_dir, output_dir, token, force):
     network = net_registry.load(project.network)
     state = RunState(out_dir)
 
+    if (
+        not force
+        and step_type == "ImportStep"
+        and mark_legacy_import_satisfied(state, out_dir)
+    ):
+        rpt.info("ImportStep satisfied by existing working dataset.")
+        return
+
     if not force and state.is_done(step_type):
         rpt.info(f"{step_type} already done — skipping (use --force to re-run).")
         return
+
+    if not force:
+        if mark_legacy_import_satisfied(state, out_dir):
+            rpt.info("ImportStep satisfied by existing working dataset.")
+        for req in STEP_PREREQUISITES.get(step_type, []):
+            if not state.is_done(req):
+                raise click.ClickException(f"{step_type} requires completed prerequisite {req}")
+
+    if step_type != "ImportStep" and not working_dir.exists():
+        raise click.ClickException("The working dataset does not exist. Run ImportStep first.")
 
     shared_kw = dict(network=network, concept_token=token, original_dir=input_dir,
                      network_type=project.network_type, force=force)

@@ -1,0 +1,12 @@
+{
+  "seedvr2_ema_3b_fp8_e4m3fn.safetensors": {
+    "size": 3391544696,
+    "mtime": 1782208548.651551,
+    "hash": "3bf1e43ebedd570e7e7a0b1b60d6a02e105978f505c8128a241cde99a8240cff"
+  },
+  "ema_vae_fp16.safetensors": {
+    "size": 501324814,
+    "mtime": 1782208554.662465,
+    "hash": "20678548f420d98d26f11442d3528f8b8c94e57ee046ef93dbb7633da8612ca1"
+  }
+}

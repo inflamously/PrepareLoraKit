@@ -38,12 +38,13 @@ function renderStep(step) {
   const prereq = step.prerequisites?.length
     ? `Requires ${step.prerequisites.join(", ")}`
     : "No special prerequisites";
+  const optional = step.optional ? " · Optional" : "";
 
   row.innerHTML = `
     <input type="checkbox" ${checked} ${disabled} data-step="${escapeText(step.type)}" />
     <div>
       <strong>${escapeText(stepLabel(step.type))}</strong>
-      <small>${escapeText(step.type)} · ${escapeText(prereq)}</small>
+      <small>${escapeText(step.type)} · ${escapeText(prereq)}${optional}</small>
     </div>
     <span class="badge ${badgeClass}">${escapeText(status)}</span>
   `;

@@ -10,6 +10,7 @@ from ...project.configs import (
     CaptionConfig,
     ConfigGenConfig,
     CurateConfig,
+    ImportConfig,
     QualityGateConfig,
     ScorerEntry,
     UpscaleConfig,
@@ -24,6 +25,7 @@ def mock_project(input_dir: Path) -> ProjectConfig:
         network="flux-klein-9b",
         input_dir=str(input_dir),
         pipeline=[
+            PipelineStep("ImportStep", ImportConfig()),
             PipelineStep(
                 "QualityGateStep",
                 QualityGateConfig(

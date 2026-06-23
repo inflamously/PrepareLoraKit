@@ -2,16 +2,18 @@
 from __future__ import annotations
 from pathlib import Path
 
+from ...cancellation import CancelCheck, check_cancel
 from ...utils import report as rpt
 
 HASH_DISTANCE = 8
 
 
-def _compute_hashes(paths: list[Path]) -> dict[Path, object]:
+def _compute_hashes(paths: list[Path], cancel_check: CancelCheck | None = None) -> dict[Path, object]:
     import imagehash
     from PIL import Image
     hashes = {}
     for p in paths:
+        check_cancel(cancel_check)
         try:
             hashes[p] = imagehash.phash(Image.open(p).convert("RGB"))
         except Exception as exc:
@@ -19,11 +21,15 @@ def _compute_hashes(paths: list[Path]) -> dict[Path, object]:
     return hashes
 
 
-def _find_duplicates(hashes: dict[Path, object]) -> list[tuple[Path, Path, int]]:
+def _find_duplicates(
+    hashes: dict[Path, object],
+    cancel_check: CancelCheck | None = None,
+) -> list[tuple[Path, Path, int]]:
     """Return list of (path_a, path_b, hamming_distance) for near-duplicate pairs."""
     items = list(hashes.items())
     dupes = []
     for i in range(len(items)):
+        check_cancel(cancel_check)
         for j in range(i + 1, len(items)):
             dist = items[i][1] - items[j][1]
             if dist <= HASH_DISTANCE:
@@ -34,11 +40,13 @@ def _find_duplicates(hashes: dict[Path, object]) -> list[tuple[Path, Path, int]]
 def _resolve_duplicates(
     pairs: list[tuple[Path, Path, int]],
     auto_drop: bool = True,
+    cancel_check: CancelCheck | None = None,
 ) -> set[Path]:
     """Return set of paths to drop. Auto-drops the blurrier of each pair."""
     from ...utils.image import blur_score
     to_drop: set[Path] = set()
     for a, b, dist in pairs:
+        check_cancel(cancel_check)
         if a in to_drop or b in to_drop:
             continue
         blur_a = blur_score(a)

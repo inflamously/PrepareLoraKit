@@ -10,35 +10,54 @@ import shutil
 from pathlib import Path
 from typing import Callable, Optional
 
+from .cancellation import check_cancel
 from .project.configs import (
+    ImportConfig,
     QualityGateConfig, CurateConfig, UpscaleConfig, VaeGateConfig,
     CaptionConfig, AuditConfig, ConfigGenConfig, BucketDryRunConfig,
 )
 
 
+def _invoke_ImportStep(working_dir: Path, output_dir: Path, cfg: ImportConfig,
+                       *, original_dir: Path, **_kw) -> dict:
+    from .steps import s0_import
+    if working_dir.exists():
+        shutil.rmtree(working_dir)
+    check_cancel(_kw.get("cancel_check"))
+    return s0_import.run(
+        original_dir,
+        working_dir,
+        report_path=output_dir / "reports" / "ImportStep_report.json",
+        cancel_check=_kw.get("cancel_check"),
+    )
+
+
 def _invoke_QualityGateStep(working_dir: Path, output_dir: Path, cfg: QualityGateConfig,
                              *, original_dir: Path, **_kw) -> None:
     from .steps import s1_source
-    if working_dir.exists():
-        shutil.rmtree(working_dir)
+    _require_working_dataset(working_dir)
     s1_source.run(
-        original_dir, working_dir,
+        working_dir,
+        working_dir,
         auto_only=cfg.auto_only,
         manual_all=cfg.manual_all,
         scorers=[dataclasses.asdict(s) for s in cfg.scorers],
         report_path=output_dir / "reports" / "QualityGateStep_report.json",
         interaction=_kw.get("interaction"),
+        cancel_check=_kw.get("cancel_check"),
     )
 
 
 def _invoke_CurateStep(working_dir: Path, output_dir: Path, cfg: CurateConfig,
                         **_kw) -> None:
+    _require_working_dataset(working_dir)
     if _kw.get("mock_runtime"):
         return _mock_curate(
             working_dir,
             output_dir,
             cfg,
             coverage_mode=str(_kw.get("mock_curate_coverage") or "auto"),
+            cancel_check=_kw.get("cancel_check"),
         )
 
     from .steps import s2_curate
@@ -48,11 +67,13 @@ def _invoke_CurateStep(working_dir: Path, output_dir: Path, cfg: CurateConfig,
         auto_dedupe=True,
         skip_clip=cfg.skip_clip,
         report_path=output_dir / "reports" / "CurateStep_report.json",
+        cancel_check=_kw.get("cancel_check"),
     )
 
 
 def _invoke_UpscaleStep(working_dir: Path, output_dir: Path, cfg: UpscaleConfig,
                          **_kw) -> None:
+    _require_working_dataset(working_dir)
     from .steps import s3_upscale
     s3_upscale.run(
         working_dir,
@@ -61,13 +82,28 @@ def _invoke_UpscaleStep(working_dir: Path, output_dir: Path, cfg: UpscaleConfig,
         upscale_model=cfg.upscale_model,
         hallucination_ssim_threshold=cfg.hallucination_ssim_threshold,
         report_path=output_dir / "reports" / "UpscaleStep_report.json",
+        seedvr2_submodule_dir=cfg.seedvr2_submodule_dir,
+        seedvr2_model_dir=cfg.seedvr2_model_dir,
+        seedvr2_dit_model=cfg.seedvr2_dit_model,
+        seedvr2_cuda_device=cfg.seedvr2_cuda_device,
+        seedvr2_batch_size=cfg.seedvr2_batch_size,
+        seedvr2_vae_tiled=cfg.seedvr2_vae_tiled,
+        seedvr2_cache_models=cfg.seedvr2_cache_models,
+        seedvr2_debug=cfg.seedvr2_debug,
+        cancel_check=_kw.get("cancel_check"),
     )
 
 
 def _invoke_VaeGateStep(working_dir: Path, output_dir: Path, cfg: VaeGateConfig,
                          *, network, **_kw) -> None:
+    _require_working_dataset(working_dir)
     if _kw.get("mock_runtime"):
-        _mock_vae_gate(working_dir, output_dir, interaction=_kw.get("interaction"))
+        _mock_vae_gate(
+            working_dir,
+            output_dir,
+            interaction=_kw.get("interaction"),
+            cancel_check=_kw.get("cancel_check"),
+        )
         return
 
     from .steps import s4_vae_gate
@@ -86,11 +122,13 @@ def _invoke_VaeGateStep(working_dir: Path, output_dir: Path, cfg: VaeGateConfig,
         output_silhouettes=cfg.output_silhouettes,
         output_hard_silhouettes=cfg.output_hard_silhouettes,
         max_side=cfg.max_side,
+        cancel_check=_kw.get("cancel_check"),
     )
 
 
 def _invoke_CaptionStep(working_dir: Path, output_dir: Path, cfg: CaptionConfig,
                          *, concept_token: Optional[str], **_kw) -> None:
+    _require_working_dataset(working_dir)
     if _kw.get("mock_runtime"):
         _mock_caption(
             working_dir,
@@ -98,6 +136,7 @@ def _invoke_CaptionStep(working_dir: Path, output_dir: Path, cfg: CaptionConfig,
             concept_token=concept_token,
             interaction=_kw.get("interaction"),
             force=bool(_kw.get("force", False)),
+            cancel_check=_kw.get("cancel_check"),
         )
         return
 
@@ -117,22 +156,26 @@ def _invoke_CaptionStep(working_dir: Path, output_dir: Path, cfg: CaptionConfig,
         overwrite=bool(_kw.get("force", False)),
         report_path=output_dir / "reports" / "CaptionStep_report.json",
         interaction=_kw.get("interaction"),
+        cancel_check=_kw.get("cancel_check"),
     )
 
 
 def _invoke_AuditStep(working_dir: Path, output_dir: Path, cfg: AuditConfig,
                        *, network, **_kw) -> dict:
+    _require_working_dataset(working_dir)
     from .steps import s6_audit
     return s6_audit.run(
         working_dir,
         network=network,
         report_path=output_dir / "reports" / "AuditStep_report.json",
+        cancel_check=_kw.get("cancel_check"),
     )
 
 
 def _invoke_ConfigGenStep(working_dir: Path, output_dir: Path, cfg: ConfigGenConfig,
                            *, network, concept_token: Optional[str],
                            network_type: Optional[str] = None, **_kw) -> None:
+    _require_working_dataset(working_dir)
     from .steps import s7_config
     s7_config.run(
         working_dir,
@@ -141,11 +184,13 @@ def _invoke_ConfigGenStep(working_dir: Path, output_dir: Path, cfg: ConfigGenCon
         output_dir=output_dir,
         network_type=network_type,
         report_path=output_dir / "reports" / "ConfigGenStep_report.json",
+        cancel_check=_kw.get("cancel_check"),
     )
 
 
 def _invoke_BucketDryRunStep(working_dir: Path, output_dir: Path, cfg: BucketDryRunConfig,
                               *, network, **_kw) -> None:
+    _require_working_dataset(working_dir)
     from .steps import s8_bucket
     s8_bucket.run(
         working_dir,
@@ -154,10 +199,12 @@ def _invoke_BucketDryRunStep(working_dir: Path, output_dir: Path, cfg: BucketDry
         cache_mode=cfg.cache_mode,
         thin_threshold=cfg.thin_threshold,
         report_path=output_dir / "reports" / "BucketDryRunStep_report.json",
+        cancel_check=_kw.get("cancel_check"),
     )
 
 
 STEP_INVOKE_MAP: dict[str, Callable] = {
+    "ImportStep":       _invoke_ImportStep,
     "QualityGateStep":  _invoke_QualityGateStep,
     "CurateStep":       _invoke_CurateStep,
     "UpscaleStep":      _invoke_UpscaleStep,
@@ -169,12 +216,18 @@ STEP_INVOKE_MAP: dict[str, Callable] = {
 }
 
 
+def _require_working_dataset(working_dir: Path) -> None:
+    if not working_dir.exists():
+        raise FileNotFoundError(f"Working dataset does not exist at {working_dir}. Run ImportStep first.")
+
+
 def _mock_curate(
     working_dir: Path,
     output_dir: Path,
     cfg: CurateConfig,
     *,
     coverage_mode: str = "auto",
+    cancel_check=None,
 ) -> dict:
     from .steps.s2_curate.coverage import _save_pca, _save_umap
     from .steps.s2_curate.dedupe import _compute_hashes, _find_duplicates, _resolve_duplicates
@@ -191,10 +244,12 @@ def _mock_curate(
         rpt.warn(f"No images in {working_dir}")
         return {}
 
-    hashes = _compute_hashes(images)
-    pairs = _find_duplicates(hashes)
-    to_drop = _resolve_duplicates(pairs, auto_drop=True) if pairs else set()
+    check_cancel(cancel_check)
+    hashes = _compute_hashes(images, cancel_check=cancel_check)
+    pairs = _find_duplicates(hashes, cancel_check=cancel_check)
+    to_drop = _resolve_duplicates(pairs, auto_drop=True, cancel_check=cancel_check) if pairs else set()
     kept_images = [p for p in images if p not in to_drop]
+    check_cancel(cancel_check)
     img_utils.materialize(kept_images, working_dir, working_dir)
 
     coverage_path: Path | None = None
@@ -204,6 +259,7 @@ def _mock_curate(
         mode = "auto"
 
     if len(kept_images) >= 2:
+        check_cancel(cancel_check)
         embeddings = _mock_embeddings(kept_images)
         use_umap = mode == "umap" or (
             mode == "auto" and len(kept_images) > cfg.pca_umap_switch_threshold
@@ -225,6 +281,7 @@ def _mock_curate(
         "coverage": coverage_metadata,
     }
     rpt.info(f"Mock runtime: curated {len(kept_images)} image(s).")
+    check_cancel(cancel_check)
     rpt.save_report(report, report_path)
     return report
 
@@ -270,7 +327,7 @@ def _mock_embeddings(paths: list[Path]) -> "np.ndarray":
     return np.asarray(rows, dtype=np.float32)
 
 
-def _mock_vae_gate(working_dir: Path, output_dir: Path, *, interaction=None) -> dict:
+def _mock_vae_gate(working_dir: Path, output_dir: Path, *, interaction=None, cancel_check=None) -> dict:
     from .utils import image as img_utils
     from .utils import report as rpt
     from .steps.s4_vae_gate.review import _save_review_artifacts
@@ -283,6 +340,7 @@ def _mock_vae_gate(working_dir: Path, output_dir: Path, *, interaction=None) -> 
     preview_root = output_dir / "reports" / "VaeGateStep_previews"
     review_items = []
     for index, path in enumerate(images):
+        check_cancel(cancel_check)
         with Image.open(path).convert("RGB") as img:
             recon = img.filter(ImageFilter.GaussianBlur(radius=1.6 if index == 0 else 0.6))
             recon_arr = np.array(recon)
@@ -300,7 +358,9 @@ def _mock_vae_gate(working_dir: Path, output_dir: Path, *, interaction=None) -> 
             "views": artifact["views"],
         })
 
+    check_cancel(cancel_check)
     decisions = interaction.vae_review(review_items) if interaction and review_items else {}
+    check_cancel(cancel_check)
     survivors = [
         path for path in images
         if decisions.get(str(path), decisions.get(str(path.resolve()), "keep")) != "drop"
@@ -328,6 +388,7 @@ def _mock_vae_gate(working_dir: Path, output_dir: Path, *, interaction=None) -> 
         ],
     }
     rpt.info(f"Mock runtime: recorded deterministic VAE pass for {len(images)} image(s).")
+    check_cancel(cancel_check)
     rpt.save_report(report, output_dir / "reports" / "VaeGateStep_report.json")
     return report
 
@@ -339,6 +400,7 @@ def _mock_caption(
     concept_token: Optional[str],
     interaction,
     force: bool,
+    cancel_check=None,
 ) -> dict:
     from .interaction import CliInteractionProvider
     from .utils import image as img_utils
@@ -356,9 +418,11 @@ def _mock_caption(
     skip_all = False
 
     def _region_captioner(_crop, _metadata=None):
+        check_cancel(cancel_check)
         return {"caption": f"{token_prefix}mock region caption".strip(", ")}
 
     for path in images:
+        check_cancel(cancel_check)
         txt_path = path.with_suffix(".txt")
         if txt_path.exists() and not force:
             captions[str(path)] = txt_path.read_text(encoding="utf-8").strip()
@@ -373,6 +437,7 @@ def _mock_caption(
                 captioner=_region_captioner,
             )
         annotation_log[str(path)] = annotations
+        check_cancel(cancel_check)
         if skipped:
             skipped_annotation.append(str(path))
 
@@ -392,5 +457,6 @@ def _mock_caption(
         "long_captions": [],
         "spot_check_sample": [],
     }
+    check_cancel(cancel_check)
     rpt.save_report(report, output_dir / "reports" / "CaptionStep_report.json")
     return report

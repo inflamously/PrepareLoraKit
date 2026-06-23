@@ -1,5 +1,8 @@
 from unittest.mock import MagicMock, patch
 
+import pytest
+
+from prepare_lora_kit.cancellation import CancelledRun
 from prepare_lora_kit.pipeline import RunConfig, run_all
 from prepare_lora_kit.project.base import ProjectConfig, PipelineStep
 from prepare_lora_kit.project.configs import (
@@ -8,10 +11,12 @@ from prepare_lora_kit.project.configs import (
     CaptionConfig,
     ConfigGenConfig,
     CurateConfig,
+    ImportConfig,
     QualityGateConfig,
     UpscaleConfig,
     VaeGateConfig,
 )
+from prepare_lora_kit.utils.state import RunState
 
 
 def _project() -> ProjectConfig:
@@ -19,6 +24,7 @@ def _project() -> ProjectConfig:
         name="test",
         network="flux-klein-9b",
         pipeline=[
+            PipelineStep("ImportStep", ImportConfig()),
             PipelineStep("QualityGateStep", QualityGateConfig(auto_only=True)),
             PipelineStep("CurateStep", CurateConfig()),
             PipelineStep("UpscaleStep", UpscaleConfig()),
@@ -44,6 +50,7 @@ def test_pipeline_runs_project_steps_in_order(tmp_path):
     invoke_map = {
         step_type: invoke_for(step_type)
         for step_type in [
+            "ImportStep",
             "QualityGateStep",
             "CurateStep",
             "UpscaleStep",
@@ -69,3 +76,82 @@ def test_pipeline_runs_project_steps_in_order(tmp_path):
     assert calls == list(invoke_map)
     for step_type, invoke in invoke_map.items():
         invoke.assert_called_once()
+
+
+def test_pipeline_skips_import_for_existing_legacy_working_dataset(tmp_path):
+    calls = []
+    output_dir = tmp_path / "out"
+    (output_dir / "dataset").mkdir(parents=True)
+
+    def invoke_for(step_type):
+        fn = MagicMock(name=step_type)
+        fn.side_effect = lambda *args, **kwargs: calls.append(step_type)
+        return fn
+
+    invoke_map = {
+        step_type: invoke_for(step_type)
+        for step_type in [
+            "ImportStep",
+            "QualityGateStep",
+            "CurateStep",
+            "UpscaleStep",
+            "VaeGateStep",
+            "CaptionStep",
+            "AuditStep",
+            "ConfigGenStep",
+            "BucketDryRunStep",
+        ]
+    }
+
+    cfg = RunConfig(
+        dataset_dir=tmp_path / "dataset",
+        project=_project(),
+        concept_token="sks",
+        output_dir=output_dir,
+    )
+
+    with patch("prepare_lora_kit.networks.registry.load", return_value=MagicMock()), \
+            patch.dict("prepare_lora_kit.pipeline.STEP_INVOKE_MAP", invoke_map, clear=True):
+        run_all(cfg)
+
+    assert calls == [
+        "QualityGateStep",
+        "CurateStep",
+        "UpscaleStep",
+        "VaeGateStep",
+        "CaptionStep",
+        "AuditStep",
+        "ConfigGenStep",
+        "BucketDryRunStep",
+    ]
+    invoke_map["ImportStep"].assert_not_called()
+
+
+def test_pipeline_does_not_mark_cancelled_step_done(tmp_path):
+    cfg = RunConfig(
+        dataset_dir=tmp_path / "dataset",
+        project=ProjectConfig(
+            name="test",
+            network="flux-klein-9b",
+            pipeline=[PipelineStep("ImportStep", ImportConfig())],
+        ),
+        output_dir=tmp_path / "out",
+    )
+    checks = 0
+
+    def cancel_after_invoke():
+        nonlocal checks
+        checks += 1
+        if checks >= 2:
+            raise CancelledRun("Run cancelled")
+
+    cfg.cancel_check = cancel_after_invoke
+    invoke = MagicMock(return_value=None)
+
+    with patch("prepare_lora_kit.networks.registry.load", return_value=MagicMock()), \
+            patch.dict("prepare_lora_kit.pipeline.STEP_INVOKE_MAP", {"ImportStep": invoke}, clear=True), \
+            pytest.raises(CancelledRun):
+        run_all(cfg)
+
+    invoke.assert_called_once()
+    assert not RunState(tmp_path / "out").is_done("ImportStep")

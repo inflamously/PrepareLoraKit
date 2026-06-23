@@ -1,0 +1,3 @@
+[submodule "third_party/seedvr2"]
+	path = third_party/seedvr2
+	url = https://github.com/numz/ComfyUI-SeedVR2_VideoUpscaler.git

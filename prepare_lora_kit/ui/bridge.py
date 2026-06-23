@@ -96,6 +96,9 @@ class UiBridge:
         self.jobs.get(job_id).cancel()
         return {"cancel_requested": True}
 
+    def shutdown(self, *_args) -> dict[str, Any]:
+        return {"cancel_requested": self.jobs.cancel_active()}
+
     def caption_region(self, job_id: str, image_path: str, box: dict[str, Any]) -> dict[str, Any]:
         provider = self.jobs.active_interaction_provider(job_id)
         if provider is None:

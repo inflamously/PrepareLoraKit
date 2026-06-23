@@ -24,3 +24,16 @@ pytest>=9.1.1
 
 # Optional: 4-bit/8-bit VLM quantization in CaptionStep (graceful fallback if absent)
 bitsandbytes>=0.43
+
+# Optional: SeedVR2 upscaling runtime from third_party/seedvr2.
+# Uncomment after installing a torch/torchvision build appropriate for your GPU/CUDA stack.
+#SeedVR2 also uses base requirements already listed above: torch, torchvision, numpy,
+# tqdm, opencv-python, diffusers, and matplotlib.
+diffusers>=0.33.1
+safetensors
+psutil
+einops
+omegaconf>=2.3.0
+peft>=0.17.0
+rotary_embedding_torch>=0.5.3
+gguf

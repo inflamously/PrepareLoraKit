@@ -6,9 +6,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
+from .cancellation import CancelCheck, check_cancel
 from .invoke import STEP_INVOKE_MAP
 from .paths import PROJECT_ROOT
 from .project.base import ProjectConfig
+from .project.steps import mark_legacy_import_satisfied
 from .utils import report as rpt
 from .utils.state import RunState
 
@@ -21,6 +23,7 @@ class RunConfig:
     concept_token: Optional[str] = None
     output_dir: Optional[Path] = None
     force: bool = False
+    cancel_check: CancelCheck | None = None
 
     @property
     def resolved_output_dir(self) -> Path:
@@ -29,8 +32,8 @@ class RunConfig:
 
 def run_all(cfg: RunConfig) -> None:
     """
-    cfg.dataset_dir (original) stays untouched. QualityGateStep seeds a single
-    working dir (output_dir/dataset) from it — the only image copy the pipeline
+    cfg.dataset_dir (original) stays untouched. ImportStep seeds a single
+    working dir (output_dir/dataset) from it - the only image copy the pipeline
     makes. Subsequent steps mutate that working dir in place. Every step's JSON
     report lands in output_dir/reports/. Re-run from original any time with --force.
     """
@@ -46,6 +49,9 @@ def run_all(cfg: RunConfig) -> None:
     def _skip(key: str) -> bool:
         if force:
             return False
+        if key == "ImportStep" and mark_legacy_import_satisfied(state, output_dir):
+            rpt.info("ImportStep satisfied by existing working dataset.")
+            return True
         if state.is_done(key):
             rpt.info(f"{key} already done — skipping (use --force to re-run).")
             return True
@@ -60,10 +66,12 @@ def run_all(cfg: RunConfig) -> None:
     )
 
     for step in cfg.project.pipeline:
+        check_cancel(cfg.cancel_check)
         if _skip(step.type):
             continue
         invoke = STEP_INVOKE_MAP[step.type]
-        result = invoke(working_dir, output_dir, step.config, **shared_kw)
+        result = invoke(working_dir, output_dir, step.config, **shared_kw, cancel_check=cfg.cancel_check)
+        check_cancel(cfg.cancel_check)
         if step.type == "AuditStep" and isinstance(result, dict) and not result.get("pass"):
             rpt.warn("Integrity audit found issues — review reports/AuditStep_report.json before training.")
         state.mark_done(step.type)

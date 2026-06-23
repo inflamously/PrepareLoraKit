@@ -14,6 +14,7 @@ from pathlib import Path
 
 from PIL import Image
 
+from ...cancellation import CancelCheck, check_cancel
 from ...networks.base import NetworkProfile
 from ...utils import image as img_utils
 from ...utils import report as rpt
@@ -32,6 +33,7 @@ def run(
     cache_mode: bool = False,
     thin_threshold: int = THIN_BUCKET_THRESHOLD,
     report_path: Path | None = None,
+    cancel_check: CancelCheck | None = None,
 ) -> dict:
     rpt.step_header(8, "Bucket Dry-run")
 
@@ -47,6 +49,7 @@ def run(
     bucket_map: dict[tuple[int, int], list[str]] = {b: [] for b in buckets}
 
     for path in images:
+        check_cancel(cancel_check)
         try:
             with Image.open(path) as img:
                 iw, ih = img.size
@@ -65,6 +68,7 @@ def run(
 
     thin_buckets: list[dict] = []
     for bkt, paths in sorted(bucket_map.items()):
+        check_cancel(cancel_check)
         n = len(paths)
         if n == 0:
             continue
@@ -73,6 +77,7 @@ def run(
             # Suggest crop for the images that ended up here
             suggestions = []
             for p in paths:
+                check_cancel(cancel_check)
                 with Image.open(p) as img:
                     iw, ih = img.size
                 suggestions.append(_suggest_crop(iw, ih, bkt[0], bkt[1]))
@@ -89,6 +94,7 @@ def run(
     if thin_buckets:
         rpt.warn(f"{len(thin_buckets)} thin bucket(s) (≤ {thin_threshold} images):")
         for tb in thin_buckets:
+            check_cancel(cancel_check)
             bkt = tb["bucket"]
             rpt.warn(f"  {bkt[0]}×{bkt[1]}: {tb['count']} image(s) — {tb['suggestion']}")
         rpt.info("Fix options: crop images to a more common aspect ratio, or increase `repeats` for that folder.")
@@ -107,6 +113,7 @@ def run(
             },
         }
         cache_path = output_dir / "cache_info.json"
+        check_cancel(cancel_check)
         with open(cache_path, "w") as f:
             json.dump(cache_info, f, indent=2)
         rpt.ok(f"Cache info written → {cache_path}")
@@ -119,5 +126,6 @@ def run(
         "thin_buckets": thin_buckets,
         "cache_mode": cache_mode,
     }
+    check_cancel(cancel_check)
     rpt.save_report(report, report_path or (output_dir / "step8_report.json"))
     return report

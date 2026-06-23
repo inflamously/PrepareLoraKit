@@ -121,6 +121,8 @@ def seed_working_dataset(
     working_dir: Path,
     selected_steps: list[str],
 ) -> None:
+    if "ImportStep" in selected_steps:
+        return
     working_dir.mkdir(parents=True, exist_ok=True)
     first_index = min(list(STEP_TYPE_MAP).index(step) for step in selected_steps)
     quality_index = list(STEP_TYPE_MAP).index("QualityGateStep")

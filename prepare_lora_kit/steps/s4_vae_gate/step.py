@@ -10,6 +10,7 @@ from pathlib import Path
 import shutil
 import numpy as np
 
+from ...cancellation import CancelCheck, CancelledRun, check_cancel
 from ...interaction import InteractionProvider
 from ...networks.base import NetworkProfile
 from ...utils import image as img_utils
@@ -37,6 +38,7 @@ def run(
     output_silhouettes: bool = True,
     output_hard_silhouettes: bool = True,
     max_side: int | None = None,
+    cancel_check: CancelCheck | None = None,
 ) -> dict:
     rpt.step_header(4, "VAE Reconstruction Gate")
 
@@ -49,6 +51,7 @@ def run(
         return {}
 
     rpt.info(f"Loading VAE from {network.vae_model_id} …")
+    check_cancel(cancel_check)
     try:
         vae, device, dtype = _load_vae(network.vae_model_id)
     except Exception as exc:
@@ -78,8 +81,10 @@ def run(
     from PIL import Image
 
     for path in images:
+        check_cancel(cancel_check)
         try:
             recon = _encode_decode(vae, device, dtype, path, max_side=max_side)
+            check_cancel(cancel_check)
             orig_arr = np.array(Image.open(path).convert("RGB").resize(
                 (recon.shape[1], recon.shape[0]), Image.LANCZOS
             ))
@@ -96,6 +101,8 @@ def run(
                     gaussian_blur_kernel=gaussian_blur_kernel,
                     otsu_enabled=otsu_enabled,
                 )
+        except CancelledRun:
+            raise
         except Exception as exc:
             rpt.error(f"Reconstruction failed for {path.name}: {exc}")
             hf_scores[str(path)] = 0.0
@@ -115,6 +122,7 @@ def run(
     decisions: dict[str, str] = {}
     review_items: list[dict] = []
     for path in images:
+        check_cancel(cancel_check)
         path_str = str(path)
         artifact = review_artifacts.get(path_str)
         if artifact is None and path_str in flagged_set and path_str not in reconstructions:
@@ -137,9 +145,12 @@ def run(
         review_items.append(item)
 
     if interaction is not None and review_items:
+        check_cancel(cancel_check)
         decisions.update(interaction.vae_review(review_items))
+        check_cancel(cancel_check)
     else:
         for path_str in flagged:
+            check_cancel(cancel_check)
             path = Path(path_str)
             recon = reconstructions.get(path_str)
             if recon is not None:
@@ -154,10 +165,12 @@ def run(
         return decisions.get(str(path), decisions.get(str(path.resolve()), default))
 
     survivors = [path for path in images if decision_for(path) != "drop"]
+    check_cancel(cancel_check)
     img_utils.materialize(survivors, dataset_dir, output_dir)
 
     reviewed = []
     for item in review_items:
+        check_cancel(cancel_check)
         path = Path(str(item["path"]))
         decision = decision_for(path)
         reviewed.append({**item, "decision": decision})
@@ -178,5 +191,6 @@ def run(
             if decision_for(path) == "replace"
         ],
     }
+    check_cancel(cancel_check)
     rpt.save_report(report, report_path or (output_dir / "step4_report.json"))
     return report

@@ -17,32 +17,13 @@ from pathlib import Path
 from typing import Any, Optional
 import yaml
 
-from .configs import (
-    ScorerEntry,
-    QualityGateConfig, CurateConfig, UpscaleConfig, VaeGateConfig,
-    CaptionConfig, AuditConfig, ConfigGenConfig, BucketDryRunConfig,
-)
+from .configs import ScorerEntry
+from .steps import STEP_ORDER_INDEX, STEP_PREREQUISITES, STEP_TYPE_MAP
 
 
 # ── Step Type Registry ────────────────────────────────────────────────────────
-
-STEP_TYPE_MAP: dict[str, type] = {
-    "QualityGateStep":  QualityGateConfig,
-    "CurateStep":       CurateConfig,
-    "UpscaleStep":      UpscaleConfig,
-    "VaeGateStep":      VaeGateConfig,
-    "CaptionStep":      CaptionConfig,
-    "AuditStep":        AuditConfig,
-    "ConfigGenStep":    ConfigGenConfig,
-    "BucketDryRunStep": BucketDryRunConfig,
-}
-
-# Each key must have all listed types appear *before* it in the pipeline.
-STEP_PREREQUISITES: dict[str, list[str]] = {
-    "AuditStep":        ["CaptionStep"],
-    "ConfigGenStep":    ["CaptionStep"],
-    "BucketDryRunStep": ["ConfigGenStep"],
-}
+# STEP_TYPE_MAP and STEP_PREREQUISITES are re-exported from project.steps for
+# callers that still import them from project.base.
 
 
 # ── PipelineStep ──────────────────────────────────────────────────────────────
@@ -66,6 +47,7 @@ class ProjectConfig:
     pipeline: list[PipelineStep] = field(default_factory=list)
 
     def __post_init__(self) -> None:
+        self.pipeline = _normalize_pipeline_steps(self.pipeline)
         if not self.name:
             raise ValueError("ProjectConfig: 'name' is required")
         if not self.network:
@@ -81,20 +63,28 @@ class ProjectConfig:
 
     def _validate_pipeline(self) -> None:
         seen: set[str] = set()
+        previous_index = -1
         for step in self.pipeline:
             t = step.type
             if t not in STEP_TYPE_MAP:
                 raise ValueError(
                     f"Unknown step type '{t}'. Known types: {', '.join(sorted(STEP_TYPE_MAP))}"
                 )
+            if t in seen:
+                raise ValueError(f"Duplicate step type '{t}' in pipeline.")
+            index = STEP_ORDER_INDEX[t]
+            if index <= previous_index:
+                raise ValueError(
+                    f"Step '{t}' appears out of order. Expected pipeline order: "
+                    f"{', '.join(STEP_TYPE_MAP)}"
+                )
             for req in STEP_PREREQUISITES.get(t, []):
                 if req not in seen:
                     raise ValueError(
                         f"'{t}' requires '{req}' to appear earlier in the pipeline."
                     )
-            if t in seen:
-                raise ValueError(f"Duplicate step type '{t}' in pipeline.")
             seen.add(t)
+            previous_index = index
 
     @classmethod
     def from_yaml(cls, path: Path) -> "ProjectConfig":
@@ -106,6 +96,7 @@ class ProjectConfig:
         network_type = data.pop("network_type", None)
         input_dir = data.pop("input_dir", None)
         raw_pipeline = data.pop("pipeline", []) or []
+        raw_pipeline = _normalize_raw_pipeline(raw_pipeline)
 
         pipeline: list[PipelineStep] = []
         for raw in raw_pipeline:
@@ -127,3 +118,16 @@ class ProjectConfig:
 
         return cls(name=name, network=network, network_type=network_type,
                    input_dir=input_dir, pipeline=pipeline)
+
+
+def _normalize_raw_pipeline(raw_pipeline: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    if raw_pipeline and raw_pipeline[0].get("type") == "QualityGateStep":
+        return [{"type": "ImportStep"}, *raw_pipeline]
+    return raw_pipeline
+
+
+def _normalize_pipeline_steps(pipeline: list[PipelineStep]) -> list[PipelineStep]:
+    if pipeline and pipeline[0].type == "QualityGateStep":
+        import_config = STEP_TYPE_MAP["ImportStep"]()
+        return [PipelineStep(type="ImportStep", config=import_config), *pipeline]
+    return pipeline

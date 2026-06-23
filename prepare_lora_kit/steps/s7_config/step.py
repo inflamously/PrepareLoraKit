@@ -11,6 +11,7 @@ from pathlib import Path
 
 import yaml
 
+from ...cancellation import CancelCheck, check_cancel
 from ...networks.base import NetworkProfile
 from ...utils import report as rpt
 from .build import build_config
@@ -38,6 +39,7 @@ def run(
     run_name: str | None = None,
     network_type: str | None = None,
     report_path: Path | None = None,
+    cancel_check: CancelCheck | None = None,
 ) -> dict:
     style_mode = not concept_token
     rpt.step_header(7, "Config Maker")
@@ -46,6 +48,7 @@ def run(
     output_dir.mkdir(parents=True, exist_ok=True)
 
     n_images = _count_images(dataset_dir)
+    check_cancel(cancel_check)
     if n_images == 0:
         rpt.warn("No images found in dataset — config will have placeholder counts.")
         n_images = 1
@@ -135,6 +138,7 @@ def run(
         concept_token=concept_token,
         network_type=network_type,
     )
+    check_cancel(cancel_check)
     out_path = output_dir / "run_config.yaml"
     with open(out_path, "w") as f:
         yaml.safe_dump(config, f, sort_keys=False, default_flow_style=False)
@@ -156,5 +160,6 @@ def run(
         "caption_dropout": caption_dropout,
         "config_path": str(out_path),
     }
+    check_cancel(cancel_check)
     rpt.save_report(report, report_path or (output_dir / "step7_report.json"))
     return report

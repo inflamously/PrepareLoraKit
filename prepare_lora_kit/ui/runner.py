@@ -14,11 +14,18 @@ from urllib.parse import quote
 
 from rich.console import Console
 
+from ..cancellation import CancelledRun
 from ..interaction import InteractionProvider, RegionCaptioner
 from ..invoke import STEP_INVOKE_MAP
 from ..paths import PROJECT_ROOT
 from ..pipeline import RunConfig
-from ..project.base import STEP_PREREQUISITES, ProjectConfig
+from ..project.base import ProjectConfig
+from ..project.steps import (
+    OPTIONAL_STEP_TYPES,
+    STEP_PREREQUISITES,
+    is_step_satisfied,
+    mark_legacy_import_satisfied,
+)
 from ..project import registry as project_registry
 from ..utils.state import RunState
 
@@ -157,7 +164,10 @@ class PipelineJob:
             while not self._has_answer and not self.cancel_requested:
                 self._condition.wait(timeout=0.25)
             if self.cancel_requested:
-                raise RuntimeError("Run cancelled")
+                self.pending_input = None
+                self._pending_answer = None
+                self._has_answer = False
+                raise CancelledRun("Run cancelled")
             answer = self._pending_answer
             self.pending_input = None
             self._pending_answer = None
@@ -181,6 +191,11 @@ class PipelineJob:
             if self.status not in TERMINAL_STATUSES:
                 self.status = "cancelling"
             self._condition.notify_all()
+
+    def raise_if_cancelled(self) -> None:
+        with self._condition:
+            if self.cancel_requested:
+                raise CancelledRun("Run cancelled")
 
     def snapshot(self) -> dict[str, Any]:
         with self._condition:
@@ -363,6 +378,18 @@ class JobManager:
         except KeyError as exc:
             raise ValueError(f"Unknown job id: {job_id}") from exc
 
+    def cancel_active(self) -> bool:
+        with self._lock:
+            if self._active_job_id is None:
+                return False
+            job = self._jobs.get(self._active_job_id)
+        if job is None:
+            return False
+        if job.snapshot()["status"] in TERMINAL_STATUSES:
+            return False
+        job.cancel()
+        return True
+
     def active_interaction_provider(self, job_id: str) -> UiInteractionProvider | None:
         job = self.get(job_id)
         provider = getattr(job, "interaction_provider", None)
@@ -384,6 +411,9 @@ class JobManager:
             )
             with contextlib.redirect_stdout(stream), contextlib.redirect_stderr(stream):
                 self._execute(job, request)
+        except CancelledRun as exc:
+            job.error = str(exc)
+            job.set_status("cancelled")
         except Exception as exc:
             job.error = str(exc)
             job.add_log(traceback.format_exc())
@@ -416,6 +446,7 @@ class JobManager:
             concept_token=token,
             output_dir=output_dir,
             force=force,
+            cancel_check=job.raise_if_cancelled,
         )
         working_dir = cfg.resolved_output_dir / "dataset"
         shared_kw = dict(
@@ -431,6 +462,7 @@ class JobManager:
             },
             mock_runtime=bool(request.get("mock_runtime", False)),
             mock_curate_coverage=str(request.get("mock_curate_coverage") or "auto"),
+            cancel_check=job.raise_if_cancelled,
         )
 
         selected = set(selected_steps)
@@ -438,8 +470,16 @@ class JobManager:
             if step.type not in selected:
                 continue
             if job.cancel_requested:
-                raise RuntimeError("Run cancelled")
+                raise CancelledRun("Run cancelled")
             job.set_status("running", current_step=step.type)
+            if (
+                not force
+                and step.type == "ImportStep"
+                and mark_legacy_import_satisfied(state, cfg.resolved_output_dir)
+            ):
+                job.skipped_steps.append(step.type)
+                job.add_log("ImportStep satisfied by existing working dataset")
+                continue
             if not force and state.is_done(step.type):
                 job.skipped_steps.append(step.type)
                 job.add_log(f"{step.type} already done; skipping")
@@ -447,13 +487,16 @@ class JobManager:
 
             invoke = STEP_INVOKE_MAP[step.type]
             result = invoke(working_dir, cfg.resolved_output_dir, step.config, **shared_kw)
+            job.raise_if_cancelled()
             if step.type == "AuditStep" and isinstance(result, dict) and not result.get("pass"):
                 job.add_log("AuditStep found issues; review reports/AuditStep_report.json")
             if step.type == "CurateStep" and isinstance(result, dict):
+                job.raise_if_cancelled()
                 interaction.curate_details(
                     result,
                     cfg.resolved_output_dir / "reports" / "CurateStep_report.json",
                 )
+                job.raise_if_cancelled()
             state.mark_done(step.type)
             job.completed_steps.append(step.type)
 
@@ -481,14 +524,13 @@ class JobManager:
         selected = set(selected_steps)
         for step_type in selected_steps:
             for req in STEP_PREREQUISITES.get(step_type, []):
-                if req not in selected and not state.is_done(req):
+                if req not in selected and not is_step_satisfied(req, state, output_dir):
                     raise ValueError(f"{step_type} requires completed or selected prerequisite {req}")
 
-        first_selected_index = min(known.index(s) for s in selected)
-        quality_selected = "QualityGateStep" in selected
-        if first_selected_index > 0 and not (output_dir / "dataset").exists() and not quality_selected:
+        needs_working_dataset = any(step_type != "ImportStep" for step_type in selected)
+        if needs_working_dataset and "ImportStep" not in selected and not (output_dir / "dataset").exists():
             raise ValueError(
-                "The working dataset does not exist. Select QualityGateStep first or choose an existing output."
+                "The working dataset does not exist. Select ImportStep first or choose an existing output."
             )
 
     @staticmethod
@@ -516,6 +558,7 @@ def project_payload(project: ProjectConfig, output_dir: Path | None = None) -> d
                 "config": _jsonable(step.config),
                 "status": state.get(step.type).get("status", "pending") if state else "pending",
                 "prerequisites": STEP_PREREQUISITES.get(step.type, []),
+                "optional": step.type in OPTIONAL_STEP_TYPES,
             }
             for step in project.pipeline
         ],

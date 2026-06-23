@@ -21,6 +21,9 @@ _CONFIGS_DIR = _registry.configs_dir
 def _default_pipeline() -> list[dict[str, Any]]:
     return [
         {
+            "type": "ImportStep",
+        },
+        {
             "type": "QualityGateStep",
             "scorers": [
                 {"name": "min_side", "enabled": True, "op": "lt", "threshold": 1024.0},
@@ -47,7 +50,7 @@ def _default_pipeline() -> list[dict[str, Any]]:
             "type": "UpscaleStep",
             "upscale_target": 3072,
             "hallucination_ssim_threshold": 0.60,
-            "upscale_model": "seedvr",
+            "upscale_model": "seedvr2",
         },
         {
             "type": "VaeGateStep",

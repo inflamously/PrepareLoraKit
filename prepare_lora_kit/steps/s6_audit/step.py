@@ -10,6 +10,7 @@ Checks:
 from __future__ import annotations
 from pathlib import Path
 
+from ...cancellation import CancelCheck, check_cancel
 from ...networks.base import NetworkProfile
 from ...utils import report as rpt
 
@@ -26,21 +27,27 @@ def run(
     dataset_dir: Path,
     network: NetworkProfile | None = None,
     report_path: Path | None = None,
+    cancel_check: CancelCheck | None = None,
 ) -> dict:
     rpt.step_header(6, "Pairing & Integrity Audit")
 
+    check_cancel(cancel_check)
     image_stems, txt_stems = collect_stems(dataset_dir)
 
     # ── 1. Pairing check ──────────────────────────────────────────────────────
+    check_cancel(cancel_check)
     orphan_images, orphan_txts, paired_stems = check_pairing(image_stems, txt_stems)
 
     # ── 2. PIL verify (corrupt / truncated) ──────────────────────────────────
+    check_cancel(cancel_check)
     corrupt = check_corrupt(paired_stems, image_stems)
 
     # ── 3. Caption quality ────────────────────────────────────────────────────
+    check_cancel(cancel_check)
     empty_captions, short_captions, long_captions = check_captions(paired_stems, txt_stems)
 
     # ── 4. Resolution gate ────────────────────────────────────────────────────
+    check_cancel(cancel_check)
     undersized = check_resolution(paired_stems, image_stems, corrupt, network)
 
     # ── Summary ───────────────────────────────────────────────────────────────
@@ -62,5 +69,6 @@ def run(
         "undersized": undersized,
         "pass": issues == 0,
     }
+    check_cancel(cancel_check)
     rpt.save_report(report, report_path or (dataset_dir / "step6_report.json"))
     return report

@@ -2,12 +2,10 @@
 from __future__ import annotations
 
 from ...project.base import STEP_TYPE_MAP
+from ...project.steps import step_aliases
 
 
-_STEP_ALIASES: dict[str, str] = {}
-for _index, _step_type in enumerate(STEP_TYPE_MAP, start=1):
-    _STEP_ALIASES[str(_index)] = _step_type
-    _STEP_ALIASES[f"s{_index}"] = _step_type
+_STEP_ALIASES = step_aliases()
 
 
 def resolve_mock_steps(raw: str) -> list[str]:
@@ -25,6 +23,6 @@ def resolve_mock_steps(raw: str) -> list[str]:
             return [step_type]
 
     known = ", ".join(
-        ["all", *STEP_TYPE_MAP, *[f"s{i}" for i in range(1, len(STEP_TYPE_MAP) + 1)]]
+        ["all", *STEP_TYPE_MAP, *sorted(_STEP_ALIASES)]
     )
     raise ValueError(f"Unknown mock step '{raw}'. Known: {known}")

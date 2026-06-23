@@ -11,6 +11,7 @@ from __future__ import annotations
 import random
 from pathlib import Path
 
+from ...cancellation import CancelCheck, CancelledRun, check_cancel
 from ...interaction import CliInteractionProvider, InteractionProvider
 from ...utils import image as img_utils
 from ...utils import caption as cap_utils
@@ -75,6 +76,7 @@ def run(
     max_new_tokens: int = 200,
     max_pixels: int = vlm._DEFAULT_MAX_PIXELS,
     interaction: InteractionProvider | None = None,
+    cancel_check: CancelCheck | None = None,
 ) -> dict:
     style_mode = not concept_token
     rpt.step_header(5, "Caption — Bbox Annotation + Qwen3-VL")
@@ -96,6 +98,7 @@ def run(
     else:
         rpt.info(f"Captioning {len(images)} images. Concept token: '{concept_token}'")
 
+    check_cancel(cancel_check)
     img_utils.materialize(all_images, dataset_dir, output_dir)
 
     captions: dict[str, str] = {}
@@ -106,6 +109,7 @@ def run(
 
     # In-UI "Box Caption" callback: caption and persist a single cropped region.
     def _region_captioner(crop, metadata=None):
+        check_cancel(cancel_check)
         source_raw = (metadata or {}).get("source_path") or (metadata or {}).get("image_path")
         if not source_raw:
             raise ValueError("Region caption metadata missing source_path")
@@ -114,11 +118,13 @@ def run(
             crop, qwen_model_id,
             quantization=quantization, dtype=dtype, max_pixels=max_pixels,
         )
+        check_cancel(cancel_check)
         result = _save_bbox_training_item(crop, source_path, output_dir, text, concept_token)
         captions[result["crop_path"]] = result["caption"]
         return result
 
     for path in images:
+        check_cancel(cancel_check)
         txt_path = output_dir / (path.stem + ".txt")
         if txt_path.exists() and not overwrite:
             caption = txt_path.read_text(encoding="utf-8").strip()
@@ -133,17 +139,22 @@ def run(
             annotations, skipped, skip_all = provider.annotate_image(
                 path, captioner=_region_captioner
             )
+        check_cancel(cancel_check)
         annotation_log[str(path)] = annotations
         if skipped:
             skipped_annotation.append(str(path))
 
         # Phase 5B: VL caption
         try:
+            check_cancel(cancel_check)
             caption = vlm.caption_image(
                 path, annotations, concept_token, qwen_model_id,
                 quantization=quantization, dtype=dtype,
                 max_new_tokens=max_new_tokens, max_pixels=max_pixels,
             )
+            check_cancel(cancel_check)
+        except CancelledRun:
+            raise
         except Exception as exc:
             rpt.error(f"VL captioning failed for {path.name}: {exc}")
             caption = concept_token or ""
@@ -157,10 +168,12 @@ def run(
                 rpt.warn(f"Concept token missing in caption for {path.name} — appending.")
                 caption = f"{concept_token}, {caption}"
 
+        check_cancel(cancel_check)
         txt_path.write_text(caption, encoding="utf-8")
         captions[str(path)] = caption
         rpt.ok(f"{path.name} → {caption[:80]}…" if len(caption) > 80 else f"{path.name} → {caption}")
 
+    check_cancel(cancel_check)
     vlm.unload()  # free VRAM before downstream steps
 
     # Token consistency check — concept mode only
@@ -169,8 +182,9 @@ def run(
         missing_token = cap_utils.verify_token_consistency(captions, concept_token)
         if missing_token:
             rpt.warn(f"Token '{concept_token}' missing in {len(missing_token)} captions:")
-            for p in missing_token:
-                rpt.warn(f"  {Path(p).name}")
+        for p in missing_token:
+            check_cancel(cancel_check)
+            rpt.warn(f"  {Path(p).name}")
 
     # Caption length outliers
     short = [p for p, c in captions.items() if not cap_utils.caption_length_ok(c, min_chars=10)]
@@ -191,6 +205,7 @@ def run(
         t.add_column("File", style="cyan", max_width=35)
         t.add_column("Caption", style="white")
         for p, c in sample:
+            check_cancel(cancel_check)
             t.add_row(Path(p).name, c[:120] + ("…" if len(c) > 120 else ""))
         console.print(t)
 
@@ -203,5 +218,6 @@ def run(
         "long_captions": long_,
         "spot_check_sample": [p for p, _ in sample] if captions else [],
     }
+    check_cancel(cancel_check)
     rpt.save_report(report, report_path or (output_dir / "step5_report.json"))
     return report

@@ -98,11 +98,7 @@ export async function loadProjectForInput() {
 export function selectPending() {
   if (!state.project) return;
 
-  state.selectedSteps = new Set(
-    state.project.steps
-      .filter((step) => step.status !== "done")
-      .map((step) => step.type),
-  );
+  state.selectedSteps = pendingDefaultSteps();
   render();
 }
 
@@ -156,15 +152,23 @@ function applyProjectResult(result, options = {}) {
 }
 
 function defaultSelectedSteps() {
-  const pending = new Set(
-    state.project.steps
-      .filter((step) => step.status !== "done")
-      .map((step) => step.type),
-  );
+  const pending = pendingDefaultSteps();
 
   return pending.size
     ? pending
-    : new Set(state.project.steps.map((step) => step.type));
+    : new Set(
+        state.project.steps
+          .filter((step) => !step.optional)
+          .map((step) => step.type),
+      );
+}
+
+function pendingDefaultSteps() {
+  return new Set(
+    state.project.steps
+      .filter((step) => step.status !== "done" && !step.optional)
+      .map((step) => step.type),
+  );
 }
 
 function selectedAvailableSteps(selectedSteps) {

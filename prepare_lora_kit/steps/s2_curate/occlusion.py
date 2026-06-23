@@ -2,10 +2,12 @@
 from __future__ import annotations
 from pathlib import Path
 
+from ...cancellation import CancelCheck, check_cancel
+
 OCCLUSION_THRESHOLD = 0.35   # below this CLIP score → flag as occluded
 
 
-def _occlusion_scores(paths: list[Path]) -> dict[Path, float]:
+def _occlusion_scores(paths: list[Path], cancel_check: CancelCheck | None = None) -> dict[Path, float]:
     import torch
     from PIL import Image
     from .clip_model import load_clip
@@ -18,6 +20,7 @@ def _occlusion_scores(paths: list[Path]) -> dict[Path, float]:
     ]
     scores = {}
     for p in paths:
+        check_cancel(cancel_check)
         image = Image.open(p).convert("RGB")
         inputs = processor(text=prompts, images=image, return_tensors="pt", padding=True)
         with torch.no_grad():

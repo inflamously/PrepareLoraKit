@@ -17,6 +17,11 @@ from ._shared import cli
 _IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tiff", ".tif"}
 
 
+class _StaticServer(ThreadingHTTPServer):
+    daemon_threads = True
+    block_on_close = False
+
+
 class _StaticHandler(SimpleHTTPRequestHandler):
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
@@ -60,8 +65,8 @@ class _StaticHandler(SimpleHTTPRequestHandler):
 
 def _static_server(static_dir):
     handler = partial(_StaticHandler, directory=str(static_dir))
-    server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
-    thread = Thread(target=server.serve_forever, daemon=True)
+    server = _StaticServer(("127.0.0.1", 0), handler)
+    thread = Thread(target=partial(server.serve_forever, poll_interval=0.1), daemon=True)
     thread.start()
     return server
 
@@ -72,7 +77,7 @@ def _static_server(static_dir):
     "--mock",
     "mock_step",
     default=None,
-    help="Launch with a generated UI smoke-test fixture and preselect STEP, alias s1..s8, or all.",
+    help="Launch with a generated UI smoke-test fixture and preselect STEP, alias s0..s8, or all.",
 )
 @click.option(
     "--mock-output",
@@ -126,20 +131,29 @@ def ui(
     server = _static_server(index.parent)
     host, port = server.server_address
     origin = f"http://{host}:{port}"
-    webview.create_window(
+    bridge = UiBridge(
+        media_base_url=f"{origin}/media",
+        projects=projects,
+        bootstrap=bootstrap,
+    )
+    window = webview.create_window(
         "PrepareLoraKit",
         f"{origin}/index.html",
-        js_api=UiBridge(
-            media_base_url=f"{origin}/media",
-            projects=projects,
-            bootstrap=bootstrap,
-        ),
+        js_api=bridge,
         width=1320,
         height=860,
         min_size=(1040, 680),
     )
+    def _shutdown_on_close(*_args) -> None:
+        bridge.shutdown()
+
+    try:
+        window.events.closing += _shutdown_on_close
+    except AttributeError:
+        pass
     try:
         webview.start(debug=debug)
     finally:
+        bridge.shutdown()
         server.shutdown()
         server.server_close()
