@@ -7,6 +7,8 @@ import {
 } from "../caption/config.js";
 import { render } from "../shell/render.js";
 
+const TERMINAL_JOB_STATUSES = new Set(["completed", "failed", "cancelled"]);
+
 export async function loadProjects() {
   const result = await api().list_projects();
   state.projects = result.projects || [];
@@ -56,6 +58,10 @@ export async function loadProject(options = {}) {
     return;
   }
 
+  if (options.resetSession === true) {
+    state.outputCustomized = false;
+  }
+
   const output = state.outputCustomized
     ? $("outputDir").value.trim() || null
     : null;
@@ -64,6 +70,7 @@ export async function loadProject(options = {}) {
   applyProjectResult(result, {
     updateInput: true,
     preserveSelection: options.preserveSelection === true,
+    resetSession: options.resetSession === true,
   });
 }
 
@@ -121,6 +128,7 @@ function resetProjectSelection() {
   state.mockRuntime = false;
   state.mockProjectName = null;
   state.mockCurateCoverage = "auto";
+  clearTerminalJobState();
 
   $("inputDir").value = "";
   $("outputDir").value = "";
@@ -151,8 +159,23 @@ function applyProjectResult(result, options = {}) {
     : defaultSelectedSteps();
   state.selectedSubsteps = selectedAvailableSubsteps(state.selectedSteps);
 
+  if (options.resetSession) {
+    $("tokenInput").value = "";
+    $("forceInput").checked = false;
+    clearTerminalJobState();
+  }
+
   applyCaptionConfigDefaults();
   render();
+}
+
+function clearTerminalJobState() {
+  if (!TERMINAL_JOB_STATUSES.has(state.job?.status)) return;
+
+  state.jobId = null;
+  state.job = null;
+  state.runStarting = false;
+  state.handledRequestId = null;
 }
 
 function defaultSelectedSteps() {

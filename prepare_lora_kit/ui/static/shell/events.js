@@ -36,7 +36,9 @@ export function bindEvents() {
     await reloadCurrentProject();
   });
 
-  $("projectSelect").addEventListener("change", loadProject);
+  $("projectSelect").addEventListener("change", () =>
+    loadProject({ resetSession: true }),
+  );
   $("captionModelPreset").addEventListener("change", syncCaptionModelInput);
   $("refreshProject").addEventListener("click", () =>
     reloadCurrentProject({ preserveSelection: true }),

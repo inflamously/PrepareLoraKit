@@ -8,7 +8,10 @@ function captionStepConfig() {
 
 export function applyCaptionConfigDefaults() {
   const cfg = captionStepConfig();
-  if (!cfg) return;
+  if (!cfg) {
+    resetCaptionConfigDefaults();
+    return;
+  }
 
   const model = cfg.qwen_model_id || "Qwen/Qwen2-VL-7B-Instruct";
   const preset = $("captionModelPreset");
