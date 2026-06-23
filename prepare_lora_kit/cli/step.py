@@ -16,6 +16,8 @@ from ..project import registry as project_registry
 from ..project.base import STEP_TYPE_MAP
 from ..project.steps import (
     STEP_PREREQUISITES,
+    default_substeps_for,
+    enabled_substep_ids,
     mark_legacy_import_satisfied,
     step_aliases,
 )
@@ -120,10 +122,14 @@ def step(ctx, step_name, project_name, input_dir, output_dir, token, force):
                      network_type=project.network_type, force=force)
 
     rpt.info(f"Running {step_type} for project '{project.name}'.")
+    substeps = match.substeps if match is not None else default_substeps_for(step_type, config)
+    enabled_substeps = enabled_substep_ids(step_type, substeps)
     invoke = STEP_INVOKE_MAP[step_type]
-    result = invoke(working_dir, out_dir, config, **shared_kw)
+    result = invoke(working_dir, out_dir, config, **shared_kw, enabled_substeps=enabled_substeps)
     if step_type == "AuditStep" and isinstance(result, dict) and not result.get("pass"):
         rpt.warn("Integrity audit found issues — review "
                  "reports/AuditStep_report.json before training.")
-    state.mark_done(step_type)
+    for substep_id in enabled_substeps:
+        state.mark_substep_done(step_type, substep_id)
+    state.mark_done(step_type, {"enabled_substeps": enabled_substeps})
     rpt.ok(f"{step_type} complete. Report in {out_dir / 'reports'}.")

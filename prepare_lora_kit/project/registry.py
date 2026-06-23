@@ -18,10 +18,20 @@ _registry: ConfigRegistry[ProjectConfig] = ConfigRegistry(
 _CONFIGS_DIR = _registry.configs_dir
 
 
+def _default_substep_data(step_type: str) -> list[dict[str, Any]]:
+    from .steps import SUBSTEP_REGISTRY
+
+    return [
+        {"id": definition.id, "enabled": definition.enabled_by_default}
+        for definition in SUBSTEP_REGISTRY.get(step_type, ())
+    ]
+
+
 def _default_pipeline() -> list[dict[str, Any]]:
     return [
         {
             "type": "ImportStep",
+            "substeps": _default_substep_data("ImportStep"),
         },
         {
             "type": "QualityGateStep",
@@ -35,6 +45,7 @@ def _default_pipeline() -> list[dict[str, Any]]:
             "manual_review": True,
             "auto_only": False,
             "manual_all": False,
+            "substeps": _default_substep_data("QualityGateStep"),
         },
         {
             "type": "CurateStep",
@@ -45,12 +56,14 @@ def _default_pipeline() -> list[dict[str, Any]]:
             "umap_min_dist": 0.1,
             "pca_n_components": 2,
             "clip_model_id": "openai/clip-vit-base-patch32",
+            "substeps": _default_substep_data("CurateStep"),
         },
         {
             "type": "UpscaleStep",
             "upscale_target": 3072,
             "hallucination_ssim_threshold": 0.60,
             "upscale_model": "seedvr2",
+            "substeps": _default_substep_data("UpscaleStep"),
         },
         {
             "type": "VaeGateStep",
@@ -65,6 +78,7 @@ def _default_pipeline() -> list[dict[str, Any]]:
             "hf_cutoff_fraction": 0.25,
             "max_side": None,
             "seed": 42,
+            "substeps": _default_substep_data("VaeGateStep"),
         },
         {
             "type": "CaptionStep",
@@ -72,6 +86,7 @@ def _default_pipeline() -> list[dict[str, Any]]:
             "vram_tier": "auto",
             "max_new_tokens": 200,
             "spot_check_pct": 0.10,
+            "substeps": _default_substep_data("CaptionStep"),
         },
         {
             "type": "AuditStep",
@@ -81,9 +96,20 @@ def _default_pipeline() -> list[dict[str, Any]]:
             "check_corrupt": True,
             "check_caption_length": True,
             "check_resolution_gate": True,
+            "substeps": _default_substep_data("AuditStep"),
         },
-        {"type": "ConfigGenStep", "base_template_path": None},
-        {"type": "BucketDryRunStep", "thin_threshold": 2, "cache_mode": False, "bucket_overrides": None},
+        {
+            "type": "ConfigGenStep",
+            "base_template_path": None,
+            "substeps": _default_substep_data("ConfigGenStep"),
+        },
+        {
+            "type": "BucketDryRunStep",
+            "thin_threshold": 2,
+            "cache_mode": False,
+            "bucket_overrides": None,
+            "substeps": _default_substep_data("BucketDryRunStep"),
+        },
     ]
 
 

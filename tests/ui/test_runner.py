@@ -106,6 +106,41 @@ def test_project_payload_includes_optional_step_metadata(tmp_path):
     assert optional["VaeGateStep"] is False
 
 
+def test_project_payload_includes_substeps(tmp_path):
+    payload = project_payload(_project(), tmp_path / "out")
+    substeps = {step["type"]: step["substeps"] for step in payload["steps"]}
+
+    assert [substep["id"] for substep in substeps["CurateStep"]] == [
+        "s2_1_dupecheck",
+        "s2_2_clipscan",
+        "s2_3_drop_images",
+    ]
+
+
+def test_validate_selection_rejects_substep_without_local_prerequisite(tmp_path):
+    manager = JobManager()
+
+    with pytest.raises(ValueError, match="s1_2_decide requires"):
+        manager._validate_selection(
+            _project(),
+            ["ImportStep", "QualityGateStep"],
+            tmp_path / "out",
+            {"ImportStep": ["s0_import"], "QualityGateStep": ["s1_2_decide"]},
+        )
+
+
+def test_resolve_selected_substeps_accepts_request_override(tmp_path):
+    manager = JobManager()
+
+    resolved = manager._resolve_selected_substeps(
+        _project(),
+        ["CurateStep"],
+        {"CurateStep": ["s2_1_dupecheck", "s2_3_drop_images"]},
+    )
+
+    assert resolved["CurateStep"] == ["s2_1_dupecheck", "s2_3_drop_images"]
+
+
 def test_image_payload_uses_media_endpoint_when_available(tmp_path):
     image = tmp_path / "source image.png"
 

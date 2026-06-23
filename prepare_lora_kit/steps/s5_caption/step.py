@@ -76,10 +76,12 @@ def run(
     max_new_tokens: int = 200,
     max_pixels: int = vlm._DEFAULT_MAX_PIXELS,
     interaction: InteractionProvider | None = None,
+    enabled_substeps: list[str] | None = None,
     cancel_check: CancelCheck | None = None,
 ) -> dict:
     style_mode = not concept_token
     rpt.step_header(5, "Caption — Bbox Annotation + Qwen3-VL")
+    enabled = set(enabled_substeps or ["s5_1_annotate", "s5_2_caption", "s5_3_validate"])
 
     output_dir = output_dir or dataset_dir
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -133,7 +135,15 @@ def run(
             continue
 
         # Phase 5A: bbox annotation ("Skip All" suppresses the UI for all remaining images)
-        if skip_all:
+        if "s5_2_caption" not in enabled:
+            rpt.info(f"Caption substep disabled for {path.name}; preserving existing sidecar if present.")
+            if txt_path.exists():
+                captions[str(path)] = txt_path.read_text(encoding="utf-8").strip()
+            continue
+
+        if "s5_1_annotate" not in enabled:
+            annotations, skipped = [], True
+        elif skip_all:
             annotations, skipped = [], True
         else:
             annotations, skipped, skip_all = provider.annotate_image(
@@ -178,7 +188,7 @@ def run(
 
     # Token consistency check — concept mode only
     missing_token: list[str] = []
-    if not style_mode and concept_token:
+    if "s5_3_validate" in enabled and not style_mode and concept_token:
         missing_token = cap_utils.verify_token_consistency(captions, concept_token)
         if missing_token:
             rpt.warn(f"Token '{concept_token}' missing in {len(missing_token)} captions:")
@@ -187,15 +197,24 @@ def run(
             rpt.warn(f"  {Path(p).name}")
 
     # Caption length outliers
-    short = [p for p, c in captions.items() if not cap_utils.caption_length_ok(c, min_chars=10)]
-    long_ = [p for p, c in captions.items() if not cap_utils.caption_length_ok(c, max_chars=600)]
+    short = (
+        [p for p, c in captions.items() if not cap_utils.caption_length_ok(c, min_chars=10)]
+        if "s5_3_validate" in enabled
+        else []
+    )
+    long_ = (
+        [p for p, c in captions.items() if not cap_utils.caption_length_ok(c, max_chars=600)]
+        if "s5_3_validate" in enabled
+        else []
+    )
     if short:
         rpt.warn(f"{len(short)} captions suspiciously short (< 10 chars)")
     if long_:
         rpt.warn(f"{len(long_)} captions very long (> 600 chars)")
 
     # Spot-check
-    if captions:
+    sample = []
+    if "s5_3_validate" in enabled and captions:
         n_check = max(1, int(len(captions) * spot_check_pct))
         sample = random.sample(list(captions.items()), min(n_check, len(captions)))
         from rich.table import Table
@@ -217,6 +236,11 @@ def run(
         "short_captions": short,
         "long_captions": long_,
         "spot_check_sample": [p for p, _ in sample] if captions else [],
+        "substeps": {
+            "s5_1_annotate": {"enabled": "s5_1_annotate" in enabled},
+            "s5_2_caption": {"enabled": "s5_2_caption" in enabled},
+            "s5_3_validate": {"enabled": "s5_3_validate" in enabled},
+        },
     }
     check_cancel(cancel_check)
     rpt.save_report(report, report_path or (output_dir / "step5_report.json"))

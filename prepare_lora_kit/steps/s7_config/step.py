@@ -39,15 +39,21 @@ def run(
     run_name: str | None = None,
     network_type: str | None = None,
     report_path: Path | None = None,
+    enabled_substeps: list[str] | None = None,
     cancel_check: CancelCheck | None = None,
 ) -> dict:
     style_mode = not concept_token
     rpt.step_header(7, "Config Maker")
+    enabled = set(enabled_substeps or [
+        "s7_1_dataset_stats",
+        "s7_2_build_config",
+        "s7_3_write_config",
+    ])
 
     output_dir = output_dir or dataset_dir
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    n_images = _count_images(dataset_dir)
+    n_images = _count_images(dataset_dir) if "s7_1_dataset_stats" in enabled else 1
     check_cancel(cancel_check)
     if n_images == 0:
         rpt.warn("No images found in dataset — config will have placeholder counts.")
@@ -101,6 +107,20 @@ def run(
     if not (lo_lr <= lr <= hi_lr):
         rpt.warn(f"lr={lr} outside recommended range [{lo_lr}, {hi_lr}] for {network.display_name}")
 
+    if "s7_2_build_config" not in enabled:
+        report = {
+            "skipped": True,
+            "reason": "s7_2_build_config disabled",
+            "epoch_math": em,
+            "substeps": {
+                "s7_1_dataset_stats": {"enabled": "s7_1_dataset_stats" in enabled},
+                "s7_2_build_config": {"enabled": False},
+                "s7_3_write_config": {"enabled": "s7_3_write_config" in enabled},
+            },
+        }
+        rpt.save_report(report, report_path or (output_dir / "step7_report.json"))
+        return report
+
     # ── Build config ──────────────────────────────────────────────────────────
     dataset_abs = str(dataset_dir.resolve())
     output_abs = str(output_dir.resolve())
@@ -140,10 +160,13 @@ def run(
     )
     check_cancel(cancel_check)
     out_path = output_dir / "run_config.yaml"
-    with open(out_path, "w") as f:
-        yaml.safe_dump(config, f, sort_keys=False, default_flow_style=False)
+    if "s7_3_write_config" in enabled:
+        with open(out_path, "w") as f:
+            yaml.safe_dump(config, f, sort_keys=False, default_flow_style=False)
+        rpt.ok(f"Config saved → {out_path}")
+    else:
+        rpt.info("Write-config substep disabled; run_config.yaml was not written.")
 
-    rpt.ok(f"Config saved → {out_path}")
     rpt.info(f"EMA: {'off (novel concept)' if novel_concept else 'on (known concept)'}")
     rpt.info(f"Caption dropout: {caption_dropout}")
     rpt.info(f"LR={lr}  rank={rank}  alpha={alpha}  steps={total_steps}")
@@ -158,7 +181,12 @@ def run(
         "total_steps": total_steps,
         "novel_concept": novel_concept,
         "caption_dropout": caption_dropout,
-        "config_path": str(out_path),
+        "config_path": str(out_path) if "s7_3_write_config" in enabled else None,
+        "substeps": {
+            "s7_1_dataset_stats": {"enabled": "s7_1_dataset_stats" in enabled},
+            "s7_2_build_config": {"enabled": "s7_2_build_config" in enabled},
+            "s7_3_write_config": {"enabled": "s7_3_write_config" in enabled},
+        },
     }
     check_cancel(cancel_check)
     rpt.save_report(report, report_path or (output_dir / "step7_report.json"))

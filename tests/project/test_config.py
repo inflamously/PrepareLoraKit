@@ -69,6 +69,66 @@ pipeline:
     cfg = ProjectConfig.from_yaml(path)
 
     assert [step.type for step in cfg.pipeline] == ["ImportStep", "QualityGateStep"]
+    assert [substep.id for substep in cfg.pipeline[0].substeps] == ["s0_import"]
+    assert [substep.id for substep in cfg.pipeline[1].substeps] == ["s1_1_score", "s1_2_decide"]
+
+
+def test_project_config_parses_substep_enabled_flags(tmp_path):
+    path = tmp_path / "project.yaml"
+    path.write_text("""\
+name: sample
+network: flux-klein-9b
+pipeline:
+  - type: ImportStep
+  - type: QualityGateStep
+  - type: CurateStep
+    substeps:
+      - {id: s2_1_dupecheck, enabled: true}
+      - {id: s2_2_clipscan, enabled: false}
+      - {id: s2_3_drop_images, enabled: true}
+""")
+
+    cfg = ProjectConfig.from_yaml(path)
+    curate = cfg.pipeline[2]
+
+    assert {substep.id: substep.enabled for substep in curate.substeps} == {
+        "s2_1_dupecheck": True,
+        "s2_2_clipscan": False,
+        "s2_3_drop_images": True,
+    }
+
+
+def test_project_config_rejects_unknown_substep(tmp_path):
+    path = tmp_path / "project.yaml"
+    path.write_text("""\
+name: sample
+network: flux-klein-9b
+pipeline:
+  - type: ImportStep
+    substeps:
+      - {id: s9_unknown, enabled: true}
+""")
+
+    with pytest.raises(ValueError, match="unknown substep"):
+        ProjectConfig.from_yaml(path)
+
+
+def test_project_config_maps_legacy_skip_clip_to_curate_substep(tmp_path):
+    path = tmp_path / "project.yaml"
+    path.write_text("""\
+name: sample
+network: flux-klein-9b
+pipeline:
+  - type: ImportStep
+  - type: QualityGateStep
+  - type: CurateStep
+    skip_clip: true
+""")
+
+    cfg = ProjectConfig.from_yaml(path)
+    curate = cfg.pipeline[2]
+
+    assert {substep.id: substep.enabled for substep in curate.substeps}["s2_2_clipscan"] is False
 
 
 def test_project_config_rejects_downstream_step_without_previous_step(tmp_path):
@@ -292,3 +352,28 @@ pipeline:
     optional = {step["type"]: step["optional"] for step in payload["steps"]}
     assert optional["UpscaleStep"] is True
     assert optional["VaeGateStep"] is False
+
+
+def test_project_payload_includes_substep_metadata(tmp_path):
+    path = tmp_path / "project.yaml"
+    path.write_text("""\
+name: sample
+network: flux-klein-9b
+pipeline:
+  - type: ImportStep
+""")
+    cfg = ProjectConfig.from_yaml(path)
+
+    payload = project_payload(cfg, tmp_path / "out")
+    import_step = next(step for step in payload["steps"] if step["type"] == "ImportStep")
+
+    assert import_step["substeps"] == [
+        {
+            "id": "s0_import",
+            "label": "Import source images",
+            "enabled": True,
+            "status": "pending",
+            "prerequisites": [],
+            "optional": False,
+        }
+    ]

@@ -38,9 +38,15 @@ def run(
     output_silhouettes: bool = True,
     output_hard_silhouettes: bool = True,
     max_side: int | None = None,
+    enabled_substeps: list[str] | None = None,
     cancel_check: CancelCheck | None = None,
 ) -> dict:
     rpt.step_header(4, "VAE Reconstruction Gate")
+    enabled = set(enabled_substeps or [
+        "s4_1_reconstruct",
+        "s4_2_review",
+        "s4_3_apply_decisions",
+    ])
 
     output_dir = output_dir or dataset_dir
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -49,6 +55,25 @@ def run(
     if not images:
         rpt.warn(f"No images in {dataset_dir}")
         return {}
+
+    if "s4_1_reconstruct" not in enabled:
+        rpt.info("VAE reconstruction substep disabled; passing through originals.")
+        img_utils.materialize(images, dataset_dir, output_dir)
+        report = {
+            "skipped": True,
+            "reason": "s4_1_reconstruct disabled",
+            "hf_scores": {},
+            "flagged": [],
+            "review_items": [],
+            "needs_replacement": [],
+            "substeps": {
+                "s4_1_reconstruct": {"enabled": False},
+                "s4_2_review": {"enabled": "s4_2_review" in enabled},
+                "s4_3_apply_decisions": {"enabled": "s4_3_apply_decisions" in enabled},
+            },
+        }
+        rpt.save_report(report, report_path or (output_dir / "step4_report.json"))
+        return report
 
     rpt.info(f"Loading VAE from {network.vae_model_id} …")
     check_cancel(cancel_check)
@@ -144,11 +169,11 @@ def run(
         }
         review_items.append(item)
 
-    if interaction is not None and review_items:
+    if "s4_2_review" in enabled and interaction is not None and review_items:
         check_cancel(cancel_check)
         decisions.update(interaction.vae_review(review_items))
         check_cancel(cancel_check)
-    else:
+    elif "s4_2_review" in enabled:
         for path_str in flagged:
             check_cancel(cancel_check)
             path = Path(path_str)
@@ -164,7 +189,11 @@ def run(
         default = "replace" if str(path) in flagged_set else "keep"
         return decisions.get(str(path), decisions.get(str(path.resolve()), default))
 
-    survivors = [path for path in images if decision_for(path) != "drop"]
+    survivors = (
+        [path for path in images if decision_for(path) != "drop"]
+        if "s4_3_apply_decisions" in enabled
+        else list(images)
+    )
     check_cancel(cancel_check)
     img_utils.materialize(survivors, dataset_dir, output_dir)
 
@@ -190,6 +219,11 @@ def run(
             for path in images
             if decision_for(path) == "replace"
         ],
+        "substeps": {
+            "s4_1_reconstruct": {"enabled": "s4_1_reconstruct" in enabled},
+            "s4_2_review": {"enabled": "s4_2_review" in enabled},
+            "s4_3_apply_decisions": {"enabled": "s4_3_apply_decisions" in enabled},
+        },
     }
     check_cancel(cancel_check)
     rpt.save_report(report, report_path or (output_dir / "step4_report.json"))

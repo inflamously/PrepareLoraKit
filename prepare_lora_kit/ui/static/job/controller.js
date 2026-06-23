@@ -7,7 +7,7 @@ import { showCurateDetails } from "../steps/curate_details/curate_details.js";
 import { showSourceReview } from "../steps/source_review/source_review.js";
 import { showVaeReview } from "../steps/vae_review/vae_review.js";
 import { loadProject } from "../project/controller.js";
-import { selectedStepArray } from "../project/selection.js";
+import { selectedStepArray, selectedSubstepMap } from "../project/selection.js";
 import { render } from "../shell/render.js";
 
 const TERMINAL_STATUSES = new Set(["completed", "failed", "cancelled"]);
@@ -88,6 +88,7 @@ function buildRunRequest() {
 
   const steps = selectedStepArray();
   if (!steps.length) throw new Error("Select at least one step.");
+  const substeps = selectedSubstepMap();
 
   return {
     input_dir: inputDir,
@@ -101,6 +102,7 @@ function buildRunRequest() {
     mock_curate_coverage:
       state.mockRuntime === true ? state.mockCurateCoverage : "auto",
     steps,
+    substeps,
   };
 }
 

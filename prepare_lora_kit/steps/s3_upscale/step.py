@@ -61,18 +61,44 @@ def run(
     seedvr2_cache_models: bool = True,
     seedvr2_model_residency: str = "auto",
     seedvr2_debug: bool = False,
+    enabled_substeps: list[str] | None = None,
     cancel_check: CancelCheck | None = None,
 ) -> dict:
     rpt.step_header(3, "Upscale (optional)")
     check_cancel(cancel_check)
+    enabled = set(enabled_substeps or [
+        "s3_1_select_candidates",
+        "s3_2_upscale",
+        "s3_3_hallucination_check",
+    ])
     upscale_model = _normalize_upscale_model(upscale_model, use_seedvr)
     context = _prepare_output_context(dataset_dir, output_dir, report_path)
-    partitions = _partition_images(dataset_dir, upscale_target)
+    partitions = (
+        _partition_images(dataset_dir, upscale_target)
+        if "s3_1_select_candidates" in enabled
+        else ImagePartitions(img_utils.iter_images(dataset_dir), [], img_utils.iter_images(dataset_dir))
+    )
     results: dict = {"upscaled": [], "rejected_post": [], "skipped": []}
+    results["substeps"] = {
+        "s3_1_select_candidates": {"enabled": "s3_1_select_candidates" in enabled},
+        "s3_2_upscale": {"enabled": "s3_2_upscale" in enabled},
+        "s3_3_hallucination_check": {"enabled": "s3_3_hallucination_check" in enabled},
+    }
 
     for path in partitions.already_large:
         check_cancel(cancel_check)
         _pass_through(context, path)
+
+    if "s3_2_upscale" not in enabled:
+        rpt.info("Upscale substep disabled; passing through originals.")
+        results["skipped"] = [
+            {"path": str(p), "reason": "s3_2_upscale disabled"}
+            for p in partitions.candidates
+        ]
+        for path in partitions.candidates:
+            check_cancel(cancel_check)
+            _pass_through(context, path)
+        return _save_report(results, context)
 
     if not partitions.candidates:
         rpt.ok(f"All images already >= {upscale_target}px - skipping upscale.")
@@ -113,6 +139,7 @@ def run(
             context=context,
             upscaler=resolved,
             hallucination_ssim_threshold=hallucination_ssim_threshold,
+            hallucination_check_enabled="s3_3_hallucination_check" in enabled,
             results=results,
             cancel_check=cancel_check,
         )
@@ -124,6 +151,7 @@ def run(
                 context=context,
                 upscaler=resolved,
                 hallucination_ssim_threshold=hallucination_ssim_threshold,
+                hallucination_check_enabled="s3_3_hallucination_check" in enabled,
                 results=results,
                 cancel_check=cancel_check,
             )
@@ -224,6 +252,7 @@ def _process_seedvr2_candidates(
     context: OutputContext,
     upscaler: SeedVR2Upscaler,
     hallucination_ssim_threshold: float,
+    hallucination_check_enabled: bool,
     results: dict,
     cancel_check: CancelCheck | None = None,
 ) -> None:
@@ -267,6 +296,7 @@ def _process_seedvr2_candidates(
             tmp_path=tmp_path,
             context=context,
             hallucination_ssim_threshold=hallucination_ssim_threshold,
+            hallucination_check_enabled=hallucination_check_enabled,
             results=results,
         )
 
@@ -292,6 +322,7 @@ def _process_candidate(
     context: OutputContext,
     upscaler: Upscaler,
     hallucination_ssim_threshold: float,
+    hallucination_check_enabled: bool,
     results: dict,
     cancel_check: CancelCheck | None = None,
 ) -> None:
@@ -316,6 +347,7 @@ def _process_candidate(
         tmp_path=tmp_path,
         context=context,
         hallucination_ssim_threshold=hallucination_ssim_threshold,
+        hallucination_check_enabled=hallucination_check_enabled,
         results=results,
     )
 
@@ -326,11 +358,12 @@ def _accept_candidate(
     tmp_path: Path,
     context: OutputContext,
     hallucination_ssim_threshold: float,
+    hallucination_check_enabled: bool,
     results: dict,
 ) -> None:
     out_path = context.output_dir / path.name
-    hall_ssim = _hallucination_check(path, tmp_path)
-    if hall_ssim < hallucination_ssim_threshold:
+    hall_ssim = _hallucination_check(path, tmp_path) if hallucination_check_enabled else 1.0
+    if hallucination_check_enabled and hall_ssim < hallucination_ssim_threshold:
         rpt.warn(f"REJECT upscale {path.name} (SSIM={hall_ssim:.3f}) - keeping original size.")
         results["rejected_post"].append({"path": str(path), "hall_ssim": hall_ssim})
         tmp_path.unlink(missing_ok=True)

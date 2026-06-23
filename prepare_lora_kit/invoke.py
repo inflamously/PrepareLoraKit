@@ -28,6 +28,7 @@ def _invoke_ImportStep(working_dir: Path, output_dir: Path, cfg: ImportConfig,
         original_dir,
         working_dir,
         report_path=output_dir / "reports" / "ImportStep_report.json",
+        enabled_substeps=_kw.get("enabled_substeps"),
         cancel_check=_kw.get("cancel_check"),
     )
 
@@ -44,6 +45,7 @@ def _invoke_QualityGateStep(working_dir: Path, output_dir: Path, cfg: QualityGat
         scorers=[dataclasses.asdict(s) for s in cfg.scorers],
         report_path=output_dir / "reports" / "QualityGateStep_report.json",
         interaction=_kw.get("interaction"),
+        enabled_substeps=_kw.get("enabled_substeps"),
         cancel_check=_kw.get("cancel_check"),
     )
 
@@ -57,6 +59,7 @@ def _invoke_CurateStep(working_dir: Path, output_dir: Path, cfg: CurateConfig,
             output_dir,
             cfg,
             coverage_mode=str(_kw.get("mock_curate_coverage") or "auto"),
+            enabled_substeps=_kw.get("enabled_substeps"),
             cancel_check=_kw.get("cancel_check"),
         )
 
@@ -67,6 +70,7 @@ def _invoke_CurateStep(working_dir: Path, output_dir: Path, cfg: CurateConfig,
         auto_dedupe=True,
         skip_clip=cfg.skip_clip,
         report_path=output_dir / "reports" / "CurateStep_report.json",
+        enabled_substeps=_kw.get("enabled_substeps"),
         cancel_check=_kw.get("cancel_check"),
     )
 
@@ -91,6 +95,7 @@ def _invoke_UpscaleStep(working_dir: Path, output_dir: Path, cfg: UpscaleConfig,
         seedvr2_cache_models=cfg.seedvr2_cache_models,
         seedvr2_model_residency=cfg.seedvr2_model_residency,
         seedvr2_debug=cfg.seedvr2_debug,
+        enabled_substeps=_kw.get("enabled_substeps"),
         cancel_check=_kw.get("cancel_check"),
     )
 
@@ -103,6 +108,7 @@ def _invoke_VaeGateStep(working_dir: Path, output_dir: Path, cfg: VaeGateConfig,
             working_dir,
             output_dir,
             interaction=_kw.get("interaction"),
+            enabled_substeps=_kw.get("enabled_substeps"),
             cancel_check=_kw.get("cancel_check"),
         )
         return
@@ -123,6 +129,7 @@ def _invoke_VaeGateStep(working_dir: Path, output_dir: Path, cfg: VaeGateConfig,
         output_silhouettes=cfg.output_silhouettes,
         output_hard_silhouettes=cfg.output_hard_silhouettes,
         max_side=cfg.max_side,
+        enabled_substeps=_kw.get("enabled_substeps"),
         cancel_check=_kw.get("cancel_check"),
     )
 
@@ -137,6 +144,7 @@ def _invoke_CaptionStep(working_dir: Path, output_dir: Path, cfg: CaptionConfig,
             concept_token=concept_token,
             interaction=_kw.get("interaction"),
             force=bool(_kw.get("force", False)),
+            enabled_substeps=_kw.get("enabled_substeps"),
             cancel_check=_kw.get("cancel_check"),
         )
         return
@@ -157,6 +165,7 @@ def _invoke_CaptionStep(working_dir: Path, output_dir: Path, cfg: CaptionConfig,
         overwrite=bool(_kw.get("force", False)),
         report_path=output_dir / "reports" / "CaptionStep_report.json",
         interaction=_kw.get("interaction"),
+        enabled_substeps=_kw.get("enabled_substeps"),
         cancel_check=_kw.get("cancel_check"),
     )
 
@@ -169,6 +178,7 @@ def _invoke_AuditStep(working_dir: Path, output_dir: Path, cfg: AuditConfig,
         working_dir,
         network=network,
         report_path=output_dir / "reports" / "AuditStep_report.json",
+        enabled_substeps=_kw.get("enabled_substeps"),
         cancel_check=_kw.get("cancel_check"),
     )
 
@@ -185,6 +195,7 @@ def _invoke_ConfigGenStep(working_dir: Path, output_dir: Path, cfg: ConfigGenCon
         output_dir=output_dir,
         network_type=network_type,
         report_path=output_dir / "reports" / "ConfigGenStep_report.json",
+        enabled_substeps=_kw.get("enabled_substeps"),
         cancel_check=_kw.get("cancel_check"),
     )
 
@@ -200,6 +211,7 @@ def _invoke_BucketDryRunStep(working_dir: Path, output_dir: Path, cfg: BucketDry
         cache_mode=cfg.cache_mode,
         thin_threshold=cfg.thin_threshold,
         report_path=output_dir / "reports" / "BucketDryRunStep_report.json",
+        enabled_substeps=_kw.get("enabled_substeps"),
         cancel_check=_kw.get("cancel_check"),
     )
 
@@ -228,6 +240,7 @@ def _mock_curate(
     cfg: CurateConfig,
     *,
     coverage_mode: str = "auto",
+    enabled_substeps: list[str] | None = None,
     cancel_check=None,
 ) -> dict:
     from .steps.s2_curate.coverage import _save_pca, _save_umap
@@ -246,8 +259,11 @@ def _mock_curate(
         return {}
 
     check_cancel(cancel_check)
-    hashes = _compute_hashes(images, cancel_check=cancel_check)
-    pairs = _find_duplicates(hashes, cancel_check=cancel_check)
+    enabled = set(enabled_substeps or ["s2_1_dupecheck", "s2_2_clipscan", "s2_3_drop_images"])
+    pairs = []
+    if "s2_1_dupecheck" in enabled:
+        hashes = _compute_hashes(images, cancel_check=cancel_check)
+        pairs = _find_duplicates(hashes, cancel_check=cancel_check)
     to_drop: set[Path] = set()
     kept_images = list(images)
     check_cancel(cancel_check)
@@ -258,7 +274,7 @@ def _mock_curate(
     if mode not in {"auto", "pca", "umap"}:
         mode = "auto"
 
-    if len(kept_images) >= 2:
+    if "s2_2_clipscan" in enabled and len(kept_images) >= 2:
         check_cancel(cancel_check)
         embeddings = _mock_embeddings(kept_images)
         use_umap = mode == "umap" or (
@@ -279,6 +295,11 @@ def _mock_curate(
         "occluded_flagged": [],
         "coverage_image": str(coverage_path) if coverage_path else None,
         "coverage": coverage_metadata,
+        "substeps": {substep_id: {"enabled": substep_id in enabled} for substep_id in [
+            "s2_1_dupecheck",
+            "s2_2_clipscan",
+            "s2_3_drop_images",
+        ]},
     }
     rpt.info(f"Mock runtime: curated {len(kept_images)} image(s).")
     check_cancel(cancel_check)
@@ -327,7 +348,14 @@ def _mock_embeddings(paths: list[Path]) -> "np.ndarray":
     return np.asarray(rows, dtype=np.float32)
 
 
-def _mock_vae_gate(working_dir: Path, output_dir: Path, *, interaction=None, cancel_check=None) -> dict:
+def _mock_vae_gate(
+    working_dir: Path,
+    output_dir: Path,
+    *,
+    interaction=None,
+    enabled_substeps: list[str] | None = None,
+    cancel_check=None,
+) -> dict:
     from .utils import image as img_utils
     from .utils import report as rpt
     from .steps.s4_vae_gate.review import _save_review_artifacts
@@ -335,6 +363,7 @@ def _mock_vae_gate(working_dir: Path, output_dir: Path, *, interaction=None, can
     from PIL import Image, ImageFilter
 
     rpt.step_header(4, "VAE Reconstruction Gate")
+    enabled = set(enabled_substeps or ["s4_1_reconstruct", "s4_2_review", "s4_3_apply_decisions"])
     images = img_utils.iter_images(working_dir)
     scores = {str(path): 0.0 for path in images}
     preview_root = output_dir / "reports" / "VaeGateStep_previews"
@@ -359,11 +388,16 @@ def _mock_vae_gate(working_dir: Path, output_dir: Path, *, interaction=None, can
         })
 
     check_cancel(cancel_check)
-    decisions = interaction.vae_review(review_items) if interaction and review_items else {}
+    decisions = (
+        interaction.vae_review(review_items)
+        if "s4_2_review" in enabled and interaction and review_items
+        else {}
+    )
     check_cancel(cancel_check)
     survivors = [
         path for path in images
-        if decisions.get(str(path), decisions.get(str(path.resolve()), "keep")) != "drop"
+        if "s4_3_apply_decisions" not in enabled
+        or decisions.get(str(path), decisions.get(str(path.resolve()), "keep")) != "drop"
     ]
     img_utils.materialize(survivors, working_dir, working_dir)
     report = {
@@ -386,6 +420,11 @@ def _mock_vae_gate(working_dir: Path, output_dir: Path, *, interaction=None, can
             for path in images
             if decisions.get(str(path), decisions.get(str(path.resolve()), "keep")) == "replace"
         ],
+        "substeps": {
+            "s4_1_reconstruct": {"enabled": "s4_1_reconstruct" in enabled},
+            "s4_2_review": {"enabled": "s4_2_review" in enabled},
+            "s4_3_apply_decisions": {"enabled": "s4_3_apply_decisions" in enabled},
+        },
     }
     rpt.info(f"Mock runtime: recorded deterministic VAE pass for {len(images)} image(s).")
     check_cancel(cancel_check)
@@ -400,6 +439,7 @@ def _mock_caption(
     concept_token: Optional[str],
     interaction,
     force: bool,
+    enabled_substeps: list[str] | None = None,
     cancel_check=None,
 ) -> dict:
     from .interaction import CliInteractionProvider
@@ -407,6 +447,7 @@ def _mock_caption(
     from .utils import report as rpt
 
     rpt.step_header(5, "Caption — Mock Runtime")
+    enabled = set(enabled_substeps or ["s5_1_annotate", "s5_2_caption", "s5_3_validate"])
     working_dir.mkdir(parents=True, exist_ok=True)
     provider = interaction or CliInteractionProvider()
     images = img_utils.iter_images(working_dir)
@@ -429,7 +470,14 @@ def _mock_caption(
             rpt.info(f"Skip (exists): {path.name}")
             continue
 
-        if skip_all:
+        if "s5_2_caption" not in enabled:
+            if txt_path.exists():
+                captions[str(path)] = txt_path.read_text(encoding="utf-8").strip()
+            continue
+
+        if "s5_1_annotate" not in enabled:
+            annotations, skipped = [], True
+        elif skip_all:
             annotations, skipped = [], True
         else:
             annotations, skipped, skip_all = provider.annotate_image(
@@ -456,6 +504,11 @@ def _mock_caption(
         "short_captions": [],
         "long_captions": [],
         "spot_check_sample": [],
+        "substeps": {
+            "s5_1_annotate": {"enabled": "s5_1_annotate" in enabled},
+            "s5_2_caption": {"enabled": "s5_2_caption" in enabled},
+            "s5_3_validate": {"enabled": "s5_3_validate" in enabled},
+        },
     }
     check_cancel(cancel_check)
     rpt.save_report(report, output_dir / "reports" / "CaptionStep_report.json")

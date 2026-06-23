@@ -23,8 +23,12 @@ from ..project.base import ProjectConfig
 from ..project.steps import (
     OPTIONAL_STEP_TYPES,
     STEP_PREREQUISITES,
+    SUBSTEP_REGISTRY,
+    enabled_substep_ids,
     is_step_satisfied,
     mark_legacy_import_satisfied,
+    normalize_substeps,
+    substep_payloads,
 )
 from ..project import registry as project_registry
 from ..utils.state import RunState
@@ -120,8 +124,11 @@ class PipelineJob:
         self.id = job_id
         self.status = "queued"
         self.current_step: str | None = None
+        self.current_substep: str | None = None
         self.completed_steps: list[str] = []
         self.skipped_steps: list[str] = []
+        self.completed_substeps: dict[str, list[str]] = {}
+        self.skipped_substeps: dict[str, list[str]] = {}
         self.error: str | None = None
         self.result: dict[str, Any] | None = None
         self.logs: list[str] = []
@@ -143,10 +150,17 @@ class PipelineJob:
                 self.logs = self.logs[-1000:]
             self._condition.notify_all()
 
-    def set_status(self, status: str, *, current_step: str | None = None) -> None:
+    def set_status(
+        self,
+        status: str,
+        *,
+        current_step: str | None = None,
+        current_substep: str | None = None,
+    ) -> None:
         with self._condition:
             self.status = status
             self.current_step = current_step
+            self.current_substep = current_substep
             self._condition.notify_all()
 
     def request_input(self, kind: str, payload: dict[str, Any]) -> Any:
@@ -203,8 +217,17 @@ class PipelineJob:
                 "id": self.id,
                 "status": self.status,
                 "current_step": self.current_step,
+                "current_substep": self.current_substep,
                 "completed_steps": list(self.completed_steps),
                 "skipped_steps": list(self.skipped_steps),
+                "completed_substeps": {
+                    step: list(substeps)
+                    for step, substeps in self.completed_substeps.items()
+                },
+                "skipped_substeps": {
+                    step: list(substeps)
+                    for step, substeps in self.skipped_substeps.items()
+                },
                 "error": self.error,
                 "result": self.result,
                 "logs": list(self.logs),
@@ -431,10 +454,16 @@ class JobManager:
         project_name = str(request["project"])
         token = request.get("token") or None
         selected_steps = [str(s) for s in request.get("steps", [])]
+        requested_substeps = {
+            str(step_type): [str(substep_id) for substep_id in substeps]
+            for step_type, substeps in (request.get("substeps") or {}).items()
+            if isinstance(substeps, list)
+        }
         force = bool(request.get("force", False))
 
         project = self._load_project(project_name)
-        self._validate_selection(project, selected_steps, output_dir)
+        selected_substeps = self._resolve_selected_substeps(project, selected_steps, requested_substeps)
+        self._validate_selection(project, selected_steps, output_dir, selected_substeps)
         network = self._load_network(project)
         state = RunState(output_dir)
         interaction = UiInteractionProvider(job, self._media_base_url)
@@ -471,22 +500,35 @@ class JobManager:
                 continue
             if job.cancel_requested:
                 raise CancelledRun("Run cancelled")
-            job.set_status("running", current_step=step.type)
+            enabled_substeps = selected_substeps.get(step.type, enabled_substep_ids(step.type, step.substeps))
+            job.set_status(
+                "running",
+                current_step=step.type,
+                current_substep=enabled_substeps[0] if enabled_substeps else None,
+            )
             if (
                 not force
                 and step.type == "ImportStep"
                 and mark_legacy_import_satisfied(state, cfg.resolved_output_dir)
             ):
                 job.skipped_steps.append(step.type)
+                job.skipped_substeps[step.type] = enabled_substeps
                 job.add_log("ImportStep satisfied by existing working dataset")
                 continue
             if not force and state.is_done(step.type):
                 job.skipped_steps.append(step.type)
+                job.skipped_substeps[step.type] = enabled_substeps
                 job.add_log(f"{step.type} already done; skipping")
                 continue
 
             invoke = STEP_INVOKE_MAP[step.type]
-            result = invoke(working_dir, cfg.resolved_output_dir, step.config, **shared_kw)
+            result = invoke(
+                working_dir,
+                cfg.resolved_output_dir,
+                step.config,
+                **shared_kw,
+                enabled_substeps=enabled_substeps,
+            )
             job.raise_if_cancelled()
             if step.type == "AuditStep" and isinstance(result, dict) and not result.get("pass"):
                 job.add_log("AuditStep found issues; review reports/AuditStep_report.json")
@@ -497,21 +539,55 @@ class JobManager:
                     cfg.resolved_output_dir / "reports" / "CurateStep_report.json",
                 )
                 job.raise_if_cancelled()
-            state.mark_done(step.type)
+            for substep_id in enabled_substeps:
+                state.mark_substep_done(step.type, substep_id)
+            state.mark_done(step.type, {"enabled_substeps": enabled_substeps})
             job.completed_steps.append(step.type)
+            job.completed_substeps[step.type] = enabled_substeps
 
         job.result = {
             "output_dir": str(cfg.resolved_output_dir),
             "reports_dir": str(cfg.resolved_output_dir / "reports"),
             "run_config": str(cfg.resolved_output_dir / "run_config.yaml"),
         }
-        job.set_status("completed", current_step=None)
+        job.set_status("completed", current_step=None, current_substep=None)
+
+    def _resolve_selected_substeps(
+        self,
+        project: ProjectConfig,
+        selected_steps: list[str],
+        requested_substeps: dict[str, list[str]],
+    ) -> dict[str, list[str]]:
+        selected = set(selected_steps)
+        resolved: dict[str, list[str]] = {}
+        for step in project.pipeline:
+            if step.type not in selected:
+                continue
+            raw = requested_substeps.get(step.type)
+            if raw is None:
+                resolved[step.type] = enabled_substep_ids(step.type, step.substeps)
+                continue
+            known = {definition.id for definition in SUBSTEP_REGISTRY.get(step.type, ())}
+            unknown = [substep_id for substep_id in raw if substep_id not in known]
+            if unknown:
+                raise ValueError(
+                    f"Selected substep is not in {step.type}: {', '.join(unknown)}"
+                )
+            substeps = normalize_substeps(
+                step.type,
+                [{"id": definition.id, "enabled": definition.id in set(raw)}
+                 for definition in SUBSTEP_REGISTRY.get(step.type, ())],
+                step.config,
+            )
+            resolved[step.type] = enabled_substep_ids(step.type, substeps)
+        return resolved
 
     def _validate_selection(
         self,
         project: ProjectConfig,
         selected_steps: list[str],
         output_dir: Path,
+        selected_substeps: dict[str, list[str]] | None = None,
     ) -> None:
         known = [s.type for s in project.pipeline]
         unknown = [s for s in selected_steps if s not in known]
@@ -523,6 +599,22 @@ class JobManager:
         state = RunState(output_dir)
         selected = set(selected_steps)
         for step_type in selected_steps:
+            enabled_substeps = (selected_substeps or {}).get(step_type)
+            if enabled_substeps == []:
+                raise ValueError(f"{step_type} has no enabled substeps")
+            if enabled_substeps is not None:
+                enabled_set = set(enabled_substeps)
+                for definition in SUBSTEP_REGISTRY.get(step_type, ()):
+                    if definition.id not in enabled_set:
+                        continue
+                    missing = [
+                        req for req in definition.prerequisites
+                        if req not in enabled_set
+                    ]
+                    if missing:
+                        raise ValueError(
+                            f"{definition.id} requires enabled substep {', '.join(missing)}"
+                        )
             for req in STEP_PREREQUISITES.get(step_type, []):
                 if req not in selected and not is_step_satisfied(req, state, output_dir):
                     raise ValueError(f"{step_type} requires completed or selected prerequisite {req}")
@@ -559,6 +651,7 @@ def project_payload(project: ProjectConfig, output_dir: Path | None = None) -> d
                 "status": state.get(step.type).get("status", "pending") if state else "pending",
                 "prerequisites": STEP_PREREQUISITES.get(step.type, []),
                 "optional": step.type in OPTIONAL_STEP_TYPES,
+                "substeps": substep_payloads(step.type, step.substeps, state),
             }
             for step in project.pipeline
         ],

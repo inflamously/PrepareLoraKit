@@ -45,6 +45,7 @@ export async function applyBootstrap(bootstrap) {
   state.outputDir = $("outputDir").value;
   state.outputCustomized = Boolean(state.outputDir.trim());
   state.selectedSteps = selectedAvailableSteps(new Set(bootstrap.selected_steps || []));
+  state.selectedSubsteps = selectedAvailableSubsteps(state.selectedSteps, null);
   render();
 }
 
@@ -99,6 +100,7 @@ export function selectPending() {
   if (!state.project) return;
 
   state.selectedSteps = pendingDefaultSteps();
+  state.selectedSubsteps = selectedAvailableSubsteps(state.selectedSteps, null);
   render();
 }
 
@@ -113,6 +115,7 @@ function ensureProjectOption(name) {
 function resetProjectSelection() {
   state.project = null;
   state.selectedSteps = new Set();
+  state.selectedSubsteps = new Map();
   state.outputDir = "";
   state.outputCustomized = false;
   state.mockRuntime = false;
@@ -131,6 +134,9 @@ function applyProjectResult(result, options = {}) {
   const previousSelectedSteps = options.preserveSelection
     ? new Set(state.selectedSteps)
     : null;
+  const previousSelectedSubsteps = options.preserveSelection
+    ? new Map(state.selectedSubsteps)
+    : null;
 
   state.project = result.project;
 
@@ -146,6 +152,10 @@ function applyProjectResult(result, options = {}) {
   state.selectedSteps = previousSelectedSteps
     ? selectedAvailableSteps(previousSelectedSteps)
     : defaultSelectedSteps();
+  state.selectedSubsteps = selectedAvailableSubsteps(
+    state.selectedSteps,
+    previousSelectedSubsteps,
+  );
 
   applyCaptionConfigDefaults();
   render();
@@ -176,4 +186,20 @@ function selectedAvailableSteps(selectedSteps) {
   return new Set(
     [...selectedSteps].filter((stepType) => available.has(stepType)),
   );
+}
+
+function selectedAvailableSubsteps(selectedSteps, previousSelectedSubsteps) {
+  const selectedSubsteps = new Map();
+  for (const step of state.project.steps) {
+    if (!selectedSteps.has(step.type)) continue;
+    const available = new Set((step.substeps || []).map((substep) => substep.id));
+    const previous = previousSelectedSubsteps?.get(step.type);
+    const values = previous
+      ? [...previous].filter((id) => available.has(id))
+      : (step.substeps || [])
+          .filter((substep) => substep.enabled !== false)
+          .map((substep) => substep.id);
+    selectedSubsteps.set(step.type, new Set(values));
+  }
+  return selectedSubsteps;
 }

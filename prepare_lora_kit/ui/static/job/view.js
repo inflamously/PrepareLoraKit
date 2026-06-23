@@ -53,7 +53,8 @@ function renderCurrentStep(job, currentStepLabel) {
         return;
     }
 
-    currentStepLabel.textContent = `Current step: ${stepLabel(job.current_step)}`;
+    const substep = job.current_substep ? ` / ${job.current_substep}` : "";
+    currentStepLabel.textContent = `Current step: ${stepLabel(job.current_step)}${substep}`;
     currentStepLabel.classList.remove("hidden");
 }
 

@@ -18,7 +18,13 @@ from typing import Any, Optional
 import yaml
 
 from .configs import ScorerEntry
-from .steps import STEP_ORDER_INDEX, STEP_PREREQUISITES, STEP_TYPE_MAP
+from .steps import (
+    STEP_ORDER_INDEX,
+    STEP_PREREQUISITES,
+    STEP_TYPE_MAP,
+    PipelineSubstep,
+    normalize_substeps,
+)
 
 
 # ── Step Type Registry ────────────────────────────────────────────────────────
@@ -32,6 +38,7 @@ from .steps import STEP_ORDER_INDEX, STEP_PREREQUISITES, STEP_TYPE_MAP
 class PipelineStep:
     type: str
     config: Any  # one of the <StepType>Config instances
+    substeps: list[PipelineSubstep] = field(default_factory=list)
 
 
 # ── Top-level Project Config ──────────────────────────────────────────────────
@@ -83,6 +90,7 @@ class ProjectConfig:
                     raise ValueError(
                         f"'{t}' requires '{req}' to appear earlier in the pipeline."
                     )
+            step.substeps = normalize_substeps(t, step.substeps or None, step.config)
             seen.add(t)
             previous_index = index
 
@@ -102,6 +110,7 @@ class ProjectConfig:
         for raw in raw_pipeline:
             raw = dict(raw)
             step_type = raw.pop("type")
+            raw_substeps = raw.pop("substeps", None)
             config_cls = STEP_TYPE_MAP.get(step_type)
             if config_cls is None:
                 raise ValueError(
@@ -114,7 +123,13 @@ class ProjectConfig:
             if step_type == "BucketDryRunStep" and raw.get("bucket_overrides") is not None:
                 raw["bucket_overrides"] = [tuple(b) for b in raw["bucket_overrides"]]
             config = config_cls(**raw)
-            pipeline.append(PipelineStep(type=step_type, config=config))
+            pipeline.append(
+                PipelineStep(
+                    type=step_type,
+                    config=config,
+                    substeps=normalize_substeps(step_type, raw_substeps, config),
+                )
+            )
 
         return cls(name=name, network=network, network_type=network_type,
                    input_dir=input_dir, pipeline=pipeline)
@@ -129,5 +144,10 @@ def _normalize_raw_pipeline(raw_pipeline: list[dict[str, Any]]) -> list[dict[str
 def _normalize_pipeline_steps(pipeline: list[PipelineStep]) -> list[PipelineStep]:
     if pipeline and pipeline[0].type == "QualityGateStep":
         import_config = STEP_TYPE_MAP["ImportStep"]()
-        return [PipelineStep(type="ImportStep", config=import_config), *pipeline]
+        import_step = PipelineStep(
+            type="ImportStep",
+            config=import_config,
+            substeps=normalize_substeps("ImportStep", None, import_config),
+        )
+        return [import_step, *pipeline]
     return pipeline

@@ -78,10 +78,33 @@ class RunState:
         return s is not None and s.status == "done"
 
     def mark_done(self, step: str, meta: dict | None = None) -> None:
+        merged_meta = meta or {}
+        existing = self._data.steps.get(step)
+        if existing is not None and "substeps" in existing.meta and "substeps" not in merged_meta:
+            merged_meta = {**merged_meta, "substeps": existing.meta["substeps"]}
         self._data.steps[step] = StepState(
             status="done",
             completed_at=time.strftime("%Y-%m-%dT%H:%M:%S"),
-            meta=meta or {},
+            meta=merged_meta,
+        )
+        self.save()
+
+    def mark_substep_done(self, step: str, substep: str, meta: dict | None = None) -> None:
+        parent = self._data.steps.get(step)
+        parent_meta = dict(parent.meta) if parent is not None else {}
+        substeps = dict(parent_meta.get("substeps", {}))
+        substeps[substep] = {
+            "status": "done",
+            "completed_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+            **(meta or {}),
+        }
+        parent_meta["substeps"] = substeps
+        parent_status = parent.status if parent is not None else "pending"
+        self._data.steps[step] = StepState(
+            status=parent_status,
+            completed_at=parent.completed_at if parent is not None else None,
+            reason=parent.reason if parent is not None else None,
+            meta=parent_meta,
         )
         self.save()
 
@@ -89,9 +112,35 @@ class RunState:
         self._data.steps[step] = StepState(status="skipped", reason=reason)
         self.save()
 
+    def mark_substep_skipped(self, step: str, substep: str, reason: str = "") -> None:
+        parent = self._data.steps.get(step)
+        parent_meta = dict(parent.meta) if parent is not None else {}
+        substeps = dict(parent_meta.get("substeps", {}))
+        substeps[substep] = {"status": "skipped", "reason": reason}
+        parent_meta["substeps"] = substeps
+        self._data.steps[step] = StepState(
+            status=parent.status if parent is not None else "pending",
+            completed_at=parent.completed_at if parent is not None else None,
+            reason=parent.reason if parent is not None else None,
+            meta=parent_meta,
+        )
+        self.save()
+
     def get(self, step: str) -> dict:
         s = self._data.steps.get(step)
         return s.to_dict() if s is not None else {}
+
+    def get_substep(self, step: str, substep: str) -> dict:
+        parent = self.get(step)
+        substeps = parent.get("substeps") if isinstance(parent.get("substeps"), dict) else {}
+        data = substeps.get(substep)
+        if isinstance(data, dict):
+            return data
+        if parent.get("status") == "done":
+            return {"status": "done", "legacy_parent_done": True}
+        if parent.get("status") == "skipped":
+            return {"status": "skipped", "reason": parent.get("reason", "")}
+        return {}
 
     def reset(self, step: str | None = None) -> None:
         if step:

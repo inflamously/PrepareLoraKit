@@ -10,7 +10,7 @@ from .cancellation import CancelCheck, check_cancel
 from .invoke import STEP_INVOKE_MAP
 from .paths import PROJECT_ROOT
 from .project.base import ProjectConfig
-from .project.steps import mark_legacy_import_satisfied
+from .project.steps import enabled_substep_ids, mark_legacy_import_satisfied
 from .utils import report as rpt
 from .utils.state import RunState
 
@@ -69,11 +69,21 @@ def run_all(cfg: RunConfig) -> None:
         check_cancel(cfg.cancel_check)
         if _skip(step.type):
             continue
+        enabled_substeps = enabled_substep_ids(step.type, step.substeps)
         invoke = STEP_INVOKE_MAP[step.type]
-        result = invoke(working_dir, output_dir, step.config, **shared_kw, cancel_check=cfg.cancel_check)
+        result = invoke(
+            working_dir,
+            output_dir,
+            step.config,
+            **shared_kw,
+            enabled_substeps=enabled_substeps,
+            cancel_check=cfg.cancel_check,
+        )
         check_cancel(cfg.cancel_check)
         if step.type == "AuditStep" and isinstance(result, dict) and not result.get("pass"):
             rpt.warn("Integrity audit found issues — review reports/AuditStep_report.json before training.")
-        state.mark_done(step.type)
+        for substep_id in enabled_substeps:
+            state.mark_substep_done(step.type, substep_id)
+        state.mark_done(step.type, {"enabled_substeps": enabled_substeps})
 
     rpt.ok("Pipeline complete. Review reports and run_config.yaml before training.")

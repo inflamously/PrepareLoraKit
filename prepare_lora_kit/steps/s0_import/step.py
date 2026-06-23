@@ -14,6 +14,7 @@ def run(
     input_dir: Path,
     output_dir: Path,
     report_path: Path | None = None,
+    enabled_substeps: list[str] | None = None,
     cancel_check: CancelCheck | None = None,
 ) -> dict:
     """Copy source images into the working dataset directory."""
@@ -42,6 +43,9 @@ def run(
         "output_dir": str(output_dir),
         "imported": imported,
         "count": len(imported),
+        "substeps": {
+            "s0_import": {"enabled": "s0_import" in set(enabled_substeps or ["s0_import"])},
+        },
     }
     rpt.info(f"Imported {len(imported)} image(s) into {output_dir}.")
     check_cancel(cancel_check)

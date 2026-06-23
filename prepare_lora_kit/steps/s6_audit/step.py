@@ -27,28 +27,46 @@ def run(
     dataset_dir: Path,
     network: NetworkProfile | None = None,
     report_path: Path | None = None,
+    enabled_substeps: list[str] | None = None,
     cancel_check: CancelCheck | None = None,
 ) -> dict:
     rpt.step_header(6, "Pairing & Integrity Audit")
+    enabled = set(enabled_substeps or [
+        "s6_1_pairing",
+        "s6_2_corrupt",
+        "s6_3_caption_quality",
+        "s6_4_resolution",
+    ])
 
     check_cancel(cancel_check)
     image_stems, txt_stems = collect_stems(dataset_dir)
 
     # ── 1. Pairing check ──────────────────────────────────────────────────────
     check_cancel(cancel_check)
-    orphan_images, orphan_txts, paired_stems = check_pairing(image_stems, txt_stems)
+    if "s6_1_pairing" in enabled:
+        orphan_images, orphan_txts, paired_stems = check_pairing(image_stems, txt_stems)
+    else:
+        orphan_images, orphan_txts = [], []
+        paired_stems = sorted(set(image_stems) & set(txt_stems))
 
     # ── 2. PIL verify (corrupt / truncated) ──────────────────────────────────
     check_cancel(cancel_check)
-    corrupt = check_corrupt(paired_stems, image_stems)
+    corrupt = check_corrupt(paired_stems, image_stems) if "s6_2_corrupt" in enabled else []
 
     # ── 3. Caption quality ────────────────────────────────────────────────────
     check_cancel(cancel_check)
-    empty_captions, short_captions, long_captions = check_captions(paired_stems, txt_stems)
+    if "s6_3_caption_quality" in enabled:
+        empty_captions, short_captions, long_captions = check_captions(paired_stems, txt_stems)
+    else:
+        empty_captions, short_captions, long_captions = [], [], []
 
     # ── 4. Resolution gate ────────────────────────────────────────────────────
     check_cancel(cancel_check)
-    undersized = check_resolution(paired_stems, image_stems, corrupt, network)
+    undersized = (
+        check_resolution(paired_stems, image_stems, corrupt, network)
+        if "s6_4_resolution" in enabled
+        else []
+    )
 
     # ── Summary ───────────────────────────────────────────────────────────────
     issues = len(orphan_images) + len(orphan_txts) + len(corrupt) + len(empty_captions) + len(undersized)
@@ -68,6 +86,12 @@ def run(
         "long_captions": long_captions,
         "undersized": undersized,
         "pass": issues == 0,
+        "substeps": {
+            "s6_1_pairing": {"enabled": "s6_1_pairing" in enabled},
+            "s6_2_corrupt": {"enabled": "s6_2_corrupt" in enabled},
+            "s6_3_caption_quality": {"enabled": "s6_3_caption_quality" in enabled},
+            "s6_4_resolution": {"enabled": "s6_4_resolution" in enabled},
+        },
     }
     check_cancel(cancel_check)
     rpt.save_report(report, report_path or (dataset_dir / "step6_report.json"))

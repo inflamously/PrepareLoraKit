@@ -9,14 +9,10 @@
 }
 
 .step {
-  display: grid;
-  grid-template-columns: 24px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px;
   border: 1px solid var(--hairline);
   border-radius: var(--radius-lg);
   background: rgba(11, 16, 36, 0.62);
-  padding: 10px;
+  padding: 0;
 }
 
 .step:hover {
@@ -24,14 +20,32 @@
   background: rgba(22, 29, 58, 0.72);
 }
 
-.step input {
+.step-header,
+.substep {
+  display: grid;
+  grid-template-columns: 24px 28px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+}
+
+.substep {
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  border-top: 1px solid var(--hairline);
+  padding-left: 44px;
+}
+
+.step input,
+.substep input {
   width: 18px;
   min-height: 18px;
   accent-color: var(--accent);
 }
 
 .step strong,
-.step small {
+.step small,
+.substep strong,
+.substep small {
   display: block;
   min-width: 0;
   overflow: hidden;
@@ -39,9 +53,29 @@
   white-space: nowrap;
 }
 
-.step small {
+.step small,
+.substep small {
   color: var(--caption);
   font-size: 12px;
+}
+
+.step-toggle {
+  width: 26px;
+  min-height: 26px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted);
+  padding: 0;
+  line-height: 1;
+}
+
+.step.collapsed .step-toggle {
+  transform: rotate(-90deg);
+}
+
+.step.collapsed .substep-list {
+  display: none;
 }
 
 .badge {

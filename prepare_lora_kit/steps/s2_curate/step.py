@@ -23,9 +23,11 @@ def run(
     auto_dedupe: bool = True,
     skip_clip: bool = False,
     report_path: Path | None = None,
+    enabled_substeps: list[str] | None = None,
     cancel_check: CancelCheck | None = None,
 ) -> dict:
     rpt.step_header(2, "Curation — Dedupe + Coverage")
+    enabled = set(enabled_substeps or ["s2_1_dupecheck", "s2_2_clipscan", "s2_3_drop_images"])
 
     output_dir = output_dir or dataset_dir
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -40,24 +42,33 @@ def run(
         rpt.warn(f"No images in {dataset_dir}")
         return {}
 
-    rpt.info(f"Found {len(images)} images. Computing perceptual hashes …")
-    hashes = _compute_hashes(images, cancel_check=cancel_check)
+    pairs = []
+    to_drop: set[Path] = set()
+    if "s2_1_dupecheck" in enabled:
+        rpt.info(f"Found {len(images)} images. Computing perceptual hashes …")
+        hashes = _compute_hashes(images, cancel_check=cancel_check)
 
-    pairs = _find_duplicates(hashes, cancel_check=cancel_check)
-    rpt.info(f"Near-duplicate pairs: {len(pairs)}")
-    to_drop = _resolve_duplicates(
-        pairs,
-        auto_drop=auto_dedupe,
-        cancel_check=cancel_check,
-    ) if pairs else set()
+        pairs = _find_duplicates(hashes, cancel_check=cancel_check)
+        rpt.info(f"Near-duplicate pairs: {len(pairs)}")
+        to_drop = _resolve_duplicates(
+            pairs,
+            auto_drop=auto_dedupe,
+            cancel_check=cancel_check,
+        ) if pairs else set()
+    else:
+        rpt.warn("Skipping duplicate check substep.")
 
-    kept_images = [p for p in images if p not in to_drop]
-    rpt.ok(f"After dedupe: {len(kept_images)} images ({len(to_drop)} dropped)")
+    apply_drops = "s2_3_drop_images" in enabled
+    kept_images = [p for p in images if apply_drops and p not in to_drop or not apply_drops]
+    if apply_drops:
+        rpt.ok(f"After dedupe: {len(kept_images)} images ({len(to_drop)} dropped)")
+    else:
+        rpt.info(f"Drop-images substep disabled; retaining all {len(images)} image(s).")
 
     # Coverage
     coverage_path: Path | None = None
     coverage_metadata: dict | None = None
-    if not skip_clip:
+    if not skip_clip and "s2_2_clipscan" in enabled:
         try:
             emb = _clip_embeddings(kept_images, cancel_check=cancel_check)
             if len(kept_images) > 30:
@@ -77,7 +88,7 @@ def run(
 
     # Occlusion filter
     occluded: list[str] = []
-    if not skip_clip:
+    if not skip_clip and "s2_2_clipscan" in enabled:
         try:
             rpt.info("Running occlusion filter (CLIP zero-shot) …")
             occ_scores = _occlusion_scores(kept_images, cancel_check=cancel_check)
@@ -96,11 +107,17 @@ def run(
 
     report = {
         "duplicate_pairs": [(str(a), str(b), d) for a, b, d in pairs],
-        "dropped_duplicates": [str(p) for p in to_drop],
+        "dropped_duplicates": [str(p) for p in to_drop] if apply_drops else [],
+        "duplicate_drop_candidates": [str(p) for p in to_drop],
         "kept_images": [str(p) for p in kept_images],
         "occluded_flagged": occluded,
         "coverage_image": str(coverage_path) if coverage_path else None,
         "coverage": coverage_metadata,
+        "substeps": {
+            "s2_1_dupecheck": {"enabled": "s2_1_dupecheck" in enabled},
+            "s2_2_clipscan": {"enabled": (not skip_clip) and "s2_2_clipscan" in enabled},
+            "s2_3_drop_images": {"enabled": apply_drops},
+        },
     }
     check_cancel(cancel_check)
     rpt.save_report(report, report_path)

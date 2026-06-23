@@ -3,12 +3,23 @@
  */
 
 /**
+ * @typedef {Object} SubstepPayload
+ * @property {string} id
+ * @property {string} label
+ * @property {boolean} enabled
+ * @property {string} status
+ * @property {string[]} prerequisites
+ * @property {boolean} optional
+ */
+
+/**
  * @typedef {Object} StepPayload
  * @property {string} type
  * @property {Record<string, unknown>} config
  * @property {string} status
  * @property {string[]} prerequisites
  * @property {boolean} optional
+ * @property {SubstepPayload[]} substeps
  */
 
 /**
@@ -40,6 +51,7 @@
  * @property {boolean} [mock_runtime]
  * @property {"auto" | "pca" | "umap"} [mock_curate_coverage]
  * @property {string[]} steps
+ * @property {Record<string, string[]>} substeps
  */
 
 /**
@@ -123,8 +135,11 @@
  * @property {string} id
  * @property {JobStatus} status
  * @property {string | null} current_step
+ * @property {string | null} current_substep
  * @property {string[]} completed_steps
  * @property {string[]} skipped_steps
+ * @property {Record<string, string[]>} completed_substeps
+ * @property {Record<string, string[]>} skipped_substeps
  * @property {string | null} error
  * @property {JobResult | null} result
  * @property {string[]} logs

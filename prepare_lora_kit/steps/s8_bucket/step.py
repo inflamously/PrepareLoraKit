@@ -33,9 +33,11 @@ def run(
     cache_mode: bool = False,
     thin_threshold: int = THIN_BUCKET_THRESHOLD,
     report_path: Path | None = None,
+    enabled_substeps: list[str] | None = None,
     cancel_check: CancelCheck | None = None,
 ) -> dict:
     rpt.step_header(8, "Bucket Dry-run")
+    enabled = set(enabled_substeps or ["s8_1_assign_buckets", "s8_2_report_thin_buckets"])
 
     output_dir = output_dir or dataset_dir
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -44,6 +46,22 @@ def run(
     if not images:
         rpt.warn(f"No images in {dataset_dir}")
         return {}
+
+    if "s8_1_assign_buckets" not in enabled:
+        report = {
+            "skipped": True,
+            "reason": "s8_1_assign_buckets disabled",
+            "buckets": {},
+            "thin_buckets": [],
+            "cache_mode": False,
+            "substeps": {
+                "s8_1_assign_buckets": {"enabled": False},
+                "s8_2_report_thin_buckets": {"enabled": "s8_2_report_thin_buckets" in enabled},
+                "s8_3_cache_info": {"enabled": "s8_3_cache_info" in enabled},
+            },
+        }
+        rpt.save_report(report, report_path or (output_dir / "step8_report.json"))
+        return report
 
     buckets = network.resolution_buckets
     bucket_map: dict[tuple[int, int], list[str]] = {b: [] for b in buckets}
@@ -72,7 +90,7 @@ def run(
         n = len(paths)
         if n == 0:
             continue
-        if n <= thin_threshold:
+        if "s8_2_report_thin_buckets" in enabled and n <= thin_threshold:
             status = "[yellow]THIN[/yellow]"
             # Suggest crop for the images that ended up here
             suggestions = []
@@ -103,7 +121,7 @@ def run(
 
     # ── Cache mode ────────────────────────────────────────────────────────────
     cache_info: dict | None = None
-    if cache_mode:
+    if cache_mode and "s8_3_cache_info" in enabled:
         cache_info = {
             "network": network.name,
             "buckets": {
@@ -124,7 +142,12 @@ def run(
             for (bw, bh), paths in bucket_map.items()
         },
         "thin_buckets": thin_buckets,
-        "cache_mode": cache_mode,
+        "cache_mode": cache_mode and "s8_3_cache_info" in enabled,
+        "substeps": {
+            "s8_1_assign_buckets": {"enabled": "s8_1_assign_buckets" in enabled},
+            "s8_2_report_thin_buckets": {"enabled": "s8_2_report_thin_buckets" in enabled},
+            "s8_3_cache_info": {"enabled": "s8_3_cache_info" in enabled},
+        },
     }
     check_cancel(cancel_check)
     rpt.save_report(report, report_path or (output_dir / "step8_report.json"))
