@@ -214,11 +214,60 @@ def test_mock_project_curate_writes_requested_coverage_plot(
     assert report["coverage_image"] == str(coverage_path)
     assert coverage_path.exists()
     assert job.curate_report["coverage"]["method"] == expected_method
-    if expected_method == "umap":
-        curate_config = next(
-            step.config for step in fixture.project.pipeline if step.type == "CurateStep"
-        )
-        assert len(report["kept_images"]) > curate_config.pca_umap_switch_threshold
+
+
+def test_mock_project_curate_auto_uses_umap_above_threshold(tmp_path, monkeypatch):
+    import prepare_lora_kit.ui.runner as runner
+
+    class FakeInteractionProvider:
+        def __init__(self, job, media_base_url=None):
+            self.job = job
+            self.media_base_url = media_base_url
+
+        def curate_details(self, report, report_path):
+            self.job.curate_report = report
+            self.job.curate_report_path = report_path
+            return True
+
+    fixture = create_mock_ui_fixture(
+        "CurateStep",
+        root=tmp_path / "mock",
+        curate_coverage="umap",
+    )
+    initial_image_count = len(list((fixture.output_dir / "dataset").glob("*.png")))
+    manager = JobManager(projects={fixture.project.name: fixture.project})
+    job = PipelineJob(manager, "mock-job")
+    monkeypatch.setattr(runner, "UiInteractionProvider", FakeInteractionProvider)
+
+    manager._execute(
+        job,
+        {
+            "input_dir": str(fixture.input_dir),
+            "output_dir": str(fixture.output_dir),
+            "project": fixture.project.name,
+            "token": fixture.token,
+            "force": True,
+            "mock_runtime": True,
+            "mock_curate_coverage": "auto",
+            "steps": ["CurateStep"],
+        },
+    )
+
+    report_path = fixture.output_dir / "reports" / "CurateStep_report.json"
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    coverage_path = fixture.output_dir / "reports" / "coverage_umap.png"
+    curate_config = next(
+        step.config for step in fixture.project.pipeline if step.type == "CurateStep"
+    )
+
+    assert job.snapshot()["status"] == "completed"
+    assert report["dropped_duplicates"] == []
+    assert len(report["kept_images"]) == initial_image_count
+    assert len(list((fixture.output_dir / "dataset").glob("*.png"))) == initial_image_count
+    assert len(report["kept_images"]) > curate_config.pca_umap_switch_threshold
+    assert report["coverage"]["method"] == "umap"
+    assert report["coverage_image"] == str(coverage_path)
+    assert coverage_path.exists()
 
 
 def test_mock_project_quality_gate_runs_with_good_and_bad_images(tmp_path, monkeypatch):

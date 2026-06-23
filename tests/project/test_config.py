@@ -152,6 +152,7 @@ def test_upscale_config_defaults_to_seedvr2():
     assert cfg.seedvr2_batch_size == 1
     assert cfg.seedvr2_vae_tiled is True
     assert cfg.seedvr2_cache_models is True
+    assert cfg.seedvr2_model_residency == "auto"
     assert cfg.seedvr2_debug is False
 
 
@@ -221,6 +222,7 @@ pipeline:
     seedvr2_batch_size: 5
     seedvr2_vae_tiled: false
     seedvr2_cache_models: false
+    seedvr2_model_residency: cpu
     seedvr2_debug: true
 """)
 
@@ -234,7 +236,13 @@ pipeline:
     assert upscale.seedvr2_batch_size == 5
     assert upscale.seedvr2_vae_tiled is False
     assert upscale.seedvr2_cache_models is False
+    assert upscale.seedvr2_model_residency == "cpu"
     assert upscale.seedvr2_debug is True
+
+
+def test_upscale_config_rejects_unknown_seedvr2_model_residency():
+    with pytest.raises(ValueError, match="seedvr2_model_residency"):
+        UpscaleConfig(seedvr2_model_residency="vram")
 
 
 @pytest.mark.parametrize("yaml_value", ["", "null", '""'])

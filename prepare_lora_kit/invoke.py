@@ -89,6 +89,7 @@ def _invoke_UpscaleStep(working_dir: Path, output_dir: Path, cfg: UpscaleConfig,
         seedvr2_batch_size=cfg.seedvr2_batch_size,
         seedvr2_vae_tiled=cfg.seedvr2_vae_tiled,
         seedvr2_cache_models=cfg.seedvr2_cache_models,
+        seedvr2_model_residency=cfg.seedvr2_model_residency,
         seedvr2_debug=cfg.seedvr2_debug,
         cancel_check=_kw.get("cancel_check"),
     )
@@ -230,7 +231,7 @@ def _mock_curate(
     cancel_check=None,
 ) -> dict:
     from .steps.s2_curate.coverage import _save_pca, _save_umap
-    from .steps.s2_curate.dedupe import _compute_hashes, _find_duplicates, _resolve_duplicates
+    from .steps.s2_curate.dedupe import _compute_hashes, _find_duplicates
     from .utils import image as img_utils
     from .utils import report as rpt
 
@@ -247,10 +248,9 @@ def _mock_curate(
     check_cancel(cancel_check)
     hashes = _compute_hashes(images, cancel_check=cancel_check)
     pairs = _find_duplicates(hashes, cancel_check=cancel_check)
-    to_drop = _resolve_duplicates(pairs, auto_drop=True, cancel_check=cancel_check) if pairs else set()
-    kept_images = [p for p in images if p not in to_drop]
+    to_drop: set[Path] = set()
+    kept_images = list(images)
     check_cancel(cancel_check)
-    img_utils.materialize(kept_images, working_dir, working_dir)
 
     coverage_path: Path | None = None
     coverage_metadata: dict | None = None

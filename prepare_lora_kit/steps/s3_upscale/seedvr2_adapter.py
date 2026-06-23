@@ -1,16 +1,19 @@
-"""Direct-import adapter for the optional SeedVR2 submodule."""
+"""Subprocess adapter for the optional SeedVR2 submodule."""
 from __future__ import annotations
 
-import argparse
-import importlib.util
+import json
+import subprocess
 import sys
+import tempfile
+import threading
+from collections.abc import Mapping
 from pathlib import Path
-from types import ModuleType
 from typing import Any
 
 from .seedvr2_catalog import DEFAULT_SEEDVR2_DIT_MODEL
 
 DEFAULT_SEEDVR2_MODEL_DIR = "~/.cache/prepare_lora_kit/seedvr2"
+SEEDVR2_MODEL_RESIDENCY_MODES = ("auto", "gpu", "cpu")
 
 
 class SeedVR2Unavailable(RuntimeError):
@@ -22,7 +25,7 @@ def default_seedvr2_submodule_dir() -> Path:
 
 
 class SeedVR2Upscaler:
-    """Lazily import SeedVR2's standalone CLI and process one image at a time."""
+    """Run SeedVR2 in one isolated worker process for a batch of images."""
 
     def __init__(
         self,
@@ -35,6 +38,7 @@ class SeedVR2Upscaler:
         batch_size: int = 1,
         vae_tiled: bool = True,
         cache_models: bool = True,
+        model_residency: str = "auto",
         debug: bool = False,
     ) -> None:
         self.resolution = resolution
@@ -45,166 +49,148 @@ class SeedVR2Upscaler:
         self.batch_size = batch_size
         self.vae_tiled = vae_tiled
         self.cache_models = cache_models
+        self.model_residency = model_residency
         self.debug = debug
-        self._module: ModuleType | None = None
-        self._downloaded = False
-        self._runner_cache: dict[str, Any] | None = {} if cache_models else None
 
     def prepare(self) -> None:
-        module = self._load_module()
-        if not self._downloaded:
-            vae_model = getattr(module, "DEFAULT_VAE", "ema_vae_fp16.safetensors")
-            try:
-                downloaded = module.download_weight(
-                    dit_model=self.dit_model,
-                    vae_model=vae_model,
-                    model_dir=str(self.model_dir),
-                    debug=getattr(module, "debug", None),
-                )
-            except SystemExit as exc:
-                raise SeedVR2Unavailable(
-                    f"SeedVR2 model download exited with code {_format_exit_code(exc)}"
-                ) from exc
-            except Exception as exc:
-                raise SeedVR2Unavailable(
-                    f"SeedVR2 model download failed: {_format_exception(exc)}"
-                ) from exc
-            if not downloaded:
-                raise SeedVR2Unavailable(
-                    f"SeedVR2 model download failed for {self.dit_model}; "
-                    f"check network access and model cache {self.model_dir}"
-                )
-            self._downloaded = True
-
-    def __call__(self, path: Path, output_path: Path) -> Path:
-        self.prepare()
-        module = self._load_module()
-        args = self._build_args(path, output_path)
-        try:
-            frames = module.process_single_file(
-                str(path),
-                args,
-                self._device_list(),
-                output_path=str(output_path),
-                format_auto_detected=False,
-                runner_cache=self._runner_cache,
-            )
-        except SystemExit as exc:
-            raise RuntimeError(
-                f"SeedVR2 processing exited with code {_format_exit_code(exc)} for {path.name}"
-            ) from exc
-        except Exception as exc:
-            raise RuntimeError(f"SeedVR2 processing failed for {path.name}: {_format_exception(exc)}") from exc
-        if frames <= 0:
-            raise RuntimeError(f"SeedVR2 produced no output frames for {path.name}")
-        if not output_path.exists():
-            raise RuntimeError(f"SeedVR2 did not write expected output: {output_path}")
-        return output_path
-
-    def _load_module(self) -> ModuleType:
-        if self._module is not None:
-            return self._module
-
         cli_path = self.submodule_dir / "inference_cli.py"
         if not cli_path.exists():
             raise SeedVR2Unavailable(
                 f"SeedVR2 submodule not found at {self.submodule_dir}; "
                 "run `git submodule update --init --recursive third_party/seedvr2`"
             )
+        self.model_dir.mkdir(parents=True, exist_ok=True)
 
-        module_name = f"_plk_seedvr2_inference_{abs(hash(str(cli_path.resolve())))}"
-        spec = importlib.util.spec_from_file_location(module_name, cli_path)
-        if spec is None or spec.loader is None:
-            raise SeedVR2Unavailable(f"Could not import SeedVR2 CLI from {cli_path}")
+    def __call__(self, path: Path, output_path: Path) -> Path:
+        failures = self.process_many({path: output_path})
+        if failures:
+            raise RuntimeError(failures[str(path)])
+        return output_path
 
-        module = importlib.util.module_from_spec(spec)
-        sys.modules[module_name] = module
-        try:
-            spec.loader.exec_module(module)
-        except SystemExit as exc:
-            sys.modules.pop(module_name, None)
-            raise SeedVR2Unavailable(
-                f"SeedVR2 runtime import exited with code {_format_exit_code(exc)}"
-            ) from exc
-        except ModuleNotFoundError as exc:
-            sys.modules.pop(module_name, None)
-            raise SeedVR2Unavailable(
-                f"SeedVR2 runtime dependency is missing: {exc.name}"
-            ) from exc
-        except ImportError as exc:
-            sys.modules.pop(module_name, None)
-            raise SeedVR2Unavailable(f"SeedVR2 runtime import failed: {exc}") from exc
-        except Exception as exc:
-            sys.modules.pop(module_name, None)
-            raise SeedVR2Unavailable(f"SeedVR2 runtime is unavailable: {exc}") from exc
+    def process_many(
+        self,
+        outputs_by_source: Mapping[Path, Path],
+        *,
+        cancel_check=None,
+    ) -> dict[str, str]:
+        self.prepare()
+        if not outputs_by_source:
+            return {}
 
-        debug = getattr(module, "debug", None)
-        if debug is not None and hasattr(debug, "enabled"):
-            debug.enabled = self.debug
-        self._module = module
-        return module
+        request = self._build_request(outputs_by_source)
+        response = self._run_worker(request, cancel_check=cancel_check)
+        for warning in response.get("warnings") or []:
+            from ...utils import report as rpt
 
-    def _build_args(self, path: Path, output_path: Path) -> argparse.Namespace:
-        return argparse.Namespace(
-            input=str(path),
-            output=str(output_path),
-            output_format="png",
-            video_backend="opencv",
-            use_10bit=False,
-            model_dir=str(self.model_dir),
-            dit_model=self.dit_model,
-            resolution=self.resolution,
-            max_resolution=0,
-            batch_size=self.batch_size,
-            uniform_batch_size=False,
-            seed=42,
-            skip_first_frames=0,
-            load_cap=0,
-            chunk_size=0,
-            prepend_frames=0,
-            temporal_overlap=0,
-            color_correction="lab",
-            input_noise_scale=0.0,
-            latent_noise_scale=0.0,
-            cuda_device=self.cuda_device,
-            dit_offload_device="none",
-            vae_offload_device="none",
-            tensor_offload_device="cpu",
-            blocks_to_swap=0,
-            swap_io_components=False,
-            vae_encode_tiled=self.vae_tiled,
-            vae_encode_tile_size=1024,
-            vae_encode_tile_overlap=128,
-            vae_decode_tiled=self.vae_tiled,
-            vae_decode_tile_size=1024,
-            vae_decode_tile_overlap=128,
-            tile_debug="false",
-            attention_mode="sdpa",
-            compile_dit=False,
-            compile_vae=False,
-            compile_backend="inductor",
-            compile_mode="default",
-            compile_fullgraph=False,
-            compile_dynamic=False,
-            compile_dynamo_cache_size_limit=64,
-            compile_dynamo_recompile_limit=128,
-            cache_dit=self.cache_models,
-            cache_vae=self.cache_models,
-            debug=self.debug,
-        )
+            rpt.warn(str(warning))
+        failed = response.get("failed") or {}
+        return {str(path): str(reason) for path, reason in failed.items()}
 
-    def _device_list(self) -> list[str]:
-        if self.cuda_device:
-            devices = [d.strip() for d in str(self.cuda_device).split(",") if d.strip()]
-            if devices:
-                return devices
-        return ["0"]
+    def _build_request(self, outputs_by_source: Mapping[Path, Path]) -> dict[str, Any]:
+        return {
+            "resolution": self.resolution,
+            "submodule_dir": str(self.submodule_dir),
+            "model_dir": str(self.model_dir),
+            "dit_model": self.dit_model,
+            "cuda_device": self.cuda_device,
+            "batch_size": self.batch_size,
+            "vae_tiled": self.vae_tiled,
+            "cache_models": self.cache_models,
+            "model_residency": self.model_residency,
+            "debug": self.debug,
+            "items": [
+                {"source": str(source), "output": str(output)}
+                for source, output in outputs_by_source.items()
+            ],
+        }
+
+    def _run_worker(self, request: dict[str, Any], *, cancel_check=None) -> dict[str, Any]:
+        with tempfile.TemporaryDirectory(prefix="plk_seedvr2_") as tmp:
+            request_path = Path(tmp) / "request.json"
+            response_path = Path(tmp) / "response.json"
+            request_path.write_text(json.dumps(request, indent=2), encoding="utf-8")
+            cmd = [
+                sys.executable,
+                "-m",
+                "prepare_lora_kit.steps.s3_upscale.seedvr2_worker",
+                "--request",
+                str(request_path),
+                "--response",
+                str(response_path),
+            ]
+            process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+            )
+            output_tail: list[str] = []
+            reader = threading.Thread(
+                target=_forward_output,
+                args=(process.stdout, output_tail),
+                daemon=True,
+            )
+            reader.start()
+            try:
+                while process.poll() is None:
+                    if cancel_check is not None:
+                        cancel_check()
+                    try:
+                        process.wait(timeout=0.25)
+                    except subprocess.TimeoutExpired:
+                        continue
+            except BaseException:
+                _terminate_process(process)
+                raise
+            finally:
+                reader.join(timeout=2)
+
+            if process.returncode != 0:
+                response = _read_response(response_path)
+                message = str(response.get("error") or "").strip()
+                if not message:
+                    message = f"SeedVR2 worker exited with code {process.returncode}"
+                if output_tail:
+                    message = f"{message}; recent output: {' | '.join(output_tail[-5:])}"
+                raise SeedVR2Unavailable(message)
+
+            response = _read_response(response_path)
+            if response.get("status") != "ok":
+                raise SeedVR2Unavailable(str(response.get("error") or "SeedVR2 worker failed"))
+            return response
 
 
-def _format_exit_code(exc: SystemExit) -> str:
-    return str(exc.code if exc.code is not None else 0)
+def _forward_output(pipe, output_tail: list[str]) -> None:
+    if pipe is None:
+        return
+    try:
+        for line in pipe:
+            clean = line.rstrip()
+            if clean:
+                print(clean)
+                output_tail.append(clean)
+                del output_tail[:-20]
+    finally:
+        pipe.close()
 
 
-def _format_exception(exc: BaseException) -> str:
-    message = str(exc).strip()
-    return f"{type(exc).__name__}: {message}" if message else type(exc).__name__
+def _terminate_process(process: subprocess.Popen) -> None:
+    if process.poll() is not None:
+        return
+    process.terminate()
+    try:
+        process.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait(timeout=5)
+
+
+def _read_response(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}

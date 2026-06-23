@@ -4,6 +4,7 @@ from dataclasses import dataclass
 import warnings
 
 from ...steps.s3_upscale.seedvr2_catalog import DEFAULT_SEEDVR2_DIT_MODEL, get_seedvr2_dit_model
+from ...steps.s3_upscale.seedvr2_adapter import SEEDVR2_MODEL_RESIDENCY_MODES
 
 
 @dataclass
@@ -19,6 +20,7 @@ class UpscaleConfig:
     seedvr2_batch_size: int = 1
     seedvr2_vae_tiled: bool = True
     seedvr2_cache_models: bool = True
+    seedvr2_model_residency: str = "auto"
     seedvr2_debug: bool = False
     # Backward-compatible fields accepted from older project YAML. New configs
     # should use upscale_model + upscale_target only.
@@ -62,3 +64,7 @@ class UpscaleConfig:
             raise ValueError("UpscaleStep: hallucination_ssim_threshold must be in [0, 1]")
         if self.seedvr2_batch_size <= 0:
             raise ValueError("UpscaleStep: seedvr2_batch_size must be positive")
+        self.seedvr2_model_residency = str(self.seedvr2_model_residency or "auto").strip().lower()
+        if self.seedvr2_model_residency not in SEEDVR2_MODEL_RESIDENCY_MODES:
+            modes = "|".join(SEEDVR2_MODEL_RESIDENCY_MODES)
+            raise ValueError(f"UpscaleStep: seedvr2_model_residency must be {modes}")

@@ -59,6 +59,7 @@ def run(
     seedvr2_batch_size: int = 1,
     seedvr2_vae_tiled: bool = True,
     seedvr2_cache_models: bool = True,
+    seedvr2_model_residency: str = "auto",
     seedvr2_debug: bool = False,
     cancel_check: CancelCheck | None = None,
 ) -> dict:
@@ -91,6 +92,7 @@ def run(
         seedvr2_batch_size=seedvr2_batch_size,
         seedvr2_vae_tiled=seedvr2_vae_tiled,
         seedvr2_cache_models=seedvr2_cache_models,
+        seedvr2_model_residency=seedvr2_model_residency,
         seedvr2_debug=seedvr2_debug,
     )
     if skip_reason is not None:
@@ -105,16 +107,26 @@ def run(
         return _save_report(skipped, context)
 
     assert resolved is not None
-    for path in partitions.candidates:
-        check_cancel(cancel_check)
-        _process_candidate(
-            path=path,
+    if isinstance(resolved, SeedVR2Upscaler):
+        _process_seedvr2_candidates(
+            candidates=partitions.candidates,
             context=context,
             upscaler=resolved,
             hallucination_ssim_threshold=hallucination_ssim_threshold,
             results=results,
             cancel_check=cancel_check,
         )
+    else:
+        for path in partitions.candidates:
+            check_cancel(cancel_check)
+            _process_candidate(
+                path=path,
+                context=context,
+                upscaler=resolved,
+                hallucination_ssim_threshold=hallucination_ssim_threshold,
+                results=results,
+                cancel_check=cancel_check,
+            )
 
     check_cancel(cancel_check)
     return _save_report(results, context)
@@ -175,6 +187,7 @@ def _resolve_upscaler(
     seedvr2_batch_size: int,
     seedvr2_vae_tiled: bool,
     seedvr2_cache_models: bool,
+    seedvr2_model_residency: str,
     seedvr2_debug: bool,
 ) -> tuple[Upscaler | None, str | None]:
     if upscaler is not None:
@@ -194,6 +207,7 @@ def _resolve_upscaler(
         batch_size=seedvr2_batch_size,
         vae_tiled=seedvr2_vae_tiled,
         cache_models=seedvr2_cache_models,
+        model_residency=seedvr2_model_residency,
         debug=seedvr2_debug,
     )
     try:
@@ -202,6 +216,59 @@ def _resolve_upscaler(
         return None, _format_exception(exc)
     rpt.info("Using SeedVR2 upscaler.")
     return seedvr2, None
+
+
+def _process_seedvr2_candidates(
+    *,
+    candidates: list[Path],
+    context: OutputContext,
+    upscaler: SeedVR2Upscaler,
+    hallucination_ssim_threshold: float,
+    results: dict,
+    cancel_check: CancelCheck | None = None,
+) -> None:
+    tmp_by_source = {
+        path: context.output_dir / (path.stem + ".upscaling.tmp" + path.suffix)
+        for path in candidates
+    }
+    try:
+        check_cancel(cancel_check)
+        failures = upscaler.process_many(tmp_by_source, cancel_check=cancel_check)
+        check_cancel(cancel_check)
+    except CancelledRun:
+        _cleanup_temp_files(tmp_by_source.values())
+        raise
+    except Exception as exc:
+        reason = _format_exception(exc)
+        rpt.error(f"SeedVR2 upscale failed: {reason} - keeping originals.")
+        for path, tmp_path in tmp_by_source.items():
+            tmp_path.unlink(missing_ok=True)
+            results["skipped"].append({"path": str(path), "reason": reason})
+            _pass_through(context, path)
+        return
+
+    for path, tmp_path in tmp_by_source.items():
+        check_cancel(cancel_check)
+        reason = failures.get(str(path))
+        if reason is not None:
+            rpt.error(f"Upscale failed for {path.name}: {reason} - keeping original.")
+            results["skipped"].append({"path": str(path), "reason": reason})
+            tmp_path.unlink(missing_ok=True)
+            _pass_through(context, path)
+            continue
+        if not tmp_path.exists():
+            reason = f"SeedVR2 did not write expected output: {tmp_path}"
+            rpt.error(f"Upscale failed for {path.name}: {reason} - keeping original.")
+            results["skipped"].append({"path": str(path), "reason": reason})
+            _pass_through(context, path)
+            continue
+        _accept_candidate(
+            path=path,
+            tmp_path=tmp_path,
+            context=context,
+            hallucination_ssim_threshold=hallucination_ssim_threshold,
+            results=results,
+        )
 
 
 def _skip_candidates(
@@ -228,7 +295,6 @@ def _process_candidate(
     results: dict,
     cancel_check: CancelCheck | None = None,
 ) -> None:
-    out_path = context.output_dir / path.name
     tmp_path = context.output_dir / (path.stem + ".upscaling.tmp" + path.suffix)
     try:
         check_cancel(cancel_check)
@@ -245,6 +311,24 @@ def _process_candidate(
         _pass_through(context, path)
         return
 
+    _accept_candidate(
+        path=path,
+        tmp_path=tmp_path,
+        context=context,
+        hallucination_ssim_threshold=hallucination_ssim_threshold,
+        results=results,
+    )
+
+
+def _accept_candidate(
+    *,
+    path: Path,
+    tmp_path: Path,
+    context: OutputContext,
+    hallucination_ssim_threshold: float,
+    results: dict,
+) -> None:
+    out_path = context.output_dir / path.name
     hall_ssim = _hallucination_check(path, tmp_path)
     if hall_ssim < hallucination_ssim_threshold:
         rpt.warn(f"REJECT upscale {path.name} (SSIM={hall_ssim:.3f}) - keeping original size.")
@@ -256,6 +340,11 @@ def _process_candidate(
     rpt.ok(f"Upscaled {path.name} -> {out_path.name} (hall_ssim={hall_ssim:.3f})")
     os.replace(tmp_path, out_path)
     results["upscaled"].append({"original": str(path), "upscaled": str(out_path)})
+
+
+def _cleanup_temp_files(paths) -> None:
+    for path in paths:
+        Path(path).unlink(missing_ok=True)
 
 
 def _pass_through(context: OutputContext, path: Path) -> None:

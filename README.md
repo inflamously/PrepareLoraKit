@@ -217,8 +217,10 @@ git submodule update --init --recursive third_party/seedvr2
 python -m pip install -e third_party/seedvr2
 ```
 
-PLK imports SeedVR2's standalone `inference_cli.py` lazily at Step 3 runtime and
-does not import ComfyUI nodes. SeedVR2 models are downloaded into
+PLK runs SeedVR2's standalone `inference_cli.py` inside an isolated Step 3 worker
+process and does not import ComfyUI nodes into the main app process. All Step 3
+upscale candidates are sent through one worker process so SeedVR2 can cache its
+DiT and VAE models across the image loop. SeedVR2 models are downloaded into
 `~/.cache/prepare_lora_kit/seedvr2` by default, configurable with
 `seedvr2_model_dir`.
 
@@ -229,6 +231,7 @@ out, setting it to `null`, or leaving the YAML value empty uses the default
 ```yaml
 upscale_model: seedvr2
 seedvr2_dit_model: seedvr2_ema_7b_fp8_e4m3fn_mixed_block35_fp16.safetensors
+seedvr2_model_residency: auto  # auto | gpu | cpu
 ```
 
 Supported SeedVR2 DiT models:
@@ -255,6 +258,11 @@ If the submodule, SeedVR2 runtime dependencies, or SeedVR2 models are not
 available, `upscale_model: seedvr2` skips upscale candidates with a report
 reason. It does not fall back to Lanczos; use `upscale_model: lanczos`
 explicitly when you want that algorithm.
+
+`seedvr2_model_residency` controls where cached SeedVR2 models rest between
+images. `auto` keeps models on GPU only when a conservative VRAM check suggests
+it is safe; otherwise it caches with CPU offload. Use `gpu` for maximum speed on
+high-VRAM systems, or `cpu` for lower peak VRAM.
 
 ## Extension Points
 

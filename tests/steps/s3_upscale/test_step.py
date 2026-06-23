@@ -38,6 +38,80 @@ def test_seedvr2_missing_submodule_skips_without_lanczos(tmp_path):
         assert img.size == (32, 24)
 
 
+def test_seedvr2_step_batches_candidates_once(tmp_path, monkeypatch):
+    first = _image(tmp_path / "first.png", (32, 24), "red")
+    second = _image(tmp_path / "second.png", (40, 30), "blue")
+    calls = []
+
+    class FakeSeedVR2Upscaler:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+        def prepare(self):
+            pass
+
+        def process_many(self, outputs_by_source, *, cancel_check=None):
+            calls.append((self.kwargs, dict(outputs_by_source)))
+            for output_path in outputs_by_source.values():
+                Image.new("RGB", (72, 64), "green").save(output_path)
+            return {}
+
+    monkeypatch.setattr(upscale_step, "SeedVR2Upscaler", FakeSeedVR2Upscaler)
+    monkeypatch.setattr(upscale_step, "_hallucination_check", lambda *_args: 1.0)
+
+    result = upscale_step.run(
+        tmp_path,
+        output_dir=tmp_path,
+        upscale_target=64,
+        upscale_model="seedvr2",
+        seedvr2_model_residency="cpu",
+    )
+
+    assert len(calls) == 1
+    kwargs, outputs_by_source = calls[0]
+    assert kwargs["model_residency"] == "cpu"
+    assert set(outputs_by_source) == {first, second}
+    assert len(result["upscaled"]) == 2
+    with Image.open(first) as img:
+        assert img.size == (72, 64)
+    with Image.open(second) as img:
+        assert img.size == (72, 64)
+
+
+def test_seedvr2_step_cancellation_removes_all_temp_files(tmp_path, monkeypatch):
+    first = _image(tmp_path / "first.png", (32, 24), "red")
+    second = _image(tmp_path / "second.png", (40, 30), "blue")
+
+    class FakeSeedVR2Upscaler:
+        def __init__(self, **_kwargs):
+            pass
+
+        def prepare(self):
+            pass
+
+        def process_many(self, outputs_by_source, *, cancel_check=None):
+            for output_path in outputs_by_source.values():
+                Image.new("RGB", (72, 64), "green").save(output_path)
+            raise CancelledRun("Run cancelled")
+
+    monkeypatch.setattr(upscale_step, "SeedVR2Upscaler", FakeSeedVR2Upscaler)
+
+    with pytest.raises(CancelledRun):
+        upscale_step.run(
+            tmp_path,
+            output_dir=tmp_path,
+            upscale_target=64,
+            upscale_model="seedvr2",
+        )
+
+    assert not (tmp_path / "first.upscaling.tmp.png").exists()
+    assert not (tmp_path / "second.upscaling.tmp.png").exists()
+    with Image.open(first) as img:
+        assert img.size == (32, 24)
+    with Image.open(second) as img:
+        assert img.size == (40, 30)
+
+
 def test_seedvr_alias_warns_and_uses_injected_upscaler(tmp_path, monkeypatch):
     image = _image(tmp_path / "small.png", (32, 24))
     monkeypatch.setattr(upscale_step, "_hallucination_check", lambda *_args: 1.0)
