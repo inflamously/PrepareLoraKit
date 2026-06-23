@@ -87,7 +87,7 @@ function buildRunRequest() {
   if (!$("projectSelect").value) throw new Error("Select a project.");
 
   const steps = selectedStepArray();
-  if (!steps.length) throw new Error("Select at least one step.");
+  if (!steps.length) throw new Error("Select at least one active step.");
   const substeps = selectedSubstepMap();
 
   return {

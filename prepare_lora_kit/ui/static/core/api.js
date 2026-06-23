@@ -45,13 +45,13 @@
  * @property {string | null} output_dir
  * @property {string} project
  * @property {string | null} token
- * @property {boolean} force
+ * @property {boolean} force Run active steps from the beginning instead of skipping completed steps.
  * @property {string | null} caption_model_id
  * @property {string} caption_vram_mode
  * @property {boolean} [mock_runtime]
  * @property {"auto" | "pca" | "umap"} [mock_curate_coverage]
- * @property {string[]} steps
- * @property {Record<string, string[]>} substeps
+ * @property {string[]} steps Active step types in project order.
+ * @property {Record<string, string[]>} substeps Config-enabled substeps for each active step.
  */
 
 /**

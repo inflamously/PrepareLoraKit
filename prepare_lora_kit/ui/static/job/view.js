@@ -21,7 +21,7 @@ export function renderJob() {
         cancelButton.textContent = "Cancel";
         openOutput.disabled = true;
         runButton.disabled = state.runStarting;
-        runButton.textContent = state.runStarting ? "Starting..." : "Run selected";
+        runButton.textContent = state.runStarting ? "Starting..." : "Run active";
         return;
     }
 
@@ -43,7 +43,7 @@ export function renderJob() {
     cancelButton.textContent = cancelling ? "Cancelling..." : "Cancel";
     openOutput.disabled = !job.result?.output_dir;
     runButton.disabled = state.runStarting || running;
-    runButton.textContent = state.runStarting ? "Starting..." : "Run selected";
+    runButton.textContent = state.runStarting ? "Starting..." : "Run active";
 }
 
 function renderCurrentStep(job, currentStepLabel) {

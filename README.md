@@ -50,6 +50,20 @@ outputs/<dataset-name>/.plk_state.json
 
 Re-running the pipeline skips completed steps unless `--force` is used.
 
+## App Run Behavior
+
+The browser app treats step checkboxes as active/deactive pipeline membership.
+All non-optional steps are active by default; optional steps such as
+`UpscaleStep` stay inactive until checked. A normal app run starts at the first
+pending active step and continues through later active steps in pipeline order,
+skipping active steps already marked done. With force enabled, the app reruns the
+active pipeline from the beginning.
+
+Each step's substeps run in their canonical order inside the step. If a step or
+substep fails by raising an error, that parent step is not marked done and the
+app stops before downstream steps. Deactivating a required prerequisite is valid
+only when that prerequisite is already satisfied in the selected output state.
+
 ## CLI Commands
 
 `plk run`

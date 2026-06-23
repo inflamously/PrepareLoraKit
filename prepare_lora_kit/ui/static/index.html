@@ -95,7 +95,7 @@
         <section class="rail-section">
           <label class="check-row">
             <input id="forceInput" type="checkbox" />
-            <span>Force re-run selected completed steps</span>
+            <span>Force re-run active pipeline</span>
           </label>
         </section>
       </aside>
@@ -107,7 +107,7 @@
               <h2>Pipeline</h2>
               <p id="projectSummary">Select a project and dataset.</p>
             </div>
-            <button id="selectPending" class="secondary">Select pending</button>
+            <button id="selectPending" class="secondary">Reset active</button>
           </div>
           <div id="stepList" class="step-list"></div>
         </section>
@@ -133,7 +133,7 @@
           <button id="refreshProject" class="secondary">Refresh</button>
           <button id="openOutput" class="secondary" disabled>Open output</button>
           <button id="cancelButton" class="danger" disabled>Cancel</button>
-          <button id="runButton" class="primary">Run selected</button>
+          <button id="runButton" class="primary">Run active</button>
         </div>
       </footer>
     </div>

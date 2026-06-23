@@ -59,7 +59,7 @@ beforeEach(() => {
 });
 
 describe("project controller selection", () => {
-  it("defaults to pending non-optional steps on project load", async () => {
+  it("defaults to active non-optional steps on project load", async () => {
     state.selectedSteps = new Set();
 
     await loadProject();
@@ -67,21 +67,24 @@ describe("project controller selection", () => {
     assert.deepEqual([...state.selectedSteps], [
       "ImportStep",
       "QualityGateStep",
+      "CurateStep",
       "VaeGateStep",
     ]);
     assert.deepEqual(selectedSubstepMap(), {
       ImportStep: ["s0_import"],
       QualityGateStep: ["s1_1_score", "s1_2_decide"],
+      CurateStep: ["s2_1_dupecheck"],
       VaeGateStep: ["s4_1_reconstruct"],
     });
   });
 
-  it("selects pending non-optional steps only", () => {
+  it("resets to active non-optional steps only", () => {
     selectPending();
 
     assert.deepEqual([...state.selectedSteps], [
       "ImportStep",
       "QualityGateStep",
+      "CurateStep",
       "VaeGateStep",
     ]);
     assert.deepEqual(selectedSubstepMap().QualityGateStep, [

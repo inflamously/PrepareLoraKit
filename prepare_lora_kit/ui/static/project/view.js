@@ -38,12 +38,8 @@ function renderStep(step) {
     ? `Requires ${step.prerequisites.join(", ")}`
     : "No special prerequisites";
   const optional = step.optional ? " · Optional" : "";
-  const selectedSubsteps = state.selectedSubsteps.get(step.type) || new Set();
   const availableSubsteps = step.substeps || [];
-  const selectedCount = availableSubsteps
-    .filter((substep) => selectedSubsteps.has(substep.id))
-    .length;
-  const checked = state.selectedSteps.has(step.type) && selectedCount > 0 ? "checked" : "";
+  const checked = state.selectedSteps.has(step.type) ? "checked" : "";
 
   row.innerHTML = `
     <div class="step-header">
@@ -61,13 +57,14 @@ function renderStep(step) {
   `;
 
   const parentInput = row.querySelector("input[data-step]");
-  parentInput.indeterminate = selectedCount > 0 && selectedCount < availableSubsteps.length;
   parentInput.addEventListener("change", (event) => {
     if (event.target.checked) {
       state.selectedSteps.add(step.type);
       state.selectedSubsteps.set(
         step.type,
-        new Set(availableSubsteps.map((substep) => substep.id)),
+        new Set(availableSubsteps
+          .filter((substep) => substep.enabled !== false)
+          .map((substep) => substep.id)),
       );
     } else {
       state.selectedSteps.delete(step.type);
@@ -82,55 +79,28 @@ function renderStep(step) {
     row.querySelector(".step-toggle").setAttribute("aria-expanded", String(expanded));
   });
 
-  for (const input of row.querySelectorAll("input[data-substep]")) {
-    input.addEventListener("change", (event) => {
-      const next = new Set(state.selectedSubsteps.get(step.type) || []);
-      if (event.target.checked) {
-        next.add(event.target.dataset.substep);
-      } else {
-        next.delete(event.target.dataset.substep);
-      }
-      if (next.size) {
-        state.selectedSteps.add(step.type);
-        state.selectedSubsteps.set(step.type, next);
-      } else {
-        state.selectedSteps.delete(step.type);
-        state.selectedSubsteps.delete(step.type);
-      }
-      renderSteps();
-    });
-  }
-
   return row;
 }
 
 function renderSubstep(step, substep, disabled) {
-  const selected = state.selectedSubsteps.get(step.type)?.has(substep.id)
-    ? "checked"
-    : "";
   const running = state.job?.current_substep === substep.id;
-  const status = running ? "running" : substep.status;
+  const status = running
+    ? "running"
+    : substep.enabled === false
+      ? "disabled"
+      : substep.status;
   const badgeClass = running ? "running" : substep.status === "done" ? "done" : "";
   const optional = substep.optional ? " · Optional" : "";
-  const prereq = substep.prerequisites?.length
-    ? `Requires ${substep.prerequisites.join(", ")}`
-    : "Ordered substep";
+  const stateText = substep.enabled === false ? "Disabled" : "Enabled";
 
   return `
-    <label class="substep">
-      <input
-        type="checkbox"
-        ${selected}
-        ${disabled}
-        data-step="${escapeText(step.type)}"
-        data-substep="${escapeText(substep.id)}"
-      />
+    <div class="substep" aria-disabled="${disabled ? "true" : "false"}">
       <div>
         <strong>${escapeText(substep.label || substep.id)}</strong>
-        <small>${escapeText(substep.id)} · ${escapeText(prereq)}${optional}</small>
+        <small>${escapeText(substep.id)} · ${escapeText(stateText)}${optional}</small>
       </div>
       <span class="badge ${badgeClass}">${escapeText(status)}</span>
-    </label>
+    </div>
   `;
 }
 

@@ -1,6 +1,8 @@
-import pytest
+from unittest.mock import MagicMock, patch
 from urllib.parse import parse_qs, quote, urlparse
 from urllib.request import urlopen
+
+import pytest
 
 from prepare_lora_kit.cancellation import CancelledRun
 from prepare_lora_kit.cli.ui import _static_server
@@ -40,6 +42,42 @@ def _project() -> ProjectConfig:
             PipelineStep("ConfigGenStep", ConfigGenConfig()),
         ],
     )
+
+
+def _active_step_types() -> list[str]:
+    return [
+        "ImportStep",
+        "QualityGateStep",
+        "CurateStep",
+        "VaeGateStep",
+        "CaptionStep",
+        "AuditStep",
+        "ConfigGenStep",
+    ]
+
+
+def _run_request(tmp_path, output_dir, *, force: bool = False) -> dict:
+    return {
+        "input_dir": str(tmp_path / "input"),
+        "output_dir": str(output_dir),
+        "project": "test",
+        "token": "sks",
+        "force": force,
+        "steps": _active_step_types(),
+        "substeps": {},
+    }
+
+
+def _invoke_map(calls: list[str]) -> dict[str, MagicMock]:
+    invokes = {}
+    for step_type in _active_step_types():
+        invoke = MagicMock(name=step_type)
+        def side_effect(*args, _step_type=step_type, **kwargs):
+            calls.append(_step_type)
+            return {"pass": True} if _step_type == "AuditStep" else None
+        invoke.side_effect = side_effect
+        invokes[step_type] = invoke
+    return invokes
 
 
 def test_validate_selection_requires_caption_for_audit(tmp_path):
@@ -139,6 +177,76 @@ def test_resolve_selected_substeps_accepts_request_override(tmp_path):
     )
 
     assert resolved["CurateStep"] == ["s2_1_dupecheck", "s2_3_drop_images"]
+
+
+def test_ui_run_starts_at_first_pending_active_step(tmp_path):
+    out = tmp_path / "out"
+    state = RunState(out)
+    state.mark_done("ImportStep")
+    state.mark_done("QualityGateStep")
+    calls: list[str] = []
+    invoke_map = _invoke_map(calls)
+    manager = JobManager(projects={"test": _project()})
+    job = PipelineJob(manager, "test-job")
+
+    with patch("prepare_lora_kit.networks.registry.load", return_value=MagicMock()), \
+            patch.dict("prepare_lora_kit.ui.runner.STEP_INVOKE_MAP", invoke_map, clear=True):
+        manager._execute(job, _run_request(tmp_path, out))
+
+    assert calls == ["CurateStep", "VaeGateStep", "CaptionStep", "AuditStep", "ConfigGenStep"]
+    assert job.snapshot()["skipped_steps"] == ["ImportStep", "QualityGateStep"]
+    assert RunState(out).is_done("ConfigGenStep")
+
+
+def test_ui_force_run_starts_active_pipeline_from_beginning(tmp_path):
+    out = tmp_path / "out"
+    state = RunState(out)
+    state.mark_done("ImportStep")
+    state.mark_done("QualityGateStep")
+    calls: list[str] = []
+    invoke_map = _invoke_map(calls)
+    manager = JobManager(projects={"test": _project()})
+    job = PipelineJob(manager, "test-job")
+
+    with patch("prepare_lora_kit.networks.registry.load", return_value=MagicMock()), \
+            patch.dict("prepare_lora_kit.ui.runner.STEP_INVOKE_MAP", invoke_map, clear=True):
+        manager._execute(job, _run_request(tmp_path, out, force=True))
+
+    assert calls == _active_step_types()
+    assert job.snapshot()["skipped_steps"] == []
+
+
+def test_validate_selection_rejects_deactivated_unmet_prerequisite(tmp_path):
+    manager = JobManager()
+
+    with pytest.raises(ValueError, match="CurateStep requires"):
+        manager._validate_selection(
+            _project(),
+            ["ImportStep", "CurateStep"],
+            tmp_path / "out",
+        )
+
+
+def test_ui_run_failure_stops_before_downstream_steps(tmp_path):
+    out = tmp_path / "out"
+    calls: list[str] = []
+    invoke_map = _invoke_map(calls)
+    invoke_map["QualityGateStep"].side_effect = RuntimeError("quality failed")
+    manager = JobManager(projects={"test": _project()})
+    job = PipelineJob(manager, "test-job")
+    request = _run_request(tmp_path, out)
+    request["steps"] = ["ImportStep", "QualityGateStep", "CurateStep"]
+
+    with patch("prepare_lora_kit.networks.registry.load", return_value=MagicMock()), \
+            patch.dict("prepare_lora_kit.ui.runner.STEP_INVOKE_MAP", invoke_map, clear=True), \
+            pytest.raises(RuntimeError, match="quality failed"):
+        manager._execute(job, request)
+
+    assert calls == ["ImportStep", "QualityGateStep"]
+    run_state = RunState(out)
+    assert run_state.is_done("ImportStep")
+    assert not run_state.is_done("QualityGateStep")
+    assert not run_state.is_done("CurateStep")
 
 
 def test_image_payload_uses_media_endpoint_when_available(tmp_path):

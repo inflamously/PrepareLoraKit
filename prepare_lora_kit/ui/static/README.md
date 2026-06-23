@@ -26,10 +26,10 @@ This directory contains the pywebview browser UI for PrepareLoraKit.
 | `job/controller.js` | Builds run requests, starts/cancels jobs, polls job status, opens outputs, and routes pending interactions to modals. |
 | `job/job.css` | Styles the current-step label and run log output panel. |
 | `job/view.js` | Renders job status, current step, log text, and action button states. |
-| `project/controller.js` | Loads project lists and project details, applies bootstrap state, manages default step selection, and refreshes project state. |
+| `project/controller.js` | Loads project lists and project details, applies bootstrap state, manages active pipeline selection, and refreshes project state. |
 | `project/project.css` | Styles the pipeline step list, step rows, and step status badges. |
-| `project/selection.js` | Returns selected step types in project pipeline order. |
-| `project/view.js` | Renders the project summary and selectable pipeline step rows. |
+| `project/selection.js` | Returns active step types and configured substeps in project pipeline order. |
+| `project/view.js` | Renders the project summary, active step toggles, and substep status rows. |
 | `shell/events.js` | Wires top-level UI controls to project loading, folder selection, caption input syncing, and job actions. |
 | `shell/render.js` | Runs the shared render pass for project steps and job state. |
 | `shell/shell.css` | Styles the main app grid, top bar, sidebar, workspace, and bottom action bar. |

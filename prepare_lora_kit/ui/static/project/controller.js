@@ -45,7 +45,7 @@ export async function applyBootstrap(bootstrap) {
   state.outputDir = $("outputDir").value;
   state.outputCustomized = Boolean(state.outputDir.trim());
   state.selectedSteps = selectedAvailableSteps(new Set(bootstrap.selected_steps || []));
-  state.selectedSubsteps = selectedAvailableSubsteps(state.selectedSteps, null);
+  state.selectedSubsteps = selectedAvailableSubsteps(state.selectedSteps);
   render();
 }
 
@@ -99,8 +99,8 @@ export async function loadProjectForInput() {
 export function selectPending() {
   if (!state.project) return;
 
-  state.selectedSteps = pendingDefaultSteps();
-  state.selectedSubsteps = selectedAvailableSubsteps(state.selectedSteps, null);
+  state.selectedSteps = defaultActiveSteps();
+  state.selectedSubsteps = selectedAvailableSubsteps(state.selectedSteps);
   render();
 }
 
@@ -134,9 +134,6 @@ function applyProjectResult(result, options = {}) {
   const previousSelectedSteps = options.preserveSelection
     ? new Set(state.selectedSteps)
     : null;
-  const previousSelectedSubsteps = options.preserveSelection
-    ? new Map(state.selectedSubsteps)
-    : null;
 
   state.project = result.project;
 
@@ -152,31 +149,20 @@ function applyProjectResult(result, options = {}) {
   state.selectedSteps = previousSelectedSteps
     ? selectedAvailableSteps(previousSelectedSteps)
     : defaultSelectedSteps();
-  state.selectedSubsteps = selectedAvailableSubsteps(
-    state.selectedSteps,
-    previousSelectedSubsteps,
-  );
+  state.selectedSubsteps = selectedAvailableSubsteps(state.selectedSteps);
 
   applyCaptionConfigDefaults();
   render();
 }
 
 function defaultSelectedSteps() {
-  const pending = pendingDefaultSteps();
-
-  return pending.size
-    ? pending
-    : new Set(
-        state.project.steps
-          .filter((step) => !step.optional)
-          .map((step) => step.type),
-      );
+  return defaultActiveSteps();
 }
 
-function pendingDefaultSteps() {
+function defaultActiveSteps() {
   return new Set(
     state.project.steps
-      .filter((step) => step.status !== "done" && !step.optional)
+      .filter((step) => !step.optional)
       .map((step) => step.type),
   );
 }
@@ -188,17 +174,13 @@ function selectedAvailableSteps(selectedSteps) {
   );
 }
 
-function selectedAvailableSubsteps(selectedSteps, previousSelectedSubsteps) {
+function selectedAvailableSubsteps(selectedSteps) {
   const selectedSubsteps = new Map();
   for (const step of state.project.steps) {
     if (!selectedSteps.has(step.type)) continue;
-    const available = new Set((step.substeps || []).map((substep) => substep.id));
-    const previous = previousSelectedSubsteps?.get(step.type);
-    const values = previous
-      ? [...previous].filter((id) => available.has(id))
-      : (step.substeps || [])
-          .filter((substep) => substep.enabled !== false)
-          .map((substep) => substep.id);
+    const values = (step.substeps || [])
+      .filter((substep) => substep.enabled !== false)
+      .map((substep) => substep.id);
     selectedSubsteps.set(step.type, new Set(values));
   }
   return selectedSubsteps;
