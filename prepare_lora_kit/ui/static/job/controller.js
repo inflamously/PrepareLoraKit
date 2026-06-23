@@ -1,6 +1,6 @@
 import { api } from "../core/api.js";
 import { $, setText } from "../core/dom.js";
-import { state } from "../core/state.js";
+import { state } from "../+state/index.js";
 import { selectedCaptionModel } from "../caption/config.js";
 import { showAnnotator } from "../steps/bbox_annotation/bbox_annotation.js";
 import { showCurateDetails } from "../steps/curate_details/curate_details.js";

@@ -1,4 +1,4 @@
-import { state } from "../core/state.js";
+import { state } from "../+state/index.js";
 
 export function selectedStepArray() {
   if (!state.project) return [];

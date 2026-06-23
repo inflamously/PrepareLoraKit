@@ -1,6 +1,6 @@
 import { api } from "../../core/api.js";
 import { escapeText } from "../../core/dom.js";
-import { state } from "../../core/state.js";
+import { state } from "../../+state/index.js";
 import { closeModal, showModal } from "../../components/modal.js";
 import { createBoxPanel } from "./box_panel.js";
 import { createAnnotationCanvas } from "./canvas.js";

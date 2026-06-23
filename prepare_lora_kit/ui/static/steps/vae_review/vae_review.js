@@ -1,5 +1,5 @@
 import { api } from "../../core/api.js";
-import { state } from "../../core/state.js";
+import { state } from "../../+state/index.js";
 import { closeModal, showModal } from "../../components/modal.js";
 import { vaeReviewCard, syncVaeCards } from "./components/card.js";
 import { renderVaeDetail } from "./components/detail.js";

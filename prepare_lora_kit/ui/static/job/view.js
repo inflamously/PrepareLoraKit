@@ -1,5 +1,5 @@
 import {$, setShellStatus, setText, stepLabel} from "../core/dom.js";
-import {state} from "../core/state.js";
+import {state} from "../+state/index.js";
 
 const TERMINAL_STATUSES = new Set(["completed", "failed", "cancelled"]);
 

@@ -1,5 +1,5 @@
 import { $ } from "../core/dom.js";
-import { state } from "../core/state.js";
+import { state } from "../+state/index.js";
 
 function captionStepConfig() {
   const step = state.project?.steps.find((item) => item.type === "CaptionStep");

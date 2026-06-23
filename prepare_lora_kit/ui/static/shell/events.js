@@ -1,6 +1,6 @@
 import { api } from "../core/api.js";
 import { $ } from "../core/dom.js";
-import { state } from "../core/state.js";
+import { state } from "../+state/index.js";
 import { syncCaptionModelInput } from "../caption/config.js";
 import {
   loadProject,
