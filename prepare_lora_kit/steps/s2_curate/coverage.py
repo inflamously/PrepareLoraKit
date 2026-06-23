@@ -29,14 +29,23 @@ def _clip_embeddings(paths: list[Path], cancel_check: CancelCheck | None = None)
 
 
 def _save_umap(embeddings, paths: list[Path], out_path: Path) -> dict:
+    import warnings
+
     import matplotlib.pyplot as plt
     from sklearn.decomposition import PCA
     from umap import UMAP
 
     pca_components = min(50, embeddings.shape[0] - 1, embeddings.shape[1])
     reduced = PCA(n_components=pca_components).fit_transform(embeddings)
-    reducer = UMAP(n_components=2, random_state=42)
-    coords = reducer.fit_transform(reduced)
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            message=r"n_jobs value .* overridden to 1 by setting random_state.*",
+            category=UserWarning,
+            module=r"umap\.umap_",
+        )
+        reducer = UMAP(n_components=2, random_state=42)
+        coords = reducer.fit_transform(reduced)
 
     fig, ax = plt.subplots(figsize=(10, 8))
     ax.scatter(coords[:, 0], coords[:, 1], alpha=0.7, s=60)

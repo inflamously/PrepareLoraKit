@@ -39,7 +39,9 @@ def mock_project(input_dir: Path) -> ProjectConfig:
                     auto_only=False,
                 ),
             ),
-            PipelineStep("CurateStep", CurateConfig(skip_clip=True)),
+            # Mock runtime uses deterministic embeddings; keep clipscan enabled
+            # so coverage plot flows exercise the UI without loading CLIP.
+            PipelineStep("CurateStep", CurateConfig(skip_clip=False)),
             PipelineStep(
                 "UpscaleStep",
                 UpscaleConfig(upscale_target=1664, upscale_model="lanczos"),

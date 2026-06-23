@@ -111,10 +111,6 @@ def run(
     img_utils.materialize(survivors, input_dir, output_dir)
 
     report_path = report_path or (output_dir / "step1_report.json")
-    report["substeps"] = {
-        "s1_1_score": {"enabled": "s1_1_score" in enabled},
-        "s1_2_decide": {"enabled": "s1_2_decide" in enabled and not auto_only},
-    }
     check_cancel(cancel_check)
     rpt.save_report(report, report_path)
     return report
