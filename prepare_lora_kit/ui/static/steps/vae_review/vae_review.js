@@ -37,6 +37,12 @@ export function showVaeReview(pending, { onSubmitted }) {
   const cards = items.map((item) => {
     const card = vaeReviewCard(item, decisions, {
       onSelect: selectItem,
+      onDecisionChange: (changedItem) => {
+        if (card.classList.contains("selected")) {
+          selected = changedItem;
+          renderDetail();
+        }
+      },
     });
     cardsByPath.set(item.path, card);
     return card;

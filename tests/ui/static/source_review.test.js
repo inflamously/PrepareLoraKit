@@ -29,7 +29,15 @@ describe("source review interaction", () => {
     assert.equal(cards[0].classList.contains("selected"), true);
     assert.match(layer.querySelector(".source-review-detail").textContent, /first\.png/);
 
-    cards[0].dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+    cards[1].dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+    assert.equal(cards[1].classList.contains("selected"), true);
+    assert.equal(cards[1].classList.contains("keep"), true);
+    assert.match(layer.querySelector(".source-review-detail").textContent, /second\.png/);
+    assert.match(layer.querySelector(".source-review-detail").textContent, /needs review/);
+
+    cards[0].dispatchEvent(
+      new window.MouseEvent("contextmenu", { bubbles: true, cancelable: true }),
+    );
     assert.equal(cards[0].classList.contains("reject"), true);
     assertPressed(cards[0], "reject");
 
@@ -38,13 +46,6 @@ describe("source review interaction", () => {
       .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
     assert.equal(cards[0].classList.contains("flag"), true);
     assertPressed(cards[0], "flag");
-
-    cards[1].dispatchEvent(
-      new window.MouseEvent("contextmenu", { bubbles: true, cancelable: true }),
-    );
-    assert.equal(cards[1].classList.contains("selected"), true);
-    assert.match(layer.querySelector(".source-review-detail").textContent, /second\.png/);
-    assert.match(layer.querySelector(".source-review-detail").textContent, /needs review/);
 
     layer.querySelector("#finishReview").click();
     await nextTick();

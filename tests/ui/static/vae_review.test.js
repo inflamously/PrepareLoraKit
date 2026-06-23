@@ -52,10 +52,16 @@ describe("vae review interaction", () => {
     assert.equal(cards[1].classList.contains("selected"), true);
     assert.match(layer.querySelector(".vae-review-detail").textContent, /second\.png/);
 
-    layer
-      .querySelector('.vae-detail-actions [data-decision="keep"]')
-      .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+    cards[1].dispatchEvent(
+      new window.MouseEvent("contextmenu", { bubbles: true, cancelable: true }),
+    );
     assert.equal(cards[1].classList.contains("keep"), true);
+    assertPressed(layer.querySelector(".vae-detail-actions"), "keep");
+
+    layer
+      .querySelector('.vae-detail-actions [data-decision="drop"]')
+      .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+    assert.equal(cards[1].classList.contains("drop"), true);
 
     layer.querySelector("#finishVaeReview").click();
     await nextTick();
@@ -67,7 +73,7 @@ describe("vae review interaction", () => {
         value: {
           decisions: {
             "/images/first.png": "drop",
-            "/images/second.png": "keep",
+            "/images/second.png": "drop",
           },
         },
       },
@@ -135,3 +141,12 @@ describe("vae review interaction", () => {
     assert.match(layer.textContent, /<img onerror=alert\(1\)>/);
   });
 });
+
+function assertPressed(container, decision) {
+  container.querySelectorAll("[data-decision]").forEach((button) => {
+    assert.equal(
+      button.getAttribute("aria-pressed"),
+      String(button.dataset.decision === decision),
+    );
+  });
+}

@@ -1,4 +1,5 @@
 import { escapeText } from "../../core/dom.js";
+import { reviewCard } from "../../components/review_card.js";
 import { REVIEW_DECISIONS, normalizeDecision } from "./decisions.js";
 import { formatQuality } from "./format.js";
 
@@ -7,14 +8,23 @@ export function sourceReviewCard(
   decisions,
   { onSelect, onDecisionChange } = {},
 ) {
-  const card = document.createElement("div");
-  card.className = "review-card";
-  card.title = "Left-click card to cycle decision; right-click card to show details";
-  card.innerHTML = `
+  return reviewCard(item, decisions, {
+    className: "review-card",
+    title: "Left-click card to show details; right-click card to cycle decision",
+    decisionOptions: REVIEW_DECISIONS,
+    normalizeDecision,
+    renderBody: renderSourceReviewCardBody,
+    onSelect,
+    onDecisionChange,
+  });
+}
+
+function renderSourceReviewCardBody(item) {
+  return `
     <img
       src="${escapeText(item.uri)}"
       alt="${escapeText(item.name)}"
-      title="Left-click to cycle decision; right-click to show details"
+      title="Left-click to show details; right-click to cycle decision"
     />
     <div class="review-actions" role="group" aria-label="Review decision">
       <button type="button" data-decision="keep">Keep</button>
@@ -29,57 +39,4 @@ export function sourceReviewCard(
       </small>
     </div>
   `;
-
-  const control = card.querySelector(".review-actions");
-
-  const setDecision = (decision, { notify = true } = {}) => {
-    const normalized = normalizeDecision(decision);
-
-    decisions[item.path] = normalized;
-    card.classList.remove(...REVIEW_DECISIONS.map((entry) => entry.value));
-    card.classList.add(normalized);
-    control.querySelectorAll("button").forEach((button) => {
-      button.setAttribute(
-        "aria-pressed",
-        String(button.dataset.decision === normalized),
-      );
-    });
-    if (notify) {
-      onDecisionChange?.(item);
-    }
-  };
-
-  const cycleDecision = (step) => {
-    const index = REVIEW_DECISIONS.findIndex(
-      (option) => option.value === decisions[item.path],
-    );
-    const nextIndex =
-      (index + step + REVIEW_DECISIONS.length) % REVIEW_DECISIONS.length;
-    setDecision(REVIEW_DECISIONS[nextIndex].value);
-  };
-
-  control.querySelectorAll("button").forEach((button) => {
-    button.addEventListener("click", (event) => {
-      event.stopPropagation();
-      setDecision(button.dataset.decision);
-    });
-  });
-
-  card.addEventListener("click", (event) => {
-    if (
-      event.target instanceof Element &&
-      event.target.closest(".review-actions")
-    ) {
-      return;
-    }
-    event.preventDefault();
-    cycleDecision(1);
-  });
-  card.addEventListener("contextmenu", (event) => {
-    event.preventDefault();
-    onSelect?.(item);
-  });
-
-  setDecision(decisions[item.path], { notify: false });
-  return card;
 }
