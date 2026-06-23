@@ -22,11 +22,14 @@
 
 .step-header,
 .substep {
-  display: grid;
-  grid-template-columns: 24px 28px minmax(0, 1fr) auto;
+  display: flex;
   align-items: center;
   gap: 10px;
   padding: 10px;
+}
+
+.step-content, .substep-content {
+  flex-grow: 1
 }
 
 .substep {

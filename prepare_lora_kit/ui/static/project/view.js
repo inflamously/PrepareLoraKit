@@ -45,7 +45,7 @@ function renderStep(step) {
     <div class="step-header">
       <input type="checkbox" ${checked} ${disabled} data-step="${escapeText(step.type)}" />
       <button class="step-toggle" type="button" aria-expanded="true" ${disabled}>v</button>
-      <div>
+      <div class="step-content">
         <strong>${escapeText(stepLabel(step.type))}</strong>
         <small>${escapeText(step.type)} · ${escapeText(prereq)}${optional}</small>
       </div>
@@ -95,7 +95,7 @@ function renderSubstep(step, substep, disabled) {
 
   return `
     <div class="substep" aria-disabled="${disabled ? "true" : "false"}">
-      <div>
+      <div class="substep-content">
         <strong>${escapeText(substep.label || substep.id)}</strong>
         <small>${escapeText(substep.id)} · ${escapeText(stateText)}${optional}</small>
       </div>
