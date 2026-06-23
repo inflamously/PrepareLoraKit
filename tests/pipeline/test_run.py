@@ -78,6 +78,65 @@ def test_pipeline_runs_project_steps_in_order(tmp_path):
         invoke.assert_called_once()
 
 
+def test_pipeline_resumes_from_first_pending_step_in_order(tmp_path):
+    calls = []
+    output_dir = tmp_path / "out"
+    state = RunState(output_dir)
+    state.mark_done("ImportStep")
+    state.mark_done("QualityGateStep")
+
+    def invoke_for(step_type):
+        fn = MagicMock(name=step_type)
+        fn.side_effect = lambda *args, **kwargs: calls.append(step_type) or (
+            {"pass": True} if step_type == "AuditStep" else None
+        )
+        return fn
+
+    invoke_map = {
+        step_type: invoke_for(step_type)
+        for step_type in [
+            "ImportStep",
+            "QualityGateStep",
+            "CurateStep",
+            "UpscaleStep",
+            "VaeGateStep",
+            "CaptionStep",
+            "AuditStep",
+            "ConfigGenStep",
+            "BucketDryRunStep",
+        ]
+    }
+
+    cfg = RunConfig(
+        dataset_dir=tmp_path / "dataset",
+        project=_project(),
+        concept_token="sks",
+        output_dir=output_dir,
+    )
+
+    with patch("prepare_lora_kit.networks.registry.load", return_value=MagicMock()), \
+            patch.dict("prepare_lora_kit.pipeline.STEP_INVOKE_MAP", invoke_map, clear=True):
+        run_all(cfg)
+
+    assert calls == [
+        "CurateStep",
+        "UpscaleStep",
+        "VaeGateStep",
+        "CaptionStep",
+        "AuditStep",
+        "ConfigGenStep",
+        "BucketDryRunStep",
+    ]
+    invoke_map["ImportStep"].assert_not_called()
+    invoke_map["QualityGateStep"].assert_not_called()
+    assert invoke_map["CurateStep"].call_args.kwargs["enabled_substeps"] == [
+        "s2_1_dupecheck",
+        "s2_2_clipscan",
+        "s2_3_drop_images",
+    ]
+    assert RunState(output_dir).is_done("BucketDryRunStep")
+
+
 def test_pipeline_skips_import_for_existing_legacy_working_dataset(tmp_path):
     calls = []
     output_dir = tmp_path / "out"

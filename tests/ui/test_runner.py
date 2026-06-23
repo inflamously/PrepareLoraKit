@@ -231,7 +231,12 @@ def test_ui_run_failure_stops_before_downstream_steps(tmp_path):
     out = tmp_path / "out"
     calls: list[str] = []
     invoke_map = _invoke_map(calls)
-    invoke_map["QualityGateStep"].side_effect = RuntimeError("quality failed")
+
+    def fail_quality_gate(*args, **kwargs):
+        calls.append("QualityGateStep")
+        raise RuntimeError("quality failed")
+
+    invoke_map["QualityGateStep"].side_effect = fail_quality_gate
     manager = JobManager(projects={"test": _project()})
     job = PipelineJob(manager, "test-job")
     request = _run_request(tmp_path, out)
