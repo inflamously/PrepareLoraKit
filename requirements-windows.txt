@@ -37,3 +37,5 @@ omegaconf>=2.3.0
 peft>=0.17.0
 rotary_embedding_torch>=0.5.3
 gguf
+sageattention
+triton-windows

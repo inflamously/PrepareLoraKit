@@ -7,133 +7,147 @@
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <div id="app" class="app-shell">
-      <header class="app-topbar">
-        <div class="brand">
-          <div class="mark">PLK</div>
-          <div class="brand-copy">
-            <h1>PrepareLoraKit</h1>
-            <p id="rootLabel"></p>
-          </div>
+    <div id="app" class="nf-window">
+      <header class="nf-appbar">
+        <div class="nf-logo">PLK</div>
+        <div class="nf-appbar__id">
+          <h1 class="nf-appbar__title">PrepareLoraKit</h1>
+          <p id="rootLabel" class="nf-appbar__path"></p>
         </div>
-        <div class="run-status" aria-live="polite">
-          <span>Run status</span>
-          <strong id="jobSummary">Idle</strong>
+        <div class="nf-appbar__spacer"></div>
+        <div class="nf-runstatus nf-runstatus--idle" aria-live="polite">
+          <span class="nf-runstatus__label">Run status</span>
+          <strong id="jobSummary" class="nf-runstatus__value">Idle</strong>
         </div>
       </header>
 
-      <aside class="sidebar config-rail">
-        <section class="rail-section">
-          <div class="rail-heading">
-            <h2>Dataset</h2>
-          </div>
-
-          <label class="field">
-            <span>Dataset folder</span>
-            <div class="row">
-              <input id="inputDir" type="text" placeholder="/path/to/source/images" />
-              <button id="chooseInput" class="icon-button" title="Choose folder">Browse</button>
+      <main class="nf-workspace">
+        <aside class="nf-col config-rail">
+          <section class="nf-panel nf-panel--glass">
+            <div class="nf-panel__head">
+              <div class="nf-panel__titles">
+                <h2 class="nf-panel__title">Dataset</h2>
+              </div>
             </div>
-          </label>
+            <div class="nf-panel__body">
+              <label class="nf-field">
+                <span class="nf-label">Dataset folder</span>
+                <div class="nf-inputgroup">
+                  <input id="inputDir" class="nf-input" type="text" placeholder="/path/to/source/images" />
+                  <button id="chooseInput" class="nf-btn nf-btn--secondary" title="Choose folder">Browse</button>
+                </div>
+              </label>
 
-          <label class="field">
-            <span>Output folder</span>
-            <div class="row">
-              <input id="outputDir" type="text" placeholder="outputs/<dataset>" />
-              <button id="chooseOutput" class="icon-button" title="Choose folder">Browse</button>
+              <label class="nf-field">
+                <span class="nf-label">Output folder</span>
+                <div class="nf-inputgroup">
+                  <input id="outputDir" class="nf-input" type="text" placeholder="outputs/<dataset>" />
+                  <button id="chooseOutput" class="nf-btn nf-btn--secondary" title="Choose folder">Browse</button>
+                </div>
+              </label>
             </div>
-          </label>
-        </section>
+          </section>
 
-        <section class="rail-section">
-          <div class="rail-heading">
-            <h2>Project</h2>
-          </div>
-
-          <label class="field">
-            <span>Project preset</span>
-            <select id="projectSelect"></select>
-          </label>
-
-          <label class="field">
-            <span>Concept token</span>
-            <input id="tokenInput" type="text" placeholder="Optional; blank for style training" />
-          </label>
-        </section>
-
-        <section class="rail-section">
-          <div class="rail-heading">
-            <h2>Captioning</h2>
-          </div>
-
-          <label class="field">
-            <span>Caption model</span>
-            <select id="captionModelPreset">
-              <option value="Qwen/Qwen2-VL-7B-Instruct">Qwen2-VL 7B</option>
-              <option value="Qwen/Qwen2.5-VL-3B-Instruct">Qwen2.5-VL 3B</option>
-              <option value="Qwen/Qwen2.5-VL-7B-Instruct">Qwen2.5-VL 7B</option>
-              <option value="custom">Custom</option>
-            </select>
-          </label>
-
-          <label class="field">
-            <span>Custom caption model</span>
-            <input id="captionModelCustom" type="text" placeholder="Hugging Face model id" />
-          </label>
-
-          <label class="field">
-            <span>Caption VRAM mode</span>
-            <select id="captionVramMode">
-              <option value="auto">Auto</option>
-              <option value="4bit">4-bit</option>
-              <option value="8bit">8-bit</option>
-              <option value="none">Unquantized</option>
-            </select>
-          </label>
-        </section>
-
-        <section class="rail-section">
-          <label class="check-row">
-            <input id="forceInput" type="checkbox" />
-            <span>Force re-run active pipeline</span>
-          </label>
-        </section>
-      </aside>
-
-      <main class="workspace">
-        <section class="workspace-panel step-panel">
-          <div class="section-header">
-            <div>
-              <h2>Pipeline</h2>
-              <p id="projectSummary">Select a project and dataset.</p>
+          <section class="nf-panel nf-panel--glass">
+            <div class="nf-panel__head">
+              <div class="nf-panel__titles">
+                <h2 class="nf-panel__title">Project</h2>
+              </div>
             </div>
-            <button id="selectPending" class="secondary">Reset active</button>
+            <div class="nf-panel__body">
+              <label class="nf-field">
+                <span class="nf-label">Project preset</span>
+                <select id="projectSelect" class="nf-select"></select>
+              </label>
+
+              <label class="nf-field">
+                <span class="nf-label">Concept token</span>
+                <input id="tokenInput" class="nf-input" type="text" placeholder="Optional; blank for style training" />
+              </label>
+            </div>
+          </section>
+
+          <section class="nf-panel nf-panel--glass">
+            <div class="nf-panel__head">
+              <div class="nf-panel__titles">
+                <h2 class="nf-panel__title">Captioning</h2>
+              </div>
+            </div>
+            <div class="nf-panel__body">
+              <label class="nf-field">
+                <span class="nf-label">Caption model</span>
+                <select id="captionModelPreset" class="nf-select">
+                  <option value="Qwen/Qwen2-VL-7B-Instruct">Qwen2-VL 7B</option>
+                  <option value="Qwen/Qwen2.5-VL-3B-Instruct">Qwen2.5-VL 3B</option>
+                  <option value="Qwen/Qwen2.5-VL-7B-Instruct">Qwen2.5-VL 7B</option>
+                  <option value="custom">Custom</option>
+                </select>
+              </label>
+
+              <label class="nf-field">
+                <span class="nf-label">Custom caption model</span>
+                <input id="captionModelCustom" class="nf-input" type="text" placeholder="Hugging Face model id" />
+              </label>
+
+              <label class="nf-field">
+                <span class="nf-label">Caption VRAM mode</span>
+                <select id="captionVramMode" class="nf-select">
+                  <option value="auto">Auto</option>
+                  <option value="4bit">4-bit</option>
+                  <option value="8bit">8-bit</option>
+                  <option value="none">Unquantized</option>
+                </select>
+              </label>
+            </div>
+          </section>
+
+          <section class="nf-panel nf-panel--glass">
+            <div class="nf-panel__body force-panel">
+              <label class="force-row">
+                <input id="forceInput" class="nf-check" type="checkbox" />
+                <span>Force re-run active pipeline</span>
+              </label>
+            </div>
+          </section>
+        </aside>
+
+        <section class="nf-col">
+          <div class="nf-panel nf-panel--glass step-panel">
+            <div class="nf-panel__head">
+              <div class="nf-panel__titles">
+                <h2 class="nf-panel__title">Pipeline</h2>
+                <p id="projectSummary" class="nf-panel__sub">Select a project and dataset.</p>
+              </div>
+              <button id="selectPending" class="nf-btn nf-btn--secondary nf-btn--sm nf-panel__action">Reset active</button>
+            </div>
+            <div id="stepList" class="step-list nf-panel__body"></div>
           </div>
-          <div id="stepList" class="step-list"></div>
         </section>
 
-        <section class="workspace-panel run-panel">
-          <div class="section-header">
-            <div>
-              <h2>Run</h2>
-              <p>Session output</p>
+        <section class="nf-col nf-col--fill">
+          <div class="nf-panel nf-panel--glass nf-panel--flush run-panel">
+            <div class="nf-panel__head">
+              <div class="nf-panel__titles">
+                <h2 class="nf-panel__title">Run</h2>
+                <p class="nf-panel__sub">Session output</p>
+              </div>
             </div>
+            <div id="currentStepLabel" class="current-step hidden"></div>
+            <pre id="logOutput" class="logs nf-console"></pre>
           </div>
-          <div id="currentStepLabel" class="current-step hidden"></div>
-          <pre id="logOutput" class="logs"></pre>
         </section>
       </main>
 
-      <footer class="actionbar">
-        <div class="actionbar-copy">
-          <strong>Controls</strong>
-          <span>Ready</span>
+      <footer class="nf-statusbar">
+        <div class="nf-statusbar__status">
+          <strong class="nf-statusbar__title">Controls</strong>
+          <span class="nf-statusbar__msg">Ready</span>
         </div>
-        <div class="actions">
-          <button id="refreshProject" class="secondary">Refresh</button>
-          <button id="openOutput" class="secondary" disabled>Open output</button>
-          <button id="cancelButton" class="danger" disabled>Cancel</button>
-          <button id="runButton" class="primary">Run active</button>
+        <div class="nf-statusbar__actions">
+          <button id="refreshProject" class="nf-btn nf-btn--secondary">Refresh</button>
+          <button id="openOutput" class="nf-btn nf-btn--secondary" disabled>Open output</button>
+          <button id="cancelButton" class="nf-btn nf-btn--secondary danger" disabled>Cancel</button>
+          <button id="runButton" class="nf-btn nf-btn--primary">Run active</button>
         </div>
       </footer>
     </div>

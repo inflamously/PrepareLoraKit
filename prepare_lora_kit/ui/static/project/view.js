@@ -28,33 +28,41 @@ export function renderSteps() {
 
 function renderStep(step) {
   const row = document.createElement("div");
-  row.className = "step";
-
   const disabled = isActiveJob() ? "disabled" : "";
   const running = state.job?.current_step === step.type;
   const status = running ? "running" : step.status;
-  const badgeClass = running ? "running" : step.status === "done" ? "done" : "";
   const prereq = step.prerequisites?.length
     ? `Requires ${step.prerequisites.join(", ")}`
     : "No special prerequisites";
-  const optional = step.optional ? " · Optional" : "";
+  const optional = step.optional ? " - Optional" : "";
   const availableSubsteps = step.substeps || [];
   const checked = state.selectedSteps.has(step.type) ? "checked" : "";
+  row.className = [
+    "step",
+    "nf-step",
+    checked ? "is-checked" : "nf-step--disabled",
+    running ? "nf-step--active" : "",
+  ].filter(Boolean).join(" ");
 
   row.innerHTML = `
-    <div class="step-header">
-      <input type="checkbox" ${checked} ${disabled} data-step="${escapeText(step.type)}" />
-      <button class="step-toggle" type="button" aria-expanded="true" ${disabled}>v</button>
-      <div class="step-content">
-        <strong>${escapeText(stepLabel(step.type))}</strong>
-        <small>${escapeText(step.type)} · ${escapeText(prereq)}${optional}</small>
-      </div>
-      <span class="badge ${badgeClass}">${escapeText(status)}</span>
+    <div class="nf-step__lead">
+      <input class="nf-check" type="checkbox" ${checked} ${disabled} data-step="${escapeText(step.type)}" />
+      <button class="step-toggle nf-step__caret" type="button" aria-expanded="true" ${disabled}>v</button>
     </div>
+    <div class="step-content nf-step__body">
+      <strong class="nf-step__title">${escapeText(stepLabel(step.type))}</strong>
+      <small class="nf-step__meta">${escapeText(step.type)} <span class="nf-sep">&middot;</span> ${escapeText(prereq)}${optional}</small>
+    </div>
+    <span class="step-status nf-step__status ${pillClass(status)}">${escapeText(status)}</span>
     <div class="substep-list">
       ${availableSubsteps.map((substep) => renderSubstep(step, substep, disabled)).join("")}
     </div>
   `;
+
+  if (availableSubsteps.length === 0) {
+    row.querySelector(".step-toggle").classList.add("is-empty");
+    row.querySelector(".step-toggle").disabled = true;
+  }
 
   const parentInput = row.querySelector("input[data-step]");
   parentInput.addEventListener("change", (event) => {
@@ -77,6 +85,7 @@ function renderStep(step) {
     row.classList.toggle("collapsed");
     const expanded = !row.classList.contains("collapsed");
     row.querySelector(".step-toggle").setAttribute("aria-expanded", String(expanded));
+    row.querySelector(".step-toggle").textContent = expanded ? "v" : ">";
   });
 
   return row;
@@ -89,19 +98,34 @@ function renderSubstep(step, substep, disabled) {
     : substep.enabled === false
       ? "disabled"
       : substep.status;
-  const badgeClass = running ? "running" : substep.status === "done" ? "done" : "";
-  const optional = substep.optional ? " · Optional" : "";
+  const optional = substep.optional ? " - Optional" : "";
   const stateText = substep.enabled === false ? "Disabled" : "Enabled";
 
   return `
-    <div class="substep" aria-disabled="${disabled ? "true" : "false"}">
-      <div class="substep-content">
-        <strong>${escapeText(substep.label || substep.id)}</strong>
-        <small>${escapeText(substep.id)} · ${escapeText(stateText)}${optional}</small>
+    <div class="substep nf-step" aria-disabled="${disabled ? "true" : "false"}">
+      <div class="substep-content nf-step__body">
+        <strong class="nf-step__title">${escapeText(substep.label || substep.id)}</strong>
+        <small class="nf-step__meta">${escapeText(substep.id)} <span class="nf-sep">&middot;</span> ${escapeText(stateText)}${optional}</small>
       </div>
-      <span class="badge ${badgeClass}">${escapeText(status)}</span>
+      <span class="step-status nf-step__status ${pillClass(status)}">${escapeText(status)}</span>
     </div>
   `;
+}
+
+function pillClass(status) {
+  if (status === "done" || status === "completed") {
+    return "nf-pill nf-pill--done";
+  }
+  if (status === "running") {
+    return "nf-pill nf-pill--info";
+  }
+  if (status === "waiting" || status === "queued" || status === "cancelling") {
+    return "nf-pill nf-pill--warning";
+  }
+  if (status === "failed" || status === "cancelled" || status === "error") {
+    return "nf-pill nf-pill--danger";
+  }
+  return "nf-pill nf-pill--muted";
 }
 
 function isActiveJob() {

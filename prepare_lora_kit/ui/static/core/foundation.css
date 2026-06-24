@@ -27,7 +27,14 @@
   --warning-bg: rgba(255, 196, 0, 0.12);
   --danger-500: #ff5c6a;
   --danger-bg: rgba(255, 92, 106, 0.12);
+  --info-500: var(--cobalt-400);
   --info-bg: rgba(74, 92, 240, 0.12);
+  --white: #ffffff;
+  --ink: var(--night-900);
+  --cobalt-glow: rgba(45, 64, 224, 0.45);
+  --gold-300: #fff27a;
+  --gold-glow: rgba(255, 224, 0, 0.3);
+  --amber-400: #f4be63;
 
   --bg-app: var(--night-950);
   --bg-base: var(--night-900);
@@ -39,19 +46,53 @@
   --border: var(--night-700);
   --border-subtle: var(--night-600);
   --border-strong: var(--night-500);
+  --border-gold: rgba(255, 224, 0, 0.4);
   --hairline: rgba(174, 183, 220, 0.1);
   --text: var(--text-1);
   --muted: var(--text-2);
   --caption: var(--text-3);
+  --text-body: var(--text-2);
+  --text-heading: var(--text-1);
+  --text-caption: var(--text-3);
   --accent: var(--gold-500);
   --accent-hover: var(--gold-400);
+  --accent-press: var(--gold-600);
   --accent-ink: #0b1024;
   --accent-secondary: var(--cobalt-400);
   --focus-ring: rgba(255, 224, 0, 0.55);
+  --selection: rgba(255, 224, 0, 0.22);
 
   --font-display: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-mono: ui-monospace, "SF Mono", Consolas, "Liberation Mono", monospace;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+  --text-2xs: 11px;
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-base: 16px;
+  --text-lg: 18px;
+  --text-xl: 22px;
+  --text-2xl: 28px;
+  --text-3xl: 36px;
+  --text-4xl: 46px;
+  --leading-tight: 1.12;
+  --leading-snug: 1.28;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.66;
+  --tracking-tight: 0;
+  --tracking-tighter: 0;
+  --tracking-wide: 0;
+  --tracking-wider: 0;
+  --tracking-widest: 0;
+  --type-h3: var(--weight-semibold) var(--text-2xl)/var(--leading-snug) var(--font-display);
+  --type-h4: var(--weight-medium) var(--text-xl)/var(--leading-snug) var(--font-sans);
+  --type-body: var(--weight-regular) var(--text-base)/var(--leading-normal) var(--font-sans);
+  --type-body-sm: var(--weight-regular) var(--text-sm)/var(--leading-normal) var(--font-sans);
+  --type-caption: var(--weight-regular) var(--text-xs)/var(--leading-snug) var(--font-sans);
+  --type-mono: var(--weight-regular) var(--text-sm)/var(--leading-normal) var(--font-mono);
 
   --space-1: 4px;
   --space-2: 8px;
@@ -59,6 +100,9 @@
   --space-4: 16px;
   --space-5: 20px;
   --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 40px;
+  --radius-xs: 3px;
   --radius-sm: 5px;
   --radius-md: 7px;
   --radius-lg: 10px;
@@ -66,10 +110,22 @@
   --radius-pill: 999px;
   --control-h-sm: 32px;
   --control-h-md: 40px;
+  --shadow-sm: 0 2px 8px rgba(3, 5, 14, 0.45);
   --shadow-md: 0 8px 24px rgba(3, 5, 14, 0.5);
   --shadow-lg: 0 18px 48px rgba(3, 5, 14, 0.55);
+  --shadow-xl: 0 32px 80px rgba(3, 5, 14, 0.62);
   --edge-light: inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  --transition-color: color 140ms ease, background-color 140ms ease, border-color 140ms ease;
+  --edge-light-strong: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  --glass-blur: blur(14px) saturate(140%);
+  --glass-blur-soft: blur(8px) saturate(125%);
+  --glass-fill: rgba(22, 29, 58, 0.55);
+  --glass-border: 1px solid rgba(174, 183, 220, 0.12);
+  --glow-gold: 0 0 0 1px rgba(255, 224, 0, 0.25), 0 0 24px var(--gold-glow);
+  --glow-gold-strong: 0 0 0 1px rgba(255, 224, 0, 0.45), 0 0 36px rgba(255, 224, 0, 0.4);
+  --grad-gold: linear-gradient(135deg, #ffe940 0%, #ffe000 48%, #e8a33d 100%);
+  --dur-fast: 140ms;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --transition-color: color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
 }
 
 *,

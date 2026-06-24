@@ -4,9 +4,10 @@ This directory contains the pywebview browser UI for PrepareLoraKit.
 
 | File | Description |
 | --- | --- |
+| `DESIGN_BASELINE.md` | Documents the project-detail screenshot and app-kit stylesheet as the baseline for future UI pages. |
 | `README.md` | Lists each static UI file and its one-line purpose. |
 | `app.js` | Waits for pywebview readiness and starts the UI bootstrap. |
-| `index.html` | Defines the main application shell, controls, workspace panels, action bar, and modal layer. |
+| `index.html` | Defines the project-detail desktop shell, controls, workspace columns, statusbar, and modal layer. |
 | `styles.css` | Imports all UI stylesheets and defines the shared `.hidden` utility. |
 | `+state/index.js` | Combines the state fragments into the shared in-memory UI state object. |
 | `+state/jobs.js` | Defines initial in-memory job state for active jobs, run start state, and handled pending requests. |
@@ -21,18 +22,19 @@ This directory contains the pywebview browser UI for PrepareLoraKit.
 | `core/api.js` | Documents pywebview bridge payloads with JSDoc and returns the Python bridge API. |
 | `core/app.js` | Bootstraps app info, projects, saved launch state, event bindings, and the initial render. |
 | `core/dom.js` | Contains small DOM helpers for element lookup, text updates, step labels, status flags, and HTML escaping. |
-| `core/foundation.css` | Defines global design tokens, base layout defaults, form controls, buttons, panels, and responsive behavior. |
+| `core/app-kit.css` | Provides the reusable `nf-*` desktop app component layer adapted from `design/project-detail-view.css`. |
+| `core/foundation.css` | Defines active design tokens, base layout defaults, form controls, buttons, panels, and responsive behavior. |
 | `core/state.js` | Re-exports the shared state object for existing core state import paths. |
 | `job/controller.js` | Builds run requests, starts/cancels jobs, polls job status, opens outputs, and routes pending interactions to modals. |
-| `job/job.css` | Styles the current-step label and run log output panel. |
+| `job/job.css` | Adds PrepareLoraKit-specific current-step and selectable run-log behavior on top of the app kit console. |
 | `job/view.js` | Renders job status, current step, log text, and action button states. |
 | `project/controller.js` | Loads project lists and project details, applies bootstrap state, manages active pipeline selection, and refreshes project state. |
-| `project/project.css` | Styles the pipeline step list, step rows, and step status badges. |
+| `project/project.css` | Adds project-specific spacing and substep layout around reusable app-kit pipeline rows. |
 | `project/selection.js` | Returns active step types and configured substeps in project pipeline order. |
 | `project/view.js` | Renders the project summary, active step toggles, and substep status rows. |
 | `shell/events.js` | Wires top-level UI controls to project loading, folder selection, caption input syncing, and job actions. |
 | `shell/render.js` | Runs the shared render pass for project steps and job state. |
-| `shell/shell.css` | Styles the main app grid, top bar, sidebar, workspace, and bottom action bar. |
+| `shell/shell.css` | Styles the project-detail shell frame, local status mappings, force row, and small-screen compatibility. |
 | `steps/bbox_annotation/bbox_annotation.css` | Styles the bounding-box annotation modal, canvas area, box panel, status, and box rows. |
 | `steps/bbox_annotation/bbox_annotation.js` | Orchestrates the region annotation modal, captioning selected boxes, skipping images, and submitting annotations. |
 | `steps/bbox_annotation/box_panel.js` | Renders and updates the side panel for selecting, labeling, and deleting annotation boxes. |

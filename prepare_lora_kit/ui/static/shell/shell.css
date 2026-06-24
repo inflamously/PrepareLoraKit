@@ -1,280 +1,127 @@
-.app-shell {
-  display: grid;
-  grid-template-columns: 348px minmax(0, 1fr);
-  grid-template-rows: auto minmax(0, 1fr) auto;
+body {
+  overflow: hidden;
+  background: var(--night-990);
+  padding: 0;
+}
+
+#app {
+  width: 100vw;
   height: 100vh;
-  overflow: hidden;
-  background:
-    linear-gradient(180deg, rgba(255, 224, 0, 0.05), rgba(255, 224, 0, 0) 38%),
-    var(--bg-app);
-}
-
-.app-topbar {
-  grid-column: 1 / -1;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  min-height: 72px;
-  border-bottom: 1px solid var(--hairline);
-  background: rgba(11, 16, 36, 0.92);
-  padding: 14px 18px;
-  box-shadow: var(--edge-light);
-}
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-}
-
-.brand-copy {
-  min-width: 0;
-}
-
-.brand p,
-.section-header p,
-.actionbar-copy span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.mark {
-  width: 42px;
-  height: 42px;
-  display: grid;
-  flex: 0 0 auto;
-  place-items: center;
-  border: 1px solid rgba(255, 224, 0, 0.5);
-  border-radius: var(--radius-lg);
-  background: var(--accent);
-  color: var(--accent-ink);
-  font-weight: 800;
-  letter-spacing: 0;
-  box-shadow: 0 0 24px rgba(255, 224, 0, 0.2);
-}
-
-.run-status {
-  display: grid;
-  gap: 2px;
-  min-width: 150px;
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-lg);
-  background: rgba(22, 29, 58, 0.72);
-  padding: 8px 12px;
-  text-align: right;
-  box-shadow: var(--edge-light);
-}
-
-.run-status span {
-  color: var(--caption);
-  font-size: 11px;
-  text-transform: uppercase;
-}
-
-.run-status strong {
-  color: var(--text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-#app[data-job-status="running"] .run-status {
-  border-color: rgba(74, 92, 240, 0.42);
-  background: var(--info-bg);
-}
-
-#app[data-job-status="waiting_input"] .run-status,
-#app[data-job-status="cancelling"] .run-status {
-  border-color: rgba(255, 196, 0, 0.44);
-  background: var(--warning-bg);
-}
-
-#app[data-job-status="completed"] .run-status {
-  border-color: rgba(56, 214, 160, 0.42);
-  background: var(--success-bg);
-}
-
-#app[data-job-status="failed"] .run-status,
-#app[data-job-status="cancelled"] .run-status {
-  border-color: rgba(255, 92, 106, 0.42);
-  background: var(--danger-bg);
-}
-
-.sidebar {
   min-height: 0;
-  overflow: auto;
-  border-right: 1px solid var(--hairline);
-  background: rgba(11, 16, 36, 0.78);
-  padding: 16px;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  --col-left: minmax(260px, 0.82fr);
+  --col-gap: 20px;
+  --col-right: 1.18fr;
+  --panel-pad: var(--space-6);
+}
+
+#app .nf-appbar {
+  padding: 24px 31px 25px;
+}
+
+#app .nf-workspace {
+  grid-template-columns:
+    var(--col-left)
+    minmax(320px, 1.12fr)
+    minmax(340px, var(--col-right));
+  padding: 25px 31px 24px;
+}
+
+#app .nf-statusbar {
+  padding: 18px 31px 16px;
 }
 
 .config-rail {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  --panel-pad: var(--space-5);
 }
 
-.rail-section {
-  display: grid;
-  gap: 12px;
-  border-radius: var(--radius-xl);
-  padding: 14px;
+.step-panel,
+.run-panel {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
-.rail-heading {
+.force-panel {
+  padding-top: var(--space-5);
+}
+
+.force-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  min-height: 20px;
+  gap: var(--space-3);
+  color: var(--text-2);
+  font: var(--type-body-sm);
 }
 
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
+.nf-inputgroup .nf-btn {
+  min-width: 86px;
 }
 
-.field span,
-.check-row,
-.actionbar-copy span {
-  color: var(--muted);
+.nf-btn.danger {
+  border-color: rgba(255, 92, 106, 0.38);
+  background: var(--danger-bg);
+  color: #ffd7dc;
 }
 
-.field span,
-.check-row {
-  font-size: 12px;
+.nf-btn.danger:hover:not(:disabled) {
+  border-color: rgba(255, 92, 106, 0.7);
+  background: rgba(255, 92, 106, 0.18);
 }
 
-.row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 76px;
-  gap: 8px;
+#app[data-job-status="idle"] .nf-runstatus,
+#app:not([data-job-status]) .nf-runstatus {
+  --status: var(--night-400);
 }
 
-.icon-button {
-  padding: 0 10px;
+#app[data-job-status="queued"] .nf-runstatus,
+#app[data-job-status="running"] .nf-runstatus {
+  --status: var(--gold-500);
 }
 
-.check-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 9px;
+#app[data-job-status="waiting_input"] .nf-runstatus,
+#app[data-job-status="cancelling"] .nf-runstatus {
+  --status: var(--warning-500);
 }
 
-.check-row input {
-  width: 17px;
-  min-width: 17px;
-  min-height: 17px;
-  margin-top: 2px;
-  accent-color: var(--accent);
+#app[data-job-status="completed"] .nf-runstatus {
+  --status: var(--success-500);
 }
 
-.workspace {
-  min-width: 0;
-  min-height: 0;
-  display: grid;
-  grid-template-columns: minmax(320px, 0.95fr) minmax(320px, 1.05fr);
-  gap: 12px;
-  overflow: hidden;
-  padding: 16px;
+#app[data-job-status="failed"] .nf-runstatus,
+#app[data-job-status="cancelled"] .nf-runstatus {
+  --status: var(--danger-500);
 }
 
-.workspace-panel {
-  min-width: 0;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  border-radius: var(--radius-xl);
+#app[data-job-status="queued"] .nf-runstatus,
+#app[data-job-status="running"] .nf-runstatus,
+#app[data-job-status="waiting_input"] .nf-runstatus,
+#app[data-job-status="cancelling"] .nf-runstatus,
+#app[data-job-status="completed"] .nf-runstatus,
+#app[data-job-status="failed"] .nf-runstatus,
+#app[data-job-status="cancelled"] .nf-runstatus {
+  border-left-color: var(--status);
 }
 
-.section-header {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  border-bottom: 1px solid var(--hairline);
-  padding: 14px;
-}
-
-.section-header > div {
-  min-width: 0;
-}
-
-.section-header p {
-  max-width: 100%;
-  margin-top: 3px;
-  color: var(--caption);
-}
-
-.actionbar {
-  grid-column: 1 / -1;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  min-height: 70px;
-  border-right: 0;
-  border-bottom: 0;
-  border-left: 0;
-  background: rgba(11, 16, 36, 0.94);
-  padding: 12px 16px;
-}
-
-.actionbar-copy {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-
-.actionbar-copy strong {
-  color: var(--text);
-}
-
-.actions {
-  display: flex;
-  flex: 0 0 auto;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-@media (max-width: 980px) {
-  .app-shell {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto auto minmax(0, 1fr) auto;
-  }
-
-  .app-topbar,
-  .actionbar {
-    align-items: stretch;
+@media (max-width: 720px) {
+  .nf-inputgroup {
     flex-direction: column;
   }
 
-  .run-status {
+  .nf-inputgroup .nf-btn {
     width: 100%;
-    text-align: left;
   }
+}
 
-  .sidebar {
-    max-height: 38vh;
-    border-right: 0;
-    border-bottom: 1px solid var(--hairline);
-  }
-
-  .workspace {
+@media (max-width: 980px) {
+  #app .nf-workspace {
     grid-template-columns: 1fr;
+    overflow-y: auto;
   }
 
-  .actions {
-    width: 100%;
-  }
-
-  .actions button {
-    flex: 1 1 150px;
+  #app .nf-col,
+  #app .nf-col--fill > .nf-panel {
+    overflow: visible;
   }
 }
