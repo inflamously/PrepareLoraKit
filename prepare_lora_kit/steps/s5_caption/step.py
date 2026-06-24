@@ -87,6 +87,9 @@ def run(
     )
 
     try:
+        # Load caption model before we continue
+        runtime.load()
+
         caption_result = _caption_dataset(
             images,
             output_dir=output_dir,
