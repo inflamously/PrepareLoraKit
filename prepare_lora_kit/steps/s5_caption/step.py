@@ -108,140 +108,145 @@ def run(
     skipped_annotation: list[str] = []
     skip_all = False
     provider = interaction or CliInteractionProvider()
+    runtime = vlm.CaptionRuntime(
+        qwen_model_id,
+        quantization=quantization,
+        dtype=dtype,
+        max_pixels=max_pixels,
+    )
 
-    # In-UI "Box Caption" callback: caption and persist a single cropped region.
-    def _region_captioner(crop, metadata=None):
-        check_cancel(cancel_check)
-        source_raw = (metadata or {}).get("source_path") or (metadata or {}).get("image_path")
-        if not source_raw:
-            raise ValueError("Region caption metadata missing source_path")
-        source_path = Path(source_raw)
-        text = vlm.caption_region(
-            crop, qwen_model_id,
-            quantization=quantization, dtype=dtype, max_pixels=max_pixels,
-        )
-        check_cancel(cancel_check)
-        result = _save_bbox_training_item(crop, source_path, output_dir, text, concept_token)
-        captions[result["crop_path"]] = result["caption"]
-        return result
+    try:
+        # In-UI "Box Caption" callback: caption and persist a single cropped region.
+        def _region_captioner(crop, metadata=None):
+            check_cancel(cancel_check)
+            source_raw = (metadata or {}).get("source_path") or (metadata or {}).get("image_path")
+            if not source_raw:
+                raise ValueError("Region caption metadata missing source_path")
+            source_path = Path(source_raw)
+            text = runtime.caption_region(crop)
+            check_cancel(cancel_check)
+            result = _save_bbox_training_item(crop, source_path, output_dir, text, concept_token)
+            captions[result["crop_path"]] = result["caption"]
+            return result
 
-    for path in images:
-        check_cancel(cancel_check)
-        txt_path = output_dir / (path.stem + ".txt")
-        if txt_path.exists() and not overwrite:
-            caption = txt_path.read_text(encoding="utf-8").strip()
+        for path in images:
+            check_cancel(cancel_check)
+            txt_path = output_dir / (path.stem + ".txt")
+            if txt_path.exists() and not overwrite:
+                caption = txt_path.read_text(encoding="utf-8").strip()
+                captions[str(path)] = caption
+                rpt.info(f"Skip (exists): {path.name}")
+                continue
+
+            # Phase 5A: bbox annotation ("Skip All" suppresses the UI for all remaining images)
+            if "s5_2_caption" not in enabled:
+                rpt.info(f"Caption substep disabled for {path.name}; preserving existing sidecar if present.")
+                if txt_path.exists():
+                    captions[str(path)] = txt_path.read_text(encoding="utf-8").strip()
+                continue
+
+            if "s5_1_annotate" not in enabled:
+                annotations, skipped = [], True
+            elif skip_all:
+                annotations, skipped = [], True
+            else:
+                annotations, skipped, skip_all = provider.annotate_image(
+                    path, captioner=_region_captioner
+                )
+            check_cancel(cancel_check)
+            annotation_log[str(path)] = annotations
+            if skipped:
+                skipped_annotation.append(str(path))
+
+            # Phase 5B: caption the whole original image after annotation is submitted.
+            try:
+                check_cancel(cancel_check)
+                caption = runtime.caption_image(
+                    path,
+                    annotations,
+                    concept_token,
+                    max_new_tokens=max_new_tokens,
+                )
+                check_cancel(cancel_check)
+            except CancelledRun:
+                raise
+            except Exception as exc:
+                raise RuntimeError(f"VL captioning failed for {path.name}: {exc}") from exc
+
+            # Clean
+            caption = cap_utils.strip_boilerplate(caption)
+
+            # Token enforcement — concept mode only
+            if not style_mode and concept_token:
+                if not cap_utils.token_present(caption, concept_token):
+                    rpt.warn(f"Concept token missing in caption for {path.name} — appending.")
+                    caption = f"{concept_token}, {caption}"
+
+            check_cancel(cancel_check)
+            txt_path.write_text(caption, encoding="utf-8")
             captions[str(path)] = caption
-            rpt.info(f"Skip (exists): {path.name}")
-            continue
-
-        # Phase 5A: bbox annotation ("Skip All" suppresses the UI for all remaining images)
-        if "s5_2_caption" not in enabled:
-            rpt.info(f"Caption substep disabled for {path.name}; preserving existing sidecar if present.")
-            if txt_path.exists():
-                captions[str(path)] = txt_path.read_text(encoding="utf-8").strip()
-            continue
-
-        if "s5_1_annotate" not in enabled:
-            annotations, skipped = [], True
-        elif skip_all:
-            annotations, skipped = [], True
-        else:
-            annotations, skipped, skip_all = provider.annotate_image(
-                path, captioner=_region_captioner
-            )
-        check_cancel(cancel_check)
-        annotation_log[str(path)] = annotations
-        if skipped:
-            skipped_annotation.append(str(path))
-
-        # Phase 5B: VL caption
-        try:
-            check_cancel(cancel_check)
-            caption = vlm.caption_image(
-                path, annotations, concept_token, qwen_model_id,
-                quantization=quantization, dtype=dtype,
-                max_new_tokens=max_new_tokens, max_pixels=max_pixels,
-            )
-            check_cancel(cancel_check)
-        except CancelledRun:
-            raise
-        except Exception as exc:
-            rpt.error(f"VL captioning failed for {path.name}: {exc}")
-            caption = concept_token or ""
-
-        # Clean
-        caption = cap_utils.strip_boilerplate(caption)
-
-        # Token enforcement — concept mode only
-        if not style_mode and concept_token:
-            if not cap_utils.token_present(caption, concept_token):
-                rpt.warn(f"Concept token missing in caption for {path.name} — appending.")
-                caption = f"{concept_token}, {caption}"
+            rpt.ok(f"{path.name} → {caption[:80]}…" if len(caption) > 80 else f"{path.name} → {caption}")
 
         check_cancel(cancel_check)
-        txt_path.write_text(caption, encoding="utf-8")
-        captions[str(path)] = caption
-        rpt.ok(f"{path.name} → {caption[:80]}…" if len(caption) > 80 else f"{path.name} → {caption}")
 
-    check_cancel(cancel_check)
-    vlm.unload()  # free VRAM before downstream steps
+        # Token consistency check — concept mode only
+        missing_token: list[str] = []
+        if "s5_3_validate" in enabled and not style_mode and concept_token:
+            missing_token = cap_utils.verify_token_consistency(captions, concept_token)
+            if missing_token:
+                rpt.warn(f"Token '{concept_token}' missing in {len(missing_token)} captions:")
+            for p in missing_token:
+                check_cancel(cancel_check)
+                rpt.warn(f"  {Path(p).name}")
 
-    # Token consistency check — concept mode only
-    missing_token: list[str] = []
-    if "s5_3_validate" in enabled and not style_mode and concept_token:
-        missing_token = cap_utils.verify_token_consistency(captions, concept_token)
-        if missing_token:
-            rpt.warn(f"Token '{concept_token}' missing in {len(missing_token)} captions:")
-        for p in missing_token:
-            check_cancel(cancel_check)
-            rpt.warn(f"  {Path(p).name}")
+        # Caption length outliers
+        short = (
+            [p for p, c in captions.items() if not cap_utils.caption_length_ok(c, min_chars=10)]
+            if "s5_3_validate" in enabled
+            else []
+        )
+        long_ = (
+            [p for p, c in captions.items() if not cap_utils.caption_length_ok(c, max_chars=600)]
+            if "s5_3_validate" in enabled
+            else []
+        )
+        if short:
+            rpt.warn(f"{len(short)} captions suspiciously short (< 10 chars)")
+        if long_:
+            rpt.warn(f"{len(long_)} captions very long (> 600 chars)")
 
-    # Caption length outliers
-    short = (
-        [p for p, c in captions.items() if not cap_utils.caption_length_ok(c, min_chars=10)]
-        if "s5_3_validate" in enabled
-        else []
-    )
-    long_ = (
-        [p for p, c in captions.items() if not cap_utils.caption_length_ok(c, max_chars=600)]
-        if "s5_3_validate" in enabled
-        else []
-    )
-    if short:
-        rpt.warn(f"{len(short)} captions suspiciously short (< 10 chars)")
-    if long_:
-        rpt.warn(f"{len(long_)} captions very long (> 600 chars)")
+        # Spot-check
+        sample = []
+        if "s5_3_validate" in enabled and captions:
+            n_check = max(1, int(len(captions) * spot_check_pct))
+            sample = random.sample(list(captions.items()), min(n_check, len(captions)))
+            from rich.table import Table
+            from rich import box
+            from ...utils.report import console
+            t = Table(title=f"Spot-check ({n_check} / {len(captions)})", box=box.SIMPLE_HEAVY)
+            t.add_column("File", style="cyan", max_width=35)
+            t.add_column("Caption", style="white")
+            for p, c in sample:
+                check_cancel(cancel_check)
+                t.add_row(Path(p).name, c[:120] + ("…" if len(c) > 120 else ""))
+            console.print(t)
 
-    # Spot-check
-    sample = []
-    if "s5_3_validate" in enabled and captions:
-        n_check = max(1, int(len(captions) * spot_check_pct))
-        sample = random.sample(list(captions.items()), min(n_check, len(captions)))
-        from rich.table import Table
-        from rich import box
-        from ...utils.report import console
-        t = Table(title=f"Spot-check ({n_check} / {len(captions)})", box=box.SIMPLE_HEAVY)
-        t.add_column("File", style="cyan", max_width=35)
-        t.add_column("Caption", style="white")
-        for p, c in sample:
-            check_cancel(cancel_check)
-            t.add_row(Path(p).name, c[:120] + ("…" if len(c) > 120 else ""))
-        console.print(t)
-
-    report = {
-        "total": len(images),
-        "captioned": len(captions),
-        "skipped_annotation": skipped_annotation,
-        "missing_token": missing_token,
-        "short_captions": short,
-        "long_captions": long_,
-        "spot_check_sample": [p for p, _ in sample] if captions else [],
-        "substeps": {
-            "s5_1_annotate": {"enabled": "s5_1_annotate" in enabled},
-            "s5_2_caption": {"enabled": "s5_2_caption" in enabled},
-            "s5_3_validate": {"enabled": "s5_3_validate" in enabled},
-        },
-    }
-    check_cancel(cancel_check)
-    rpt.save_report(report, report_path or (output_dir / "step5_report.json"))
-    return report
+        report = {
+            "total": len(images),
+            "captioned": len(captions),
+            "skipped_annotation": skipped_annotation,
+            "missing_token": missing_token,
+            "short_captions": short,
+            "long_captions": long_,
+            "spot_check_sample": [p for p, _ in sample] if captions else [],
+            "substeps": {
+                "s5_1_annotate": {"enabled": "s5_1_annotate" in enabled},
+                "s5_2_caption": {"enabled": "s5_2_caption" in enabled},
+                "s5_3_validate": {"enabled": "s5_3_validate" in enabled},
+            },
+        }
+        check_cancel(cancel_check)
+        rpt.save_report(report, report_path or (output_dir / "step5_report.json"))
+        return report
+    finally:
+        runtime.unload()

@@ -2,6 +2,7 @@ from unittest.mock import MagicMock, patch
 from urllib.parse import parse_qs, quote, urlparse
 from urllib.request import urlopen
 
+from PIL import Image
 import pytest
 
 from prepare_lora_kit.cancellation import CancelledRun
@@ -20,6 +21,7 @@ from prepare_lora_kit.project.configs import (
 from prepare_lora_kit.ui.runner import (
     JobManager,
     PipelineJob,
+    UiInteractionProvider,
     _LogStream,
     _image_payload,
     project_payload,
@@ -475,3 +477,28 @@ def test_cancel_active_marks_active_job_cancelling():
     snapshot = job.snapshot()
     assert snapshot["cancel_requested"] is True
     assert snapshot["status"] == "cancelling"
+
+
+def test_caption_region_normalizes_box_and_crops_active_image(tmp_path):
+    image_path = tmp_path / "active.png"
+    Image.new("RGB", (20, 10), "blue").save(image_path)
+    job = PipelineJob(JobManager(), "test-job")
+    provider = UiInteractionProvider(job)
+    captured = {}
+
+    def captioner(crop, metadata):
+        captured["size"] = crop.size
+        captured["metadata"] = metadata
+        return {"caption": " cropped subject "}
+
+    provider._captioner = captioner
+    provider._caption_image = image_path
+
+    result = provider.caption_region(
+        str(image_path),
+        {"x1": 1.4, "y1": 0.8, "x2": 0.25, "y2": -0.2},
+    )
+
+    assert result == {"caption": "cropped subject"}
+    assert captured["size"] == (15, 8)
+    assert captured["metadata"]["source_path"] == str(image_path)

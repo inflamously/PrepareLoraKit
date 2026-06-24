@@ -12,6 +12,7 @@ VRAM safety:
   * CUDA cache is emptied after every generation.
 """
 from __future__ import annotations
+import threading
 from pathlib import Path
 
 from ...utils import caption as cap_utils
@@ -155,6 +156,25 @@ def _load_image(image_path: Path, max_pixels: int):
     return _downscale(Image.open(image_path).convert("RGB"), max_pixels)
 
 
+def _input_device(model):
+    try:
+        return next(model.parameters()).device
+    except Exception:
+        pass
+    try:
+        return next(model.buffers()).device
+    except Exception:
+        pass
+    try:
+        return model.device
+    except Exception:
+        pass
+
+    import torch
+
+    return "cuda" if torch.cuda.is_available() else "cpu"
+
+
 def _run(model, processor, image, prompt_text: str, max_new_tokens: int) -> str:
     """Run one image+text generation and return the cleaned decoded text."""
     import torch
@@ -170,7 +190,8 @@ def _run(model, processor, image, prompt_text: str, max_new_tokens: int) -> str:
     ]
     text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
     inputs = processor(text=[text], images=[image], return_tensors="pt")
-    inputs = {k: v.to(model.device) for k, v in inputs.items()}
+    device = _input_device(model)
+    inputs = {k: v.to(device) if hasattr(v, "to") else v for k, v in inputs.items()}
 
     try:
         with torch.no_grad():
@@ -191,6 +212,79 @@ def _run(model, processor, image, prompt_text: str, max_new_tokens: int) -> str:
     return cap_utils.strip_boilerplate(generated.strip())
 
 
+class CaptionRuntime:
+    """Reusable VLM runtime for one captioning step."""
+
+    def __init__(
+        self,
+        model_id: str = "Qwen/Qwen2-VL-7B-Instruct",
+        *,
+        quantization: str = "none",
+        dtype: str = "bfloat16",
+        max_pixels: int = _DEFAULT_MAX_PIXELS,
+    ) -> None:
+        self.model_id = model_id
+        self.quantization = quantization
+        self.dtype = dtype
+        self.max_pixels = max_pixels
+        self._model = None
+        self._processor = None
+        self._lock = threading.Lock()
+
+    def load(self) -> None:
+        if self._model is not None and self._processor is not None:
+            return
+        self._model, self._processor = _load(self.model_id, self.quantization, self.dtype)
+
+    def unload(self) -> None:
+        self._model = None
+        self._processor = None
+        unload()
+
+    def _run(self, image, prompt_text: str, max_new_tokens: int) -> str:
+        with self._lock:
+            self.load()
+            return _run(self._model, self._processor, image, prompt_text, max_new_tokens)
+
+    def caption_image(
+        self,
+        image_path: Path,
+        annotations: list[dict],
+        concept_token: str | None,
+        *,
+        max_new_tokens: int = 200,
+    ) -> str:
+        ann_lines = []
+        for ann in annotations:
+            x1, y1, x2, y2 = ann["x1"], ann["y1"], ann["x2"], ann["y2"]
+            region_desc = f"top-left ({x1:.2f},{y1:.2f}) to bottom-right ({x2:.2f},{y2:.2f})"
+            ann_lines.append({
+                "label": ann["label"],
+                "region_desc": region_desc,
+                "crop_name": ann.get("crop_name", ""),
+            })
+
+        prompt_text = cap_utils.build_bfl_prompt(ann_lines, concept_token)
+        image = _load_image(image_path, self.max_pixels)
+        return self._run(image, prompt_text, max_new_tokens)
+
+    def caption_region(
+        self,
+        image,
+        *,
+        max_new_tokens: int = 80,
+    ) -> str:
+        """
+        Caption a single cropped region. `image` is a PIL.Image (a crop) or a path.
+        Returns a short phrase suitable for dropping straight into a bbox label.
+        """
+        if isinstance(image, (str, Path)):
+            img = _load_image(Path(image), self.max_pixels)
+        else:
+            img = _downscale(image.convert("RGB"), self.max_pixels)
+        return self._run(img, _REGION_PROMPT, max_new_tokens)
+
+
 def caption_image(
     image_path: Path,
     annotations: list[dict],
@@ -202,21 +296,13 @@ def caption_image(
     max_new_tokens: int = 200,
     max_pixels: int = _DEFAULT_MAX_PIXELS,
 ) -> str:
-    model, processor = _load(model_id, quantization, dtype)
-
-    ann_lines = []
-    for ann in annotations:
-        x1, y1, x2, y2 = ann["x1"], ann["y1"], ann["x2"], ann["y2"]
-        region_desc = f"top-left ({x1:.2f},{y1:.2f}) to bottom-right ({x2:.2f},{y2:.2f})"
-        ann_lines.append({
-            "label": ann["label"],
-            "region_desc": region_desc,
-            "crop_name": ann.get("crop_name", ""),
-        })
-
-    prompt_text = cap_utils.build_bfl_prompt(ann_lines, concept_token)
-    image = _load_image(image_path, max_pixels)
-    return _run(model, processor, image, prompt_text, max_new_tokens)
+    runtime = CaptionRuntime(
+        model_id,
+        quantization=quantization,
+        dtype=dtype,
+        max_pixels=max_pixels,
+    )
+    return runtime.caption_image(image_path, annotations, concept_token, max_new_tokens=max_new_tokens)
 
 
 def caption_region(
@@ -232,14 +318,13 @@ def caption_region(
     Caption a single cropped region. `image` is a PIL.Image (a crop) or a path.
     Returns a short phrase suitable for dropping straight into a bbox label.
     """
-    from PIL import Image
-
-    model, processor = _load(model_id, quantization, dtype)
-    if isinstance(image, (str, Path)):
-        img = _load_image(Path(image), max_pixels)
-    else:
-        img = _downscale(image.convert("RGB"), max_pixels)
-    return _run(model, processor, img, _REGION_PROMPT, max_new_tokens)
+    runtime = CaptionRuntime(
+        model_id,
+        quantization=quantization,
+        dtype=dtype,
+        max_pixels=max_pixels,
+    )
+    return runtime.caption_region(image, max_new_tokens=max_new_tokens)
 
 
 def unload() -> None:

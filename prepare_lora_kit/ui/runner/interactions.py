@@ -117,6 +117,7 @@ class UiInteractionProvider(InteractionProvider):
         return bool(answer.get("confirmed", False)) if isinstance(answer, dict) else False
 
     def caption_region(self, image_path: str, box: dict[str, Any]) -> dict[str, Any]:
+        self._job.raise_if_cancelled()
         with self._caption_lock:
             captioner = self._captioner
             active = self._caption_image
@@ -130,12 +131,20 @@ class UiInteractionProvider(InteractionProvider):
 
         with Image.open(active).convert("RGB") as img:
             w, h = img.size
-            l = int(float(box["x1"]) * w)
-            t = int(float(box["y1"]) * h)
-            r = int(float(box["x2"]) * w)
-            b = int(float(box["y2"]) * h)
+            try:
+                x1, x2 = sorted((float(box["x1"]), float(box["x2"])))
+                y1, y2 = sorted((float(box["y1"]), float(box["y2"])))
+            except (KeyError, TypeError, ValueError) as exc:
+                raise ValueError("Bounding box must include numeric x1, y1, x2, and y2") from exc
+            x1, x2 = max(0.0, x1), min(1.0, x2)
+            y1, y2 = max(0.0, y1), min(1.0, y2)
+            l = max(0, min(w - 1, int(x1 * w)))
+            t = max(0, min(h - 1, int(y1 * h)))
+            r = max(l + 1, min(w, int(x2 * w)))
+            b = max(t + 1, min(h, int(y2 * h)))
             crop = img.crop((l, t, max(l + 1, r), max(t + 1, b)))
         result = captioner(crop, {"source_path": str(active), "box": box})
+        self._job.raise_if_cancelled()
         if isinstance(result, dict):
             result["caption"] = str(result.get("caption") or "").strip()
             return result

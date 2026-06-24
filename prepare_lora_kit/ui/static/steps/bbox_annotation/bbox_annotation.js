@@ -58,6 +58,7 @@ export function showAnnotator(pending, { onSubmitted }) {
     if (selected < 0) return alert("Select a box first.");
     captionBoxButton.disabled = true;
     captionBoxButton.textContent = "Captioning...";
+    let errorMessage = "";
     try {
       const result = await api().caption_region(
         state.jobId,
@@ -69,9 +70,14 @@ export function showAnnotator(pending, { onSubmitted }) {
       if (result.crop_name) boxes[selected].crop_name = result.crop_name;
       if (result.sidecar_path)
         boxes[selected].sidecar_path = result.sidecar_path;
+    } catch (err) {
+      errorMessage = err?.message || String(err);
     } finally {
       captionBoxButton.textContent = "Caption selected box";
       refresh();
+      if (errorMessage) {
+        bboxStatus.textContent = `Caption failed: ${errorMessage}`;
+      }
     }
   });
   modal.querySelector("#clearBoxes").addEventListener("click", () => {

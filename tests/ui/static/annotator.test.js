@@ -127,4 +127,23 @@ describe("annotation interaction", () => {
     });
     assert.equal(secondSubmitted.count, 1);
   });
+
+  it("keeps selected box editable when captioning fails", async () => {
+    window.pywebview.api.caption_region = async () => {
+      throw new Error("model crashed");
+    };
+    showAnnotator(annotationPending("annotation-error"), { onSubmitted: calls() });
+
+    const layer = document.getElementById("modalLayer");
+    const canvas = layer.querySelector("#annotationCanvas");
+    setCanvasClientRect(canvas, { left: 10, top: 20, width: 400, height: 300 });
+    drawBox(canvas, { start: [110, 95], end: [310, 245] });
+
+    layer.querySelector("#captionBox").click();
+    await nextTick();
+
+    assert.equal(layer.querySelector(".box-item input").value, "prompt label");
+    assert.equal(layer.querySelector("#captionBox").disabled, false);
+    assert.match(layer.querySelector("#bboxStatus").textContent, /Caption failed: model crashed/);
+  });
 });
