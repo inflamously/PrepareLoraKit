@@ -1,0 +1,4 @@
+interface:
+  display_name: "Graph-First Reasoning"
+  short_description: "Turn messy problems into small reasoning graphs"
+  default_prompt: "Use $graph-first-reasoning to find the smallest useful next action for this problem."
