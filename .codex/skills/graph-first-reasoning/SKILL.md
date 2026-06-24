@@ -14,6 +14,7 @@ ACTION:
 ANSWER:
 
 Keep nodes concrete. Use only useful edges. Prefer the smallest next action.
+Return final answer only ANSWER
 
 User prompt:
 {{input}}
