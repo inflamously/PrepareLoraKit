@@ -25,6 +25,7 @@ class PipelineJob:
         self.error: str | None = None
         self.result: dict[str, Any] | None = None
         self.logs: list[str] = []
+        self.caption_status: dict[str, Any] | None = None
         self.pending_input: dict[str, Any] | None = None
         self._pending_answer: Any = None
         self._has_answer = False
@@ -41,6 +42,11 @@ class PipelineJob:
             self.logs.append(line)
             if len(self.logs) > 1000:
                 self.logs = self.logs[-1000:]
+            self._condition.notify_all()
+
+    def set_caption_status(self, status: dict[str, Any] | None) -> None:
+        with self._condition:
+            self.caption_status = dict(status) if status is not None else None
             self._condition.notify_all()
 
     def set_status(
@@ -124,6 +130,7 @@ class PipelineJob:
                 "error": self.error,
                 "result": self.result,
                 "logs": list(self.logs),
+                "caption_status": dict(self.caption_status) if self.caption_status is not None else None,
                 "pending_input": self.pending_input,
                 "cancel_requested": self.cancel_requested,
             }

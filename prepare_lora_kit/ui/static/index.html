@@ -77,10 +77,20 @@
               <label class="nf-field">
                 <span class="nf-label">Caption model</span>
                 <select id="captionModelPreset" class="nf-select">
-                  <option value="Qwen/Qwen2-VL-7B-Instruct">Qwen2-VL 7B</option>
+                  <option value="">Select model</option>
                   <option value="Qwen/Qwen2.5-VL-3B-Instruct">Qwen2.5-VL 3B</option>
                   <option value="Qwen/Qwen2.5-VL-7B-Instruct">Qwen2.5-VL 7B</option>
+                  <option value="Qwen/Qwen2-VL-7B-Instruct">Qwen2-VL 7B</option>
                   <option value="custom">Custom</option>
+                </select>
+              </label>
+
+              <label class="nf-field">
+                <span class="nf-label">Caption model task</span>
+                <select id="captionModelTask" class="nf-select">
+                  <option value="auto">Auto</option>
+                  <option value="image-text-to-text">Image + text to text</option>
+                  <option value="image-to-text">Image to text</option>
                 </select>
               </label>
 
@@ -133,6 +143,7 @@
               </div>
             </div>
             <div id="currentStepLabel" class="current-step hidden"></div>
+            <div id="captionStatusLabel" class="caption-status hidden"></div>
             <pre id="logOutput" class="logs nf-console"></pre>
           </div>
         </section>

@@ -6,10 +6,12 @@ from dataclasses import dataclass
 @dataclass
 class CaptionConfig:
     """Config for CaptionStep."""
-    qwen_model_id: str = "Qwen/Qwen2-VL-7B-Instruct"
+    caption_model_id: str | None = None
+    caption_model_task: str = "auto"     # auto | image-text-to-text | image-to-text
     vram_tier: str = "auto"              # auto | low | mid | high | max
     max_new_tokens: int = 200
     spot_check_pct: float = 0.10
+    qwen_model_id: str | None = None     # Legacy alias; use caption_model_id.
 
     _VRAM_TIERS = {
         "auto": ("auto", "bfloat16"),
@@ -18,8 +20,21 @@ class CaptionConfig:
         "high": ("none", "bfloat16"),   # <= 32 GB
         "max":  ("none", "bfloat16"),   # >= 32 GB
     }
+    _MODEL_TASKS = {"auto", "image-text-to-text", "image-to-text"}
 
     def __post_init__(self) -> None:
+        if self.caption_model_id is not None:
+            self.caption_model_id = str(self.caption_model_id).strip() or None
+        if self.qwen_model_id is not None:
+            self.qwen_model_id = str(self.qwen_model_id).strip() or None
+        if self.caption_model_id is None and self.qwen_model_id:
+            self.caption_model_id = self.qwen_model_id
+        self.caption_model_task = str(self.caption_model_task or "auto").strip().lower()
+        if self.caption_model_task not in self._MODEL_TASKS:
+            raise ValueError(
+                "CaptionStep: caption_model_task must be one of "
+                f"{list(self._MODEL_TASKS)}, got '{self.caption_model_task}'"
+            )
         if self.vram_tier not in self._VRAM_TIERS:
             raise ValueError(
                 f"CaptionStep: vram_tier must be one of {list(self._VRAM_TIERS)}, got '{self.vram_tier}'"

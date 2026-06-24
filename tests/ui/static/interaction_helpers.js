@@ -14,6 +14,8 @@ export function setupInteractionDom() {
   global.Element = dom.window.Element;
   global.addEventListener = dom.window.addEventListener.bind(dom.window);
   global.removeEventListener = dom.window.removeEventListener.bind(dom.window);
+  global.dispatchEvent = dom.window.dispatchEvent.bind(dom.window);
+  global.CustomEvent = dom.window.CustomEvent;
 
   const contextCalls = [];
   dom.window.HTMLCanvasElement.prototype.getContext = () =>
@@ -50,6 +52,7 @@ export function setupInteractionDom() {
   global.pywebview = window.pywebview;
 
   state.jobId = "job-1";
+  state.job = { caption_status: null };
   state.handledRequestId = null;
   window.alert = () => {};
   window.prompt = () => "prompt label";

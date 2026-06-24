@@ -1,6 +1,7 @@
 import { api } from "../../core/api.js";
 import { escapeText } from "../../core/dom.js";
 import { state } from "../../+state/index.js";
+import { renderCaptionStatus } from "../../caption/status.js";
 import { closeModal, showModal } from "../../components/modal.js";
 import { createBoxPanel } from "./box_panel.js";
 import { createAnnotationCanvas } from "./canvas.js";
@@ -15,7 +16,13 @@ export function showAnnotator(pending, { onSubmitted }) {
   const canvas = modal.querySelector("#annotationCanvas");
   const boxList = modal.querySelector("#boxList");
   const bboxStatus = modal.querySelector("#bboxStatus");
+  const captionModelStatus = modal.querySelector("#captionModelStatus");
   const captionBoxButton = modal.querySelector("#captionBox");
+  const renderModalCaptionStatus = (event) => {
+    renderCaptionStatus(captionModelStatus, event.detail?.caption_status);
+  };
+  globalThis.addEventListener("plk:job-status", renderModalCaptionStatus);
+  renderCaptionStatus(captionModelStatus, state.job?.caption_status);
 
   const getSelected = () => selected;
   const setSelected = (index) => {
@@ -49,6 +56,7 @@ export function showAnnotator(pending, { onSubmitted }) {
 
   async function submitAnnotator(value) {
     canvasController.cleanup();
+    globalThis.removeEventListener("plk:job-status", renderModalCaptionStatus);
     await api().submit_interaction(state.jobId, pending.id, value);
     closeModal();
     await onSubmitted();
@@ -74,6 +82,7 @@ export function showAnnotator(pending, { onSubmitted }) {
       errorMessage = err?.message || String(err);
     } finally {
       captionBoxButton.textContent = "Caption selected box";
+      renderCaptionStatus(captionModelStatus, state.job?.caption_status);
       refresh();
       if (errorMessage) {
         bboxStatus.textContent = `Caption failed: ${errorMessage}`;
@@ -129,6 +138,7 @@ function annotatorModal(image) {
       <div class="canvas-wrap"><canvas id="annotationCanvas"></canvas></div>
       <div class="box-panel">
         <div id="bboxStatus" class="bbox-status">No box selected</div>
+        <div id="captionModelStatus" class="caption-status hidden"></div>
         <button id="captionBox" class="secondary">Caption selected box</button>
         <button id="clearBoxes" class="secondary">Clear</button>
         <div id="boxList"></div>

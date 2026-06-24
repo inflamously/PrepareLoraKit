@@ -465,6 +465,20 @@ def test_cancel_updates_visible_job_status():
     assert snapshot["current_step"] == "CaptionStep"
 
 
+def test_job_snapshot_includes_caption_status():
+    job = PipelineJob(JobManager(), "test-job")
+
+    job.set_caption_status({
+        "phase": "loading",
+        "message": "Loading caption model fake/model",
+        "model_id": "fake/model",
+    })
+
+    snapshot = job.snapshot()
+    assert snapshot["caption_status"]["phase"] == "loading"
+    assert snapshot["caption_status"]["model_id"] == "fake/model"
+
+
 def test_cancel_active_marks_active_job_cancelling():
     manager = JobManager()
     job = PipelineJob(manager, "test-job")

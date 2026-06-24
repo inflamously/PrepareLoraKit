@@ -1,5 +1,6 @@
 import {$, setShellStatus, setText, stepLabel} from "../core/dom.js";
 import {state} from "../+state/index.js";
+import { renderCaptionStatus } from "../caption/status.js";
 
 const TERMINAL_STATUSES = new Set(["completed", "failed", "cancelled"]);
 
@@ -7,6 +8,7 @@ export function renderJob() {
     const job = state.job;
     const cancelButton = $("cancelButton");
     const currentStepLabel = $("currentStepLabel");
+    const captionStatusLabel = $("captionStatusLabel");
     const logRail = $("logOutput")
     const openOutput = $("openOutput")
     const runButton = $("runButton")
@@ -15,6 +17,7 @@ export function renderJob() {
         setShellStatus("idle");
         setText("jobSummary", "Idle");
         currentStepLabel.classList.add("hidden");
+        renderCaptionStatus(captionStatusLabel, null);
         currentStepLabel.textContent = "";
         logRail.textContent = "";
         cancelButton.disabled = true;
@@ -31,6 +34,7 @@ export function renderJob() {
         job.cancel_requested ? "Cancellation requested" : job.status,
     );
     renderCurrentStep(job, currentStepLabel);
+    renderCaptionStatus(captionStatusLabel, job.caption_status);
 
     const nextLogs = (job.logs || []).join("\n");
     if (logRail.textContent !== nextLogs && !hasSelectionInside(logRail)) {

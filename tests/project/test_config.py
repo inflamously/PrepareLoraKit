@@ -54,6 +54,8 @@ def test_default_project_creation_writes_input_dir_and_pipeline(tmp_path):
     assert upscale["upscale_target"] == 3072
     assert upscale["upscale_model"] == "seedvr2"
     assert "use_seedvr" not in upscale
+    assert caption["caption_model_id"] is None
+    assert caption["caption_model_task"] == "auto"
     assert caption["vram_tier"] == "auto"
 
 

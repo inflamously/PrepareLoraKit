@@ -50,7 +50,7 @@ def mock_project(input_dir: Path) -> ProjectConfig:
             PipelineStep(
                 "CaptionStep",
                 CaptionConfig(
-                    qwen_model_id="mock",
+                    caption_model_id="mock",
                     vram_tier="auto",
                     max_new_tokens=32,
                     spot_check_pct=0.0,

@@ -82,7 +82,8 @@ def _default_pipeline() -> list[dict[str, Any]]:
         },
         {
             "type": "CaptionStep",
-            "qwen_model_id": "Qwen/Qwen2-VL-7B-Instruct",
+            "caption_model_id": None,
+            "caption_model_task": "auto",
             "vram_tier": "auto",
             "max_new_tokens": 200,
             "spot_check_pct": 0.10,

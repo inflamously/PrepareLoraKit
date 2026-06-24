@@ -151,13 +151,15 @@ def _invoke_CaptionStep(working_dir: Path, output_dir: Path, cfg: CaptionConfig,
 
     from .steps import s5_caption
     runtime = _kw.get("caption_runtime") or {}
-    qwen_model_id = runtime.get("model_id") or cfg.qwen_model_id
+    caption_model_id = runtime.get("model_id") or cfg.caption_model_id
+    caption_model_task = runtime.get("task") or cfg.caption_model_task
     quantization = runtime.get("vram_mode") or cfg.quantization
     s5_caption.run(
         working_dir,
         concept_token=concept_token,
         output_dir=working_dir,
-        qwen_model_id=qwen_model_id,
+        caption_model_id=caption_model_id,
+        caption_model_task=caption_model_task,
         quantization=quantization,
         dtype=cfg.dtype,
         max_new_tokens=cfg.max_new_tokens,
@@ -167,6 +169,7 @@ def _invoke_CaptionStep(working_dir: Path, output_dir: Path, cfg: CaptionConfig,
         interaction=_kw.get("interaction"),
         enabled_substeps=_kw.get("enabled_substeps"),
         cancel_check=_kw.get("cancel_check"),
+        caption_status_callback=_kw.get("caption_status_callback"),
     )
 
 

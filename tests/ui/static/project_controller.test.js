@@ -20,11 +20,17 @@ beforeEach(() => {
     <div id="stepList"></div>
     <select id="projectSelect"><option value="sample" selected>sample</option></select>
     <select id="captionModelPreset">
+      <option value="">Select model</option>
       <option value="Qwen/Qwen2-VL-7B-Instruct">Qwen2-VL 7B</option>
       <option value="Qwen/Qwen2.5-VL-3B-Instruct">Qwen2.5-VL 3B</option>
       <option value="custom">Custom</option>
     </select>
     <input id="captionModelCustom" value="" />
+    <select id="captionModelTask">
+      <option value="auto">Auto</option>
+      <option value="image-text-to-text">Image + text to text</option>
+      <option value="image-to-text">Image to text</option>
+    </select>
     <select id="captionVramMode">
       <option value="auto">Auto</option>
       <option value="4bit">4-bit</option>
@@ -198,15 +204,17 @@ describe("project controller selection", () => {
   it("resets caption controls to base defaults when project has no caption config", async () => {
     document.getElementById("captionModelPreset").value = "custom";
     document.getElementById("captionModelCustom").value = "custom/model";
+    document.getElementById("captionModelTask").value = "image-to-text";
     document.getElementById("captionVramMode").value = "8bit";
 
     await loadProject();
 
     assert.equal(
       document.getElementById("captionModelPreset").value,
-      "Qwen/Qwen2-VL-7B-Instruct",
+      "",
     );
     assert.equal(document.getElementById("captionModelCustom").value, "");
+    assert.equal(document.getElementById("captionModelTask").value, "auto");
     assert.equal(document.getElementById("captionVramMode").value, "auto");
   });
 });

@@ -16,6 +16,7 @@ This directory contains the pywebview browser UI for PrepareLoraKit.
 | `+state/projects.js` | Defines initial in-memory project list and active project state. |
 | `+state/steps.js` | Defines initial in-memory selected pipeline step state. |
 | `caption/config.js` | Reads caption step defaults into the form and returns the selected caption model settings. |
+| `caption/status.js` | Renders caption model load and inference status in job and annotation surfaces. |
 | `components/modal.css` | Styles the shared modal overlay, modal container, headers, and footers. |
 | `components/modal.js` | Shows and closes content inside the shared modal layer. |
 | `components/review_card.js` | Provides reusable review-card behavior for decision buttons, selection, and right-click decision cycling. |

@@ -1,7 +1,7 @@
 import { api } from "../core/api.js";
 import { $, setText } from "../core/dom.js";
 import { state } from "../+state/index.js";
-import { selectedCaptionModel } from "../caption/config.js";
+import { selectedCaptionModel, selectedCaptionTask } from "../caption/config.js";
 import { showAnnotator } from "../steps/bbox_annotation/bbox_annotation.js";
 import { showCurateDetails } from "../steps/curate_details/curate_details.js";
 import { showSourceReview } from "../steps/source_review/source_review.js";
@@ -22,6 +22,7 @@ export async function startRun() {
       status: "queued",
       current_step: null,
       logs: [],
+      caption_status: null,
       cancel_requested: false,
       result: null,
     };
@@ -65,6 +66,9 @@ export async function pollJob() {
   const result = await api().get_job_status(state.jobId);
   state.job = result.job;
   state.runStarting = false;
+  globalThis.dispatchEvent(
+    new CustomEvent("plk:job-status", { detail: state.job }),
+  );
   render();
 
   handlePendingInput(state.job.pending_input);
@@ -89,6 +93,14 @@ function buildRunRequest() {
   const steps = selectedStepArray();
   if (!steps.length) throw new Error("Select at least one active step.");
   const substeps = selectedSubstepMap();
+  const captionModel = selectedCaptionModel();
+  if (
+    steps.includes("CaptionStep") &&
+    (substeps.CaptionStep || []).includes("s5_2_caption") &&
+    !captionModel
+  ) {
+    throw new Error("Select a Hugging Face caption model before running CaptionStep.");
+  }
 
   return {
     input_dir: inputDir,
@@ -96,7 +108,8 @@ function buildRunRequest() {
     project: $("projectSelect").value,
     token: $("tokenInput").value.trim() || null,
     force: $("forceInput").checked,
-    caption_model_id: selectedCaptionModel() || null,
+    caption_model_id: captionModel || null,
+    caption_model_task: selectedCaptionTask(),
     caption_vram_mode: $("captionVramMode").value || "auto",
     mock_runtime: state.mockRuntime === true,
     mock_curate_coverage:

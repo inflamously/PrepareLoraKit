@@ -1,15 +1,16 @@
 """
-Step 5 — Caption with Bbox Annotation + Qwen3-VL BFL-structured captioning
+Step 5 — Caption with Bbox Annotation + Hugging Face captioning
 
 For each image:
   1. Open a tkinter bbox-draw canvas (Ideogram-4-style region annotation).
   2. User draws boxes and labels each region.
-  3. Bbox context + image are sent to Qwen3-VL to produce a BFL-structured caption.
+  3. Bbox context + image are sent to a HF caption model to produce a structured caption.
   4. Caption is cleaned, token-checked, and saved as {stem}.txt.
 """
 from __future__ import annotations
 import random
 from pathlib import Path
+from typing import Any, Callable
 
 from ...cancellation import CancelCheck, CancelledRun, check_cancel
 from ...interaction import CliInteractionProvider, InteractionProvider
@@ -67,7 +68,8 @@ def run(
     dataset_dir: Path,
     concept_token: str | None = None,
     output_dir: Path | None = None,
-    qwen_model_id: str = "Qwen/Qwen2-VL-7B-Instruct",
+    caption_model_id: str | None = None,
+    caption_model_task: str = "auto",
     spot_check_pct: float = 0.10,
     overwrite: bool = False,
     report_path: Path | None = None,
@@ -78,10 +80,13 @@ def run(
     interaction: InteractionProvider | None = None,
     enabled_substeps: list[str] | None = None,
     cancel_check: CancelCheck | None = None,
+    caption_status_callback: Callable[[dict[str, Any]], None] | None = None,
+    qwen_model_id: str | None = None,
 ) -> dict:
     style_mode = not concept_token
-    rpt.step_header(5, "Caption — Bbox Annotation + Qwen3-VL")
+    rpt.step_header(5, "Caption — Bbox Annotation + HF Captioning")
     enabled = set(enabled_substeps or ["s5_1_annotate", "s5_2_caption", "s5_3_validate"])
+    model_id = str(caption_model_id or qwen_model_id or "").strip()
 
     output_dir = output_dir or dataset_dir
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -100,6 +105,9 @@ def run(
     else:
         rpt.info(f"Captioning {len(images)} images. Concept token: '{concept_token}'")
 
+    if "s5_2_caption" in enabled and not model_id:
+        raise RuntimeError("CaptionStep requires caption_model_id before captioning can run.")
+
     check_cancel(cancel_check)
     img_utils.materialize(all_images, dataset_dir, output_dir)
 
@@ -109,10 +117,12 @@ def run(
     skip_all = False
     provider = interaction or CliInteractionProvider()
     runtime = vlm.CaptionRuntime(
-        qwen_model_id,
+        model_id,
+        task=caption_model_task,
         quantization=quantization,
         dtype=dtype,
         max_pixels=max_pixels,
+        status_callback=caption_status_callback,
     )
 
     try:
@@ -171,6 +181,15 @@ def run(
             except CancelledRun:
                 raise
             except Exception as exc:
+                _save_failure_report(
+                    report_path or (output_dir / "step5_report.json"),
+                    images=images,
+                    captions=captions,
+                    skipped_annotation=skipped_annotation,
+                    runtime=runtime,
+                    error=f"VL captioning failed for {path.name}: {exc}",
+                    enabled=enabled,
+                )
                 raise RuntimeError(f"VL captioning failed for {path.name}: {exc}") from exc
 
             # Clean
@@ -234,6 +253,8 @@ def run(
         report = {
             "total": len(images),
             "captioned": len(captions),
+            "caption_model": runtime.metadata,
+            "caption_status": runtime.status,
             "skipped_annotation": skipped_annotation,
             "missing_token": missing_token,
             "short_captions": short,
@@ -250,3 +271,30 @@ def run(
         return report
     finally:
         runtime.unload()
+
+
+def _save_failure_report(
+    report_path: Path,
+    *,
+    images: list[Path],
+    captions: dict[str, str],
+    skipped_annotation: list[str],
+    runtime: vlm.CaptionRuntime,
+    error: str,
+    enabled: set[str],
+) -> None:
+    report = {
+        "status": "failed",
+        "total": len(images),
+        "captioned": len(captions),
+        "caption_model": runtime.metadata,
+        "caption_status": runtime.status,
+        "skipped_annotation": skipped_annotation,
+        "error": error,
+        "substeps": {
+            "s5_1_annotate": {"enabled": "s5_1_annotate" in enabled},
+            "s5_2_caption": {"enabled": "s5_2_caption" in enabled},
+            "s5_3_validate": {"enabled": "s5_3_validate" in enabled},
+        },
+    }
+    rpt.save_report(report, report_path)

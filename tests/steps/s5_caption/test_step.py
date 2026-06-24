@@ -12,8 +12,16 @@ from prepare_lora_kit.steps.s5_caption import vlm
 def test_caption_config_defaults_to_auto_vram():
     cfg = CaptionConfig()
 
+    assert cfg.caption_model_id is None
+    assert cfg.caption_model_task == "auto"
     assert cfg.vram_tier == "auto"
     assert cfg.quantization == "auto"
+
+
+def test_caption_config_maps_legacy_qwen_model_id():
+    cfg = CaptionConfig(qwen_model_id=" Qwen/Qwen2.5-VL-3B-Instruct ")
+
+    assert cfg.caption_model_id == "Qwen/Qwen2.5-VL-3B-Instruct"
 
 
 def test_auto_quantization_uses_8bit_for_mid_vram(monkeypatch):
@@ -35,6 +43,21 @@ def test_auto_quantization_uses_8bit_for_mid_vram(monkeypatch):
     monkeypatch.setattr(vlm, "_bitsandbytes_available", lambda: True)
 
     assert vlm._resolve_quantization("auto", _Torch) == "8bit"
+
+
+def test_explicit_quantization_requires_bitsandbytes(monkeypatch):
+    class _Cuda:
+        @staticmethod
+        def is_available():
+            return True
+
+    class _Torch:
+        cuda = _Cuda()
+
+    monkeypatch.setattr(vlm, "_bitsandbytes_available", lambda: False)
+
+    with pytest.raises(RuntimeError, match="requires bitsandbytes"):
+        vlm._resolve_quantization("4bit", _Torch)
 
 
 def test_bbox_training_item_is_written(tmp_path):
@@ -103,8 +126,20 @@ def test_caption_step_reuses_runtime_for_region_and_original_caption(tmp_path, m
     events = []
 
     class FakeRuntime:
-        def __init__(self, model_id, *, quantization, dtype, max_pixels):
-            events.append(("init", model_id, quantization, dtype, max_pixels))
+        def __init__(self, model_id, *, task, quantization, dtype, max_pixels, status_callback=None):
+            self.metadata = {
+                "model_id": model_id,
+                "task": task,
+                "adapter": "fake",
+                "device": "cpu",
+                "quantization": quantization,
+                "dtype": dtype,
+                "max_pixels": max_pixels,
+            }
+            self.status = {"phase": "ready", "message": "fake ready"}
+            events.append(("init", model_id, task, quantization, dtype, max_pixels))
+            if status_callback:
+                status_callback(self.status)
 
         def caption_region(self, crop):
             events.append(("region", crop.size))
@@ -124,7 +159,7 @@ def test_caption_step_reuses_runtime_for_region_and_original_caption(tmp_path, m
         tmp_path,
         concept_token="tok",
         output_dir=tmp_path,
-        qwen_model_id="fake/model",
+        caption_model_id="fake/model",
         interaction=provider,
         spot_check_pct=0,
     )
@@ -133,6 +168,22 @@ def test_caption_step_reuses_runtime_for_region_and_original_caption(tmp_path, m
     assert [event[0] for event in events] == ["init", "region", "image", "unload"]
     assert (tmp_path / "image.txt").read_text(encoding="utf-8") == "tok, Whole original caption"
     assert (tmp_path / "plk_bbox__image__01.txt").read_text(encoding="utf-8") == "tok, Green detail"
+    assert report["caption_model"]["adapter"] == "fake"
+    assert report["caption_status"]["phase"] == "ready"
+
+
+def test_caption_step_requires_model_when_captioning_enabled(tmp_path):
+    image_path = tmp_path / "image.png"
+    Image.new("RGB", (16, 12), "blue").save(image_path)
+
+    with pytest.raises(RuntimeError, match="requires caption_model_id"):
+        caption_step.run(
+            tmp_path,
+            concept_token="tok",
+            output_dir=tmp_path,
+            interaction=_SkippingProvider(),
+            spot_check_pct=0,
+        )
 
 
 def test_caption_step_full_image_failure_is_loud_and_does_not_write_sidecar(tmp_path, monkeypatch):
@@ -142,6 +193,8 @@ def test_caption_step_full_image_failure_is_loud_and_does_not_write_sidecar(tmp_
 
     class FailingRuntime:
         def __init__(self, *args, **kwargs):
+            self.metadata = {"model_id": args[0] if args else "fake/model"}
+            self.status = {"phase": "failed", "message": "model crashed"}
             events.append("init")
 
         def caption_image(self, path, annotations, concept_token, *, max_new_tokens):
@@ -157,12 +210,15 @@ def test_caption_step_full_image_failure_is_loud_and_does_not_write_sidecar(tmp_
             tmp_path,
             concept_token="tok",
             output_dir=tmp_path,
+            caption_model_id="fake/model",
             interaction=_SkippingProvider(),
             spot_check_pct=0,
+            report_path=tmp_path / "report.json",
         )
 
     assert events == ["init", "unload"]
     assert not (tmp_path / "image.txt").exists()
+    assert (tmp_path / "report.json").exists()
 
 
 def test_caption_step_unloads_runtime_when_cancelled_during_caption(tmp_path, monkeypatch):
@@ -172,6 +228,8 @@ def test_caption_step_unloads_runtime_when_cancelled_during_caption(tmp_path, mo
 
     class CancellingRuntime:
         def __init__(self, *args, **kwargs):
+            self.metadata = {"model_id": args[0] if args else "fake/model"}
+            self.status = {"phase": "captioning"}
             events.append("init")
 
         def caption_image(self, path, annotations, concept_token, *, max_new_tokens):
@@ -187,6 +245,7 @@ def test_caption_step_unloads_runtime_when_cancelled_during_caption(tmp_path, mo
             tmp_path,
             concept_token="tok",
             output_dir=tmp_path,
+            caption_model_id="fake/model",
             interaction=_SkippingProvider(),
             spot_check_pct=0,
         )

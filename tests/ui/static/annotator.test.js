@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
 import { showAnnotator } from "../../../prepare_lora_kit/ui/static/steps/bbox_annotation/bbox_annotation.js";
+import { state } from "../../../prepare_lora_kit/ui/static/core/state.js";
 import {
   annotationPending,
   calls,
@@ -37,6 +38,22 @@ describe("annotation interaction", () => {
     assert.equal(layer.querySelector(".box-item").classList.contains("selected"), true);
     assert.equal(layer.querySelector("#bboxStatus").textContent, "Selected: Region 1 - prompt label");
     assert.equal(layer.querySelector("#captionBox").disabled, false);
+
+    state.job.caption_status = {
+      phase: "loading",
+      message: "Loading caption model fake/model",
+      model_id: "fake/model",
+      adapter: null,
+      device: null,
+      quantization: "auto",
+    };
+    global.dispatchEvent(
+      new CustomEvent("plk:job-status", { detail: state.job }),
+    );
+    assert.match(
+      layer.querySelector("#captionModelStatus").textContent,
+      /Loading caption model fake\/model/,
+    );
 
     const input = layer.querySelector(".box-item input");
     input.value = "edited label";

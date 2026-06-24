@@ -1,37 +1,43 @@
-"""
-Generic vision-language captioner.
-
-Loads ANY image-text-to-text model from the HF hub (Qwen2-VL, Qwen2.5-VL,
-Qwen3-VL, LLaVA, Idefics, InternVL, …) via the `AutoModelForImageTextToText`
-generic head, with fallbacks for older transformers / Qwen-only builds.
-
-VRAM safety:
-  * Images are downscaled to a pixel budget BEFORE the processor runs — native
-    resolution is the #1 cause of OOM (visual-token count scales with area).
-  * Optional 4-bit / 8-bit quantization via bitsandbytes.
-  * CUDA cache is emptied after every generation.
-"""
+"""Generic Hugging Face caption runtime for Step 5."""
 from __future__ import annotations
-import threading
+
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Any, Callable
+import threading
 
 from ...utils import caption as cap_utils
 from ...utils import report as rpt
 
-# Cache keyed by (model_id, resolved quantization, dtype) so switching models reloads.
-_CACHE: dict[tuple, tuple] = {}
+CaptionStatusCallback = Callable[[dict[str, Any]], None]
 
-# Pixel budget (area) the image is downscaled to before captioning.
-# ~1 MP keeps Qwen-VL visual tokens bounded (~1024 tokens) → no activation OOM.
+# Cache keyed by model/task/loading settings so repeated region/full-image
+# captions in one run reuse the same HF objects.
+_CACHE: dict[tuple, "LoadedCaptionModel"] = {}
+
+# Pixel budget (area) applied before processor input. Visual token count scales
+# with area, so this is the first line of defense against activation OOM.
 _DEFAULT_MAX_PIXELS = 1024 * 1024
 
-# Prompt for captioning a single cropped region (used by the bbox "Box Caption"
-# button). Asks for a short, literal phrase that reads like a hand-written label.
 _REGION_PROMPT = (
-    "Describe what is shown in this image with a short, literal phrase — a few "
-    "comma-separated words or descriptors. No full sentences, no commentary, and "
-    "do not mention that this is a crop or region. Output only the description."
+    "Describe what is shown in this image with a short, literal phrase: a few "
+    "comma-separated words or descriptors. Do not mention that this is a crop "
+    "or region. Output only the description."
 )
+
+_TASKS = {"auto", "image-text-to-text", "image-to-text"}
+
+
+@dataclass
+class LoadedCaptionModel:
+    model: Any
+    processor: Any
+    adapter: str
+    supports_prompt: bool
+    quantization: str
+    dtype: str
+    device: str
+    max_pixels: int
 
 
 def _bitsandbytes_available() -> bool:
@@ -50,13 +56,32 @@ def _cuda_total_vram_gb(torch) -> float:
         return 0.0
 
 
+def _cuda_free_vram_gb(torch) -> float:
+    try:
+        free, _total = torch.cuda.mem_get_info()
+        return float(free) / (1024 ** 3)
+    except Exception:
+        return 0.0
+
+
 def _resolve_quantization(quantization: str, torch) -> str:
+    quantization = str(quantization or "auto").strip().lower()
+    if quantization not in {"auto", "none", "4bit", "8bit"}:
+        raise ValueError(f"Unsupported caption quantization: {quantization}")
+    if quantization in {"4bit", "8bit"}:
+        if not torch.cuda.is_available():
+            raise RuntimeError(f"{quantization} caption loading requires CUDA.")
+        if not _bitsandbytes_available():
+            raise RuntimeError(
+                f"{quantization} caption loading requires bitsandbytes; install/fix bitsandbytes or choose Auto/Unquantized."
+            )
+        return quantization
     if quantization != "auto":
         return quantization
     if not torch.cuda.is_available():
         return "none"
     if not _bitsandbytes_available():
-        rpt.warn("bitsandbytes unavailable; auto VLM quantization falling back to unquantized load.")
+        rpt.warn("bitsandbytes unavailable; auto VLM quantization selecting unquantized CPU/GPU load.")
         return "none"
     total_gb = _cuda_total_vram_gb(torch)
     if total_gb and total_gb <= 16:
@@ -66,83 +91,141 @@ def _resolve_quantization(quantization: str, torch) -> str:
     return "none"
 
 
-def _load(model_id: str, quantization: str, dtype: str):
+def _load(model_id: str, task: str, quantization: str, dtype: str, max_pixels: int) -> LoadedCaptionModel:
     import torch
 
+    task = str(task or "auto").strip().lower()
+    if task not in _TASKS:
+        raise ValueError(f"Unsupported caption_model_task: {task}")
+
     resolved_quantization = _resolve_quantization(quantization, torch)
-    key = (model_id, resolved_quantization, dtype)
+    resolved_dtype = _resolve_dtype(dtype, torch)
+    key = (model_id, task, resolved_quantization, str(resolved_dtype), max_pixels)
     if key in _CACHE:
         return _CACHE[key]
 
     from transformers import AutoProcessor
 
-    torch_dtype = getattr(torch, dtype, torch.bfloat16)
-    if not torch.cuda.is_available():
-        torch_dtype = torch.float32
+    model_kwargs = _model_kwargs(torch, resolved_quantization, resolved_dtype)
+    errors: list[str] = []
 
-    model_kwargs: dict = {
+    if task in {"auto", "image-text-to-text"}:
+        try:
+            processor = AutoProcessor.from_pretrained(model_id, trust_remote_code=True)
+            if not hasattr(processor, "apply_chat_template"):
+                raise RuntimeError("processor has no chat template")
+            model = _load_prompted_model(model_id, model_kwargs)
+            loaded = LoadedCaptionModel(
+                model=model,
+                processor=processor,
+                adapter="image-text-to-text",
+                supports_prompt=True,
+                quantization=resolved_quantization,
+                dtype=str(resolved_dtype).replace("torch.", ""),
+                device=str(_input_device(model)),
+                max_pixels=max_pixels,
+            )
+            model.eval()
+            _CACHE[key] = loaded
+            return loaded
+        except Exception as exc:
+            errors.append(f"image-text-to-text: {exc}")
+            _clear_cuda(torch)
+
+    if task in {"auto", "image-to-text"}:
+        try:
+            processor = AutoProcessor.from_pretrained(model_id, trust_remote_code=True)
+            model = _load_image_to_text_model(model_id, model_kwargs)
+            loaded = LoadedCaptionModel(
+                model=model,
+                processor=processor,
+                adapter="image-to-text",
+                supports_prompt=False,
+                quantization=resolved_quantization,
+                dtype=str(resolved_dtype).replace("torch.", ""),
+                device=str(_input_device(model)),
+                max_pixels=max_pixels,
+            )
+            model.eval()
+            _CACHE[key] = loaded
+            return loaded
+        except Exception as exc:
+            errors.append(f"image-to-text: {exc}")
+            _clear_cuda(torch)
+
+    raise RuntimeError(
+        f"Could not load caption model '{model_id}' with supported Hugging Face adapters:\n  "
+        + "\n  ".join(errors)
+    )
+
+
+def _resolve_dtype(dtype: str, torch):
+    torch_dtype = getattr(torch, str(dtype or "bfloat16"), torch.bfloat16)
+    if not torch.cuda.is_available():
+        return torch.float32
+    return torch_dtype
+
+
+def _model_kwargs(torch, quantization: str, torch_dtype) -> dict[str, Any]:
+    kwargs: dict[str, Any] = {
         "torch_dtype": torch_dtype,
         "device_map": "auto",
         "low_cpu_mem_usage": True,
     }
+    if quantization in {"4bit", "8bit"}:
+        from transformers import BitsAndBytesConfig
 
-    if resolved_quantization in ("4bit", "8bit") and torch.cuda.is_available():
-        try:
-            from transformers import BitsAndBytesConfig
-            if resolved_quantization == "4bit":
-                model_kwargs["quantization_config"] = BitsAndBytesConfig(
-                    load_in_4bit=True,
-                    bnb_4bit_compute_dtype=torch_dtype,
-                    bnb_4bit_quant_type="nf4",
-                    bnb_4bit_use_double_quant=True,
-                )
-            else:
-                model_kwargs["quantization_config"] = BitsAndBytesConfig(load_in_8bit=True)
-            # quant config owns dtype; drop the redundant top-level one
-            model_kwargs.pop("torch_dtype", None)
-        except Exception as exc:
-            rpt.warn(f"bitsandbytes {resolved_quantization} unavailable ({exc}); loading full precision.")
-
-    rpt.info(f"Loading VL model: {model_id} (quant={resolved_quantization}, dtype={dtype}) …")
-    model = _from_pretrained(model_id, model_kwargs)
-    processor = AutoProcessor.from_pretrained(model_id, trust_remote_code=True)
-    model.eval()
-
-    _CACHE[key] = (model, processor)
-    return model, processor
+        if quantization == "4bit":
+            kwargs["quantization_config"] = BitsAndBytesConfig(
+                load_in_4bit=True,
+                bnb_4bit_compute_dtype=torch_dtype,
+                bnb_4bit_quant_type="nf4",
+                bnb_4bit_use_double_quant=True,
+            )
+        else:
+            kwargs["quantization_config"] = BitsAndBytesConfig(load_in_8bit=True)
+        kwargs.pop("torch_dtype", None)
+    return kwargs
 
 
-def _from_pretrained(model_id: str, model_kwargs: dict):
-    """Try generic VL heads first, fall back to Qwen-specific classes."""
+def _load_prompted_model(model_id: str, model_kwargs: dict[str, Any]):
     errors = []
-    try:
-        from transformers import AutoModelForImageTextToText
-        return AutoModelForImageTextToText.from_pretrained(
-            model_id, trust_remote_code=True, **model_kwargs)
-    except Exception as exc:
-        errors.append(f"AutoModelForImageTextToText: {exc}")
+    for class_name in (
+        "AutoModelForImageTextToText",
+        "AutoModelForVision2Seq",
+        "Qwen2VLForConditionalGeneration",
+    ):
+        try:
+            import transformers
 
-    try:
-        from transformers import AutoModelForVision2Seq
-        return AutoModelForVision2Seq.from_pretrained(
-            model_id, trust_remote_code=True, **model_kwargs)
-    except Exception as exc:
-        errors.append(f"AutoModelForVision2Seq: {exc}")
+            cls = getattr(transformers, class_name)
+            return cls.from_pretrained(model_id, trust_remote_code=True, **model_kwargs)
+        except Exception as exc:
+            errors.append(f"{class_name}: {exc}")
+    raise RuntimeError("; ".join(errors))
 
-    try:
-        from transformers import Qwen2VLForConditionalGeneration
-        return Qwen2VLForConditionalGeneration.from_pretrained(model_id, **model_kwargs)
-    except Exception as exc:
-        errors.append(f"Qwen2VLForConditionalGeneration: {exc}")
 
-    raise RuntimeError(
-        f"Could not load '{model_id}' with any known VL class:\n  " + "\n  ".join(errors)
-    )
+def _load_image_to_text_model(model_id: str, model_kwargs: dict[str, Any]):
+    errors = []
+    for class_name in (
+        "AutoModelForVision2Seq",
+        "BlipForConditionalGeneration",
+        "VisionEncoderDecoderModel",
+        "AutoModelForCausalLM",
+    ):
+        try:
+            import transformers
+
+            cls = getattr(transformers, class_name)
+            return cls.from_pretrained(model_id, trust_remote_code=True, **model_kwargs)
+        except Exception as exc:
+            errors.append(f"{class_name}: {exc}")
+    raise RuntimeError("; ".join(errors))
 
 
 def _downscale(img, max_pixels: int):
-    """Downscale a PIL image to the pixel budget. Bounds visual tokens → no OOM."""
     from PIL import Image
+
     w, h = img.size
     if w * h > max_pixels:
         scale = (max_pixels / (w * h)) ** 0.5
@@ -151,8 +234,8 @@ def _downscale(img, max_pixels: int):
 
 
 def _load_image(image_path: Path, max_pixels: int):
-    """Open + downscale to the pixel budget."""
     from PIL import Image
+
     return _downscale(Image.open(image_path).convert("RGB"), max_pixels)
 
 
@@ -175,10 +258,14 @@ def _input_device(model):
     return "cuda" if torch.cuda.is_available() else "cpu"
 
 
-def _run(model, processor, image, prompt_text: str, max_new_tokens: int) -> str:
-    """Run one image+text generation and return the cleaned decoded text."""
+def _to_device(inputs: dict[str, Any], device: Any) -> dict[str, Any]:
+    return {k: v.to(device) if hasattr(v, "to") else v for k, v in inputs.items()}
+
+
+def _run_prompted(loaded: LoadedCaptionModel, image, prompt_text: str, max_new_tokens: int) -> str:
     import torch
 
+    processor = loaded.processor
     messages = [
         {
             "role": "user",
@@ -190,12 +277,12 @@ def _run(model, processor, image, prompt_text: str, max_new_tokens: int) -> str:
     ]
     text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
     inputs = processor(text=[text], images=[image], return_tensors="pt")
-    device = _input_device(model)
-    inputs = {k: v.to(device) if hasattr(v, "to") else v for k, v in inputs.items()}
+    device = _input_device(loaded.model)
+    inputs = _to_device(inputs, device)
 
     try:
         with torch.no_grad():
-            out = model.generate(
+            out = loaded.model.generate(
                 **inputs,
                 max_new_tokens=max_new_tokens,
                 do_sample=False,
@@ -206,45 +293,184 @@ def _run(model, processor, image, prompt_text: str, max_new_tokens: int) -> str:
         generated = processor.decode(out[0][input_len:], skip_special_tokens=True)
     finally:
         del inputs
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
+        _clear_cuda(torch)
 
     return cap_utils.strip_boilerplate(generated.strip())
 
 
+def _run_image_to_text(loaded: LoadedCaptionModel, image, max_new_tokens: int) -> str:
+    import torch
+
+    processor = loaded.processor
+    model_id = str(getattr(loaded.model, "name_or_path", "") or "")
+    text_prompt = _image_to_text_prompt(model_id)
+    processor_kwargs: dict[str, Any] = {"images": image, "return_tensors": "pt"}
+    if text_prompt:
+        processor_kwargs["text"] = text_prompt
+    inputs = processor(**processor_kwargs)
+    device = _input_device(loaded.model)
+    inputs = _to_device(inputs, device)
+
+    try:
+        with torch.no_grad():
+            out = loaded.model.generate(**inputs, max_new_tokens=max_new_tokens, do_sample=False)
+        generated = processor.decode(out[0], skip_special_tokens=True)
+        if hasattr(processor, "post_process_generation") and text_prompt:
+            try:
+                parsed = processor.post_process_generation(
+                    generated,
+                    task=text_prompt,
+                    image_size=image.size,
+                )
+                generated = _first_caption_value(parsed) or generated
+            except Exception:
+                pass
+    finally:
+        del inputs
+        _clear_cuda(torch)
+
+    return cap_utils.strip_boilerplate(generated.strip())
+
+
+def _image_to_text_prompt(model_id: str) -> str:
+    if "florence" in model_id.lower():
+        return "<MORE_DETAILED_CAPTION>"
+    return ""
+
+
+def _first_caption_value(value: Any) -> str | None:
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        for item in value.values():
+            found = _first_caption_value(item)
+            if found:
+                return found
+    if isinstance(value, (list, tuple)):
+        for item in value:
+            found = _first_caption_value(item)
+            if found:
+                return found
+    return None
+
+
+def _compose_classic_caption(base_caption: str, annotations: list[dict], concept_token: str | None) -> str:
+    caption = cap_utils.strip_boilerplate(base_caption)
+    labels = []
+    for ann in annotations:
+        label = str(ann.get("label") or "").strip()
+        if label:
+            labels.append(label)
+    if labels:
+        unique_labels = list(dict.fromkeys(labels))
+        detail = ", ".join(unique_labels)
+        caption = f"{caption}, with {detail}" if caption else detail
+    if concept_token and caption and not cap_utils.token_present(caption, concept_token):
+        caption = f"{concept_token}, {caption}"
+    return cap_utils.strip_boilerplate(caption)
+
+
+def _clear_cuda(torch) -> None:
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
+
 class CaptionRuntime:
-    """Reusable VLM runtime for one captioning step."""
+    """Reusable Hugging Face caption runtime for one captioning step."""
 
     def __init__(
         self,
-        model_id: str = "Qwen/Qwen2-VL-7B-Instruct",
+        model_id: str,
         *,
+        task: str = "auto",
         quantization: str = "none",
         dtype: str = "bfloat16",
         max_pixels: int = _DEFAULT_MAX_PIXELS,
+        status_callback: CaptionStatusCallback | None = None,
     ) -> None:
-        self.model_id = model_id
+        self.model_id = str(model_id or "").strip()
+        self.task = task
         self.quantization = quantization
         self.dtype = dtype
         self.max_pixels = max_pixels
-        self._model = None
-        self._processor = None
+        self._loaded: LoadedCaptionModel | None = None
         self._lock = threading.Lock()
+        self._status_callback = status_callback
+        self._status: dict[str, Any] = {}
+
+    @property
+    def metadata(self) -> dict[str, Any]:
+        if self._loaded is None:
+            return {
+                "model_id": self.model_id,
+                "task": self.task,
+                "adapter": None,
+                "device": None,
+                "quantization": self.quantization,
+                "dtype": self.dtype,
+                "max_pixels": self.max_pixels,
+            }
+        return {
+            "model_id": self.model_id,
+            "task": self.task,
+            "adapter": self._loaded.adapter,
+            "device": self._loaded.device,
+            "quantization": self._loaded.quantization,
+            "dtype": self._loaded.dtype,
+            "max_pixels": self._loaded.max_pixels,
+        }
+
+    @property
+    def status(self) -> dict[str, Any]:
+        return dict(self._status)
 
     def load(self) -> None:
-        if self._model is not None and self._processor is not None:
+        if self._loaded is not None:
             return
-        self._model, self._processor = _load(self.model_id, self.quantization, self.dtype)
+        if not self.model_id:
+            raise RuntimeError("CaptionStep requires caption_model_id before captioning can run.")
+        self._emit_status("loading", f"Loading caption model {self.model_id}")
+        import torch
+
+        rpt.info(
+            "Caption model load: "
+            f"{self.model_id} (task={self.task}, quant={self.quantization}, dtype={self.dtype}, "
+            f"cuda={torch.cuda.is_available()}, total_vram_gb={_cuda_total_vram_gb(torch):.1f}, "
+            f"free_vram_gb={_cuda_free_vram_gb(torch):.1f}, max_pixels={self.max_pixels})"
+        )
+        try:
+            self._loaded = _load(
+                self.model_id,
+                self.task,
+                self.quantization,
+                self.dtype,
+                self.max_pixels,
+            )
+        except Exception as exc:
+            self._emit_status("failed", f"Caption model failed to load: {exc}", error=str(exc))
+            raise
+        self._emit_status(
+            "ready",
+            f"Caption model ready: {self.model_id} ({self._loaded.adapter}, {self._loaded.device})",
+        )
+        rpt.info(
+            "Caption model ready: "
+            f"adapter={self._loaded.adapter}, device={self._loaded.device}, "
+            f"quant={self._loaded.quantization}, dtype={self._loaded.dtype}"
+        )
 
     def unload(self) -> None:
-        self._model = None
-        self._processor = None
+        self._loaded = None
         unload()
+        self._emit_status("unloaded", "Caption model unloaded")
 
     def _run(self, image, prompt_text: str, max_new_tokens: int) -> str:
         with self._lock:
             self.load()
-            return _run(self._model, self._processor, image, prompt_text, max_new_tokens)
+            assert self._loaded is not None
+            if self._loaded.supports_prompt:
+                return _run_prompted(self._loaded, image, prompt_text, max_new_tokens)
+            return _run_image_to_text(self._loaded, image, max_new_tokens)
 
     def caption_image(
         self,
@@ -254,6 +480,7 @@ class CaptionRuntime:
         *,
         max_new_tokens: int = 200,
     ) -> str:
+        self._emit_status("captioning", f"Captioning {Path(image_path).name}", current_image=str(image_path))
         ann_lines = []
         for ann in annotations:
             x1, y1, x2, y2 = ann["x1"], ann["y1"], ann["x2"], ann["y2"]
@@ -266,7 +493,15 @@ class CaptionRuntime:
 
         prompt_text = cap_utils.build_bfl_prompt(ann_lines, concept_token)
         image = _load_image(image_path, self.max_pixels)
-        return self._run(image, prompt_text, max_new_tokens)
+        try:
+            text = self._run(image, prompt_text, max_new_tokens)
+            if self._loaded is not None and not self._loaded.supports_prompt:
+                text = _compose_classic_caption(text, annotations, concept_token)
+            self._emit_status("ready", f"Caption model ready: {self.model_id}")
+            return text
+        except Exception as exc:
+            self._emit_status("failed", f"Captioning failed for {Path(image_path).name}: {exc}", error=str(exc))
+            raise
 
     def caption_region(
         self,
@@ -274,23 +509,38 @@ class CaptionRuntime:
         *,
         max_new_tokens: int = 80,
     ) -> str:
-        """
-        Caption a single cropped region. `image` is a PIL.Image (a crop) or a path.
-        Returns a short phrase suitable for dropping straight into a bbox label.
-        """
+        self._emit_status("captioning", "Captioning selected region")
         if isinstance(image, (str, Path)):
             img = _load_image(Path(image), self.max_pixels)
         else:
             img = _downscale(image.convert("RGB"), self.max_pixels)
-        return self._run(img, _REGION_PROMPT, max_new_tokens)
+        try:
+            text = self._run(img, _REGION_PROMPT, max_new_tokens)
+            self._emit_status("ready", f"Caption model ready: {self.model_id}")
+            return text
+        except Exception as exc:
+            self._emit_status("failed", f"Region captioning failed: {exc}", error=str(exc))
+            raise
+
+    def _emit_status(self, phase: str, message: str, **extra: Any) -> None:
+        payload = {
+            "phase": phase,
+            "message": message,
+            **self.metadata,
+            **extra,
+        }
+        self._status = payload
+        if self._status_callback is not None:
+            self._status_callback(payload)
 
 
 def caption_image(
     image_path: Path,
     annotations: list[dict],
     concept_token: str | None,
-    model_id: str = "Qwen/Qwen2-VL-7B-Instruct",
+    model_id: str,
     *,
+    task: str = "auto",
     quantization: str = "none",
     dtype: str = "bfloat16",
     max_new_tokens: int = 200,
@@ -298,6 +548,7 @@ def caption_image(
 ) -> str:
     runtime = CaptionRuntime(
         model_id,
+        task=task,
         quantization=quantization,
         dtype=dtype,
         max_pixels=max_pixels,
@@ -307,19 +558,17 @@ def caption_image(
 
 def caption_region(
     image,
-    model_id: str = "Qwen/Qwen2-VL-7B-Instruct",
+    model_id: str,
     *,
+    task: str = "auto",
     quantization: str = "none",
     dtype: str = "bfloat16",
     max_new_tokens: int = 80,
     max_pixels: int = _DEFAULT_MAX_PIXELS,
 ) -> str:
-    """
-    Caption a single cropped region. `image` is a PIL.Image (a crop) or a path.
-    Returns a short phrase suitable for dropping straight into a bbox label.
-    """
     runtime = CaptionRuntime(
         model_id,
+        task=task,
         quantization=quantization,
         dtype=dtype,
         max_pixels=max_pixels,
@@ -328,8 +577,9 @@ def caption_region(
 
 
 def unload() -> None:
-    """Drop the cached model and free VRAM."""
+    """Drop cached caption models and free VRAM."""
     import torch
+
     _CACHE.clear()
     if torch.cuda.is_available():
         torch.cuda.empty_cache()

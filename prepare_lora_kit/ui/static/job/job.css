@@ -8,6 +8,20 @@
   padding: var(--space-3) var(--space-6);
 }
 
+.caption-status {
+  flex: 0 0 auto;
+  border-bottom: 1px solid var(--hairline);
+  background: rgba(56, 214, 160, 0.12);
+  color: #cdf7e7;
+  font-weight: var(--weight-semibold);
+  padding: var(--space-3) var(--space-6);
+}
+
+.caption-status[data-phase="failed"] {
+  background: var(--danger-bg);
+  color: #ffd0d0;
+}
+
 .logs {
   user-select: text;
   -webkit-user-select: text;

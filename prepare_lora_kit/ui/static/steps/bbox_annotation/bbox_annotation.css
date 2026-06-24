@@ -45,6 +45,13 @@
   padding: 8px 10px;
 }
 
+.box-panel .caption-status {
+  margin-bottom: 10px;
+  border: 1px solid rgba(56, 214, 160, 0.36);
+  border-radius: var(--radius-md);
+  padding: 8px 10px;
+}
+
 .box-item {
   display: grid;
   gap: 7px;
