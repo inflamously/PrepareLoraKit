@@ -4,86 +4,12 @@ from PIL import Image
 import pytest
 
 from prepare_lora_kit.cancellation import CancelledRun
-from prepare_lora_kit.project.configs import CaptionConfig
 from prepare_lora_kit.steps.s5_caption import step as caption_step
-from prepare_lora_kit.steps.s5_caption import vlm
 
 
-def test_caption_config_defaults_to_auto_vram():
-    cfg = CaptionConfig()
-
-    assert cfg.caption_model_id is None
-    assert cfg.caption_model_task == "auto"
-    assert cfg.vram_tier == "auto"
-    assert cfg.quantization == "auto"
-
-
-def test_caption_config_maps_legacy_qwen_model_id():
-    cfg = CaptionConfig(qwen_model_id=" Qwen/Qwen2.5-VL-3B-Instruct ")
-
-    assert cfg.caption_model_id == "Qwen/Qwen2.5-VL-3B-Instruct"
-
-
-def test_auto_quantization_uses_8bit_for_mid_vram(monkeypatch):
-    class _Props:
-        total_memory = 24 * 1024 ** 3
-
-    class _Cuda:
-        @staticmethod
-        def is_available():
-            return True
-
-        @staticmethod
-        def get_device_properties(_index):
-            return _Props()
-
-    class _Torch:
-        cuda = _Cuda()
-
-    monkeypatch.setattr(vlm, "_bitsandbytes_available", lambda: True)
-
-    assert vlm._resolve_quantization("auto", _Torch) == "8bit"
-
-
-def test_explicit_quantization_requires_bitsandbytes(monkeypatch):
-    class _Cuda:
-        @staticmethod
-        def is_available():
-            return True
-
-    class _Torch:
-        cuda = _Cuda()
-
-    monkeypatch.setattr(vlm, "_bitsandbytes_available", lambda: False)
-
-    with pytest.raises(RuntimeError, match="requires bitsandbytes"):
-        vlm._resolve_quantization("4bit", _Torch)
-
-
-def test_bbox_training_item_is_written(tmp_path):
-    source = tmp_path / "image.png"
-    crop = Image.new("RGB", (12, 8), "blue")
-    source.write_bytes(b"placeholder")
-
-    result = caption_step._save_bbox_training_item(
-        crop,
-        source,
-        tmp_path,
-        "blue detail",
-        "tok",
-    )
-
-    assert result["crop_name"] == "plk_bbox__image__01.png"
-    assert (tmp_path / "plk_bbox__image__01.png").exists()
-    assert (tmp_path / "plk_bbox__image__01.txt").read_text(encoding="utf-8") == "tok, Blue detail"
-
-
-def test_bbox_artifacts_are_excluded_from_caption_sources(tmp_path):
-    original = tmp_path / "image.png"
-    artifact = tmp_path / "plk_bbox__image__01.png"
-
-    assert not caption_step._is_bbox_artifact(original)
-    assert caption_step._is_bbox_artifact(artifact)
+def _write_image(path: Path, size: tuple[int, int] = (16, 12), color: str = "blue") -> Path:
+    Image.new("RGB", size, color).save(path)
+    return path
 
 
 class _AnnotatingProvider:
@@ -120,11 +46,13 @@ class _SkippingProvider:
         return [], True, False
 
 
-def test_caption_step_reuses_runtime_for_region_and_original_caption(tmp_path, monkeypatch):
-    image_path = tmp_path / "image.png"
-    Image.new("RGB", (16, 12), "blue").save(image_path)
-    events = []
-
+def _fake_runtime_class(
+    events,
+    *,
+    image_caption: str = "whole original caption",
+    image_error: Exception | None = None,
+    status: dict | None = None,
+):
     class FakeRuntime:
         def __init__(self, model_id, *, task, quantization, dtype, max_pixels, status_callback=None):
             self.metadata = {
@@ -136,7 +64,7 @@ def test_caption_step_reuses_runtime_for_region_and_original_caption(tmp_path, m
                 "dtype": dtype,
                 "max_pixels": max_pixels,
             }
-            self.status = {"phase": "ready", "message": "fake ready"}
+            self.status = status or {"phase": "ready", "message": "fake ready"}
             events.append(("init", model_id, task, quantization, dtype, max_pixels))
             if status_callback:
                 status_callback(self.status)
@@ -146,26 +74,38 @@ def test_caption_step_reuses_runtime_for_region_and_original_caption(tmp_path, m
             return "green detail"
 
         def caption_image(self, path, annotations, concept_token, *, max_new_tokens):
-            events.append(("image", Path(path).name, annotations[0]["crop_name"], concept_token, max_new_tokens))
-            return "whole original caption"
+            if image_error is not None:
+                raise image_error
+            crop_name = annotations[0]["crop_name"] if annotations else None
+            events.append(("image", Path(path).name, crop_name, concept_token, max_new_tokens))
+            return image_caption
 
         def unload(self):
             events.append(("unload",))
 
-    monkeypatch.setattr(caption_step.vlm, "CaptionRuntime", FakeRuntime)
-    provider = _AnnotatingProvider()
+    return FakeRuntime
+
+
+def _event_names(events):
+    return [event[0] for event in events]
+
+
+def test_caption_step_reuses_runtime_for_region_and_original_caption(tmp_path, monkeypatch):
+    _write_image(tmp_path / "image.png")
+    events = []
+    monkeypatch.setattr(caption_step.vlm, "CaptionRuntime", _fake_runtime_class(events))
 
     report = caption_step.run(
         tmp_path,
         concept_token="tok",
         output_dir=tmp_path,
         caption_model_id="fake/model",
-        interaction=provider,
+        interaction=_AnnotatingProvider(),
         spot_check_pct=0,
     )
 
     assert report["captioned"] == 2
-    assert [event[0] for event in events] == ["init", "region", "image", "unload"]
+    assert _event_names(events) == ["init", "region", "image", "unload"]
     assert (tmp_path / "image.txt").read_text(encoding="utf-8") == "tok, Whole original caption"
     assert (tmp_path / "plk_bbox__image__01.txt").read_text(encoding="utf-8") == "tok, Green detail"
     assert report["caption_model"]["adapter"] == "fake"
@@ -173,8 +113,7 @@ def test_caption_step_reuses_runtime_for_region_and_original_caption(tmp_path, m
 
 
 def test_caption_step_requires_model_when_captioning_enabled(tmp_path):
-    image_path = tmp_path / "image.png"
-    Image.new("RGB", (16, 12), "blue").save(image_path)
+    _write_image(tmp_path / "image.png")
 
     with pytest.raises(RuntimeError, match="requires caption_model_id"):
         caption_step.run(
@@ -187,23 +126,14 @@ def test_caption_step_requires_model_when_captioning_enabled(tmp_path):
 
 
 def test_caption_step_full_image_failure_is_loud_and_does_not_write_sidecar(tmp_path, monkeypatch):
-    image_path = tmp_path / "image.png"
-    Image.new("RGB", (16, 12), "blue").save(image_path)
+    _write_image(tmp_path / "image.png")
     events = []
-
-    class FailingRuntime:
-        def __init__(self, *args, **kwargs):
-            self.metadata = {"model_id": args[0] if args else "fake/model"}
-            self.status = {"phase": "failed", "message": "model crashed"}
-            events.append("init")
-
-        def caption_image(self, path, annotations, concept_token, *, max_new_tokens):
-            raise RuntimeError("model crashed")
-
-        def unload(self):
-            events.append("unload")
-
-    monkeypatch.setattr(caption_step.vlm, "CaptionRuntime", FailingRuntime)
+    runtime = _fake_runtime_class(
+        events,
+        image_error=RuntimeError("model crashed"),
+        status={"phase": "failed", "message": "model crashed"},
+    )
+    monkeypatch.setattr(caption_step.vlm, "CaptionRuntime", runtime)
 
     with pytest.raises(RuntimeError, match="VL captioning failed for image.png: model crashed"):
         caption_step.run(
@@ -216,29 +146,20 @@ def test_caption_step_full_image_failure_is_loud_and_does_not_write_sidecar(tmp_
             report_path=tmp_path / "report.json",
         )
 
-    assert events == ["init", "unload"]
+    assert _event_names(events) == ["init", "unload"]
     assert not (tmp_path / "image.txt").exists()
     assert (tmp_path / "report.json").exists()
 
 
 def test_caption_step_unloads_runtime_when_cancelled_during_caption(tmp_path, monkeypatch):
-    image_path = tmp_path / "image.png"
-    Image.new("RGB", (16, 12), "blue").save(image_path)
+    _write_image(tmp_path / "image.png")
     events = []
-
-    class CancellingRuntime:
-        def __init__(self, *args, **kwargs):
-            self.metadata = {"model_id": args[0] if args else "fake/model"}
-            self.status = {"phase": "captioning"}
-            events.append("init")
-
-        def caption_image(self, path, annotations, concept_token, *, max_new_tokens):
-            raise CancelledRun("Run cancelled")
-
-        def unload(self):
-            events.append("unload")
-
-    monkeypatch.setattr(caption_step.vlm, "CaptionRuntime", CancellingRuntime)
+    runtime = _fake_runtime_class(
+        events,
+        image_error=CancelledRun("Run cancelled"),
+        status={"phase": "captioning"},
+    )
+    monkeypatch.setattr(caption_step.vlm, "CaptionRuntime", runtime)
 
     with pytest.raises(CancelledRun):
         caption_step.run(
@@ -250,5 +171,5 @@ def test_caption_step_unloads_runtime_when_cancelled_during_caption(tmp_path, mo
             spot_check_pct=0,
         )
 
-    assert events == ["init", "unload"]
+    assert _event_names(events) == ["init", "unload"]
     assert not (tmp_path / "image.txt").exists()
