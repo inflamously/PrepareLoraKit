@@ -43,8 +43,8 @@ def test_default_project_creation_writes_input_dir_and_pipeline(tmp_path):
         "QualityGateStep",
         "CurateStep",
         "UpscaleStep",
-        "VaeGateStep",
         "CaptionStep",
+        "VaeGateStep",
         "AuditStep",
         "ConfigGenStep",
         "BucketDryRunStep",
@@ -155,8 +155,8 @@ pipeline:
   - type: ImportStep
   - type: QualityGateStep
   - type: CurateStep
-  - type: VaeGateStep
   - type: CaptionStep
+  - type: VaeGateStep
 """)
 
     cfg = ProjectConfig.from_yaml(path)
@@ -165,8 +165,8 @@ pipeline:
         "ImportStep",
         "QualityGateStep",
         "CurateStep",
-        "VaeGateStep",
         "CaptionStep",
+        "VaeGateStep",
     ]
 
 
@@ -179,7 +179,7 @@ pipeline:
   - type: ImportStep
   - type: QualityGateStep
   - type: CurateStep
-  - type: VaeGateStep
+  - type: CaptionStep
   - type: UpscaleStep
 """)
 
@@ -192,8 +192,8 @@ def test_step_prerequisites_allow_optional_upscale_step():
         "QualityGateStep": ["ImportStep"],
         "CurateStep": ["QualityGateStep"],
         "UpscaleStep": ["CurateStep"],
-        "VaeGateStep": ["CurateStep"],
-        "CaptionStep": ["VaeGateStep"],
+        "CaptionStep": ["CurateStep"],
+        "VaeGateStep": ["CaptionStep"],
         "AuditStep": ["CaptionStep"],
         "ConfigGenStep": ["AuditStep"],
         "BucketDryRunStep": ["ConfigGenStep"],
@@ -346,6 +346,7 @@ pipeline:
   - type: QualityGateStep
   - type: CurateStep
   - type: UpscaleStep
+  - type: CaptionStep
   - type: VaeGateStep
 """)
 

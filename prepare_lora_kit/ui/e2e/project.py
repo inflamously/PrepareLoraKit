@@ -46,7 +46,6 @@ def mock_project(input_dir: Path) -> ProjectConfig:
                 "UpscaleStep",
                 UpscaleConfig(upscale_target=1664, upscale_model="lanczos"),
             ),
-            PipelineStep("VaeGateStep", VaeGateConfig()),
             PipelineStep(
                 "CaptionStep",
                 CaptionConfig(
@@ -56,6 +55,7 @@ def mock_project(input_dir: Path) -> ProjectConfig:
                     spot_check_pct=0.0,
                 ),
             ),
+            PipelineStep("VaeGateStep", VaeGateConfig()),
             PipelineStep("AuditStep", AuditConfig()),
             PipelineStep("ConfigGenStep", ConfigGenConfig()),
             PipelineStep("BucketDryRunStep", BucketDryRunConfig()),

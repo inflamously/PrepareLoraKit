@@ -1,17 +1,17 @@
-"""Compatibility re-export of the pipeline step/substep definitions.
-
-The canonical definitions now live in the :mod:`prepare_lora_kit.project.pipeline`
-package (``pipeline/steps.py`` and ``pipeline/substeps.py``). This module is kept
-as a thin shim so existing ``from .steps import ...`` import paths stay stable.
-"""
+"""Canonical project pipeline step order, substeps, and prerequisites."""
 from __future__ import annotations
 
-from .pipeline import (  # noqa: F401
+from .steps import (
     OPTIONAL_STEP_TYPES,
     STEP_ORDER,
     STEP_ORDER_INDEX,
     STEP_PREREQUISITES,
     STEP_TYPE_MAP,
+    is_step_satisfied,
+    mark_legacy_import_satisfied,
+    step_aliases,
+)
+from .substeps import (
     SUBSTEP_ORDER_INDEX,
     SUBSTEP_PARENT,
     SUBSTEP_REGISTRY,
@@ -19,10 +19,7 @@ from .pipeline import (  # noqa: F401
     SubstepDefinition,
     default_substeps_for,
     enabled_substep_ids,
-    is_step_satisfied,
-    mark_legacy_import_satisfied,
     normalize_substeps,
-    step_aliases,
     substep_aliases,
     substep_payloads,
 )

@@ -38,8 +38,8 @@ pipeline:
     auto_only: true
   - type: CurateStep
   - type: UpscaleStep
-  - type: VaeGateStep
   - type: CaptionStep
+  - type: VaeGateStep
   - type: AuditStep
 """)
 
@@ -52,8 +52,8 @@ pipeline:
         "QualityGateStep",
         "CurateStep",
         "UpscaleStep",
-        "VaeGateStep",
         "CaptionStep",
+        "VaeGateStep",
         "AuditStep",
     ]
     assert result["project"]["steps"][0]["type"] == "ImportStep"

@@ -8,8 +8,8 @@ network: flux-klein-9b
 # pipeline: ordered list of steps to run. Each entry has a `type:` that picks
 # which operation runs, plus step-specific options. Remove or reorder steps as
 # needed. Available types:
-#   ImportStep       QualityGateStep  CurateStep  UpscaleStep  VaeGateStep
-#   CaptionStep      AuditStep        ConfigGenStep  BucketDryRunStep
+#   ImportStep       QualityGateStep  CurateStep  UpscaleStep  CaptionStep
+#   VaeGateStep      AuditStep        ConfigGenStep  BucketDryRunStep
 #
 # Ordering rules (enforced on load):
 #   - Each step after ImportStep requires the previous pipeline step.
@@ -63,6 +63,16 @@ pipeline:
     # Recommended 20-24 GB 7B path:
     # seedvr2_dit_model: seedvr2_ema_7b_fp8_e4m3fn_mixed_block35_fp16.safetensors
 
+  - type: CaptionStep
+    substeps:
+      - {id: s5_1_annotate, enabled: true}
+      - {id: s5_2_caption, enabled: true}
+      - {id: s5_3_validate, enabled: true}
+    qwen_model_id: "Qwen/Qwen2-VL-7B-Instruct"
+    vram_tier: auto   # auto | low (<=16GB,4bit) | mid (<=24GB,8bit) | high | max
+    max_new_tokens: 200
+    spot_check_pct: 0.10  # 0..1
+
   - type: VaeGateStep
     substeps:
       - {id: s4_1_reconstruct, enabled: true}
@@ -79,16 +89,6 @@ pipeline:
     hf_cutoff_fraction: 0.25           # (0, 0.5)
     max_side: null                     # null → network.max_bucket_side
     seed: 42
-
-  - type: CaptionStep
-    substeps:
-      - {id: s5_1_annotate, enabled: true}
-      - {id: s5_2_caption, enabled: true}
-      - {id: s5_3_validate, enabled: true}
-    qwen_model_id: "Qwen/Qwen2-VL-7B-Instruct"
-    vram_tier: auto   # auto | low (<=16GB,4bit) | mid (<=24GB,8bit) | high | max
-    max_new_tokens: 200
-    spot_check_pct: 0.10  # 0..1
 
   - type: AuditStep
     substeps:

@@ -66,6 +66,15 @@ def _default_pipeline() -> list[dict[str, Any]]:
             "substeps": _default_substep_data("UpscaleStep"),
         },
         {
+            "type": "CaptionStep",
+            "caption_model_id": None,
+            "caption_model_task": "auto",
+            "vram_tier": "auto",
+            "max_new_tokens": 200,
+            "spot_check_pct": 0.10,
+            "substeps": _default_substep_data("CaptionStep"),
+        },
+        {
             "type": "VaeGateStep",
             "diff_amplification": 4.0,
             "gaussian_blur_sigma": 2.0,
@@ -79,15 +88,6 @@ def _default_pipeline() -> list[dict[str, Any]]:
             "max_side": None,
             "seed": 42,
             "substeps": _default_substep_data("VaeGateStep"),
-        },
-        {
-            "type": "CaptionStep",
-            "caption_model_id": None,
-            "caption_model_task": "auto",
-            "vram_tier": "auto",
-            "max_new_tokens": 200,
-            "spot_check_pct": 0.10,
-            "substeps": _default_substep_data("CaptionStep"),
         },
         {
             "type": "AuditStep",

@@ -40,8 +40,8 @@ def _project() -> ProjectConfig:
             PipelineStep("QualityGateStep", QualityGateConfig(auto_only=True)),
             PipelineStep("CurateStep", CurateConfig()),
             PipelineStep("UpscaleStep", UpscaleConfig()),
-            PipelineStep("VaeGateStep", VaeGateConfig()),
             PipelineStep("CaptionStep", CaptionConfig()),
+            PipelineStep("VaeGateStep", VaeGateConfig()),
             PipelineStep("AuditStep", AuditConfig()),
             PipelineStep("ConfigGenStep", ConfigGenConfig()),
         ],
@@ -53,8 +53,8 @@ def _active_step_types() -> list[str]:
         "ImportStep",
         "QualityGateStep",
         "CurateStep",
-        "VaeGateStep",
         "CaptionStep",
+        "VaeGateStep",
         "AuditStep",
         "ConfigGenStep",
     ]
@@ -115,7 +115,7 @@ def test_validate_selection_accepts_existing_dataset_for_import_prerequisite(tmp
     manager._validate_selection(_project(), ["QualityGateStep"], out)
 
 
-def test_validate_selection_allows_vae_without_optional_upscale_when_curate_done(tmp_path):
+def test_validate_selection_allows_caption_without_optional_upscale_when_curate_done(tmp_path):
     out = tmp_path / "out"
     (out / "dataset").mkdir(parents=True)
     state = RunState(out)
@@ -124,7 +124,7 @@ def test_validate_selection_allows_vae_without_optional_upscale_when_curate_done
     state.mark_done("CurateStep")
 
     manager = JobManager()
-    manager._validate_selection(_project(), ["VaeGateStep"], out)
+    manager._validate_selection(_project(), ["CaptionStep"], out)
 
 
 def test_project_payload_includes_run_state(tmp_path):
@@ -197,7 +197,7 @@ def test_ui_run_starts_at_first_pending_active_step(tmp_path):
             patch.dict("prepare_lora_kit.ui.runner.STEP_INVOKE_MAP", invoke_map, clear=True):
         manager._execute(job, _run_request(tmp_path, out))
 
-    assert calls == ["CurateStep", "VaeGateStep", "CaptionStep", "AuditStep", "ConfigGenStep"]
+    assert calls == ["CurateStep", "CaptionStep", "VaeGateStep", "AuditStep", "ConfigGenStep"]
     assert job.snapshot()["skipped_steps"] == ["ImportStep", "QualityGateStep"]
     assert RunState(out).is_done("ConfigGenStep")
 

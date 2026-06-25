@@ -117,8 +117,8 @@ example pipeline has nine stages.
 | 1 | `QualityGateStep` | Scores imported images for size, blur, noise, JPEG artifacts, and watermark likelihood. Supports manual review. | Updated `dataset/`, `QualityGateStep_report.json` |
 | 2 | `CurateStep` | Removes perceptual-hash duplicates, creates CLIP coverage plots, and flags occlusion or ambiguous images. | Updated `dataset/`, coverage image, `CurateStep_report.json` |
 | 3 | `UpscaleStep` | Upscales images below the target minimum side with the configured algorithm; unavailable algorithms warn and skip. | Updated images, `UpscaleStep_report.json` |
-| 4 | `VaeGateStep` | Reconstructs images through the target VAE and flags high-frequency loss outliers. | Updated `dataset/`, `VaeGateStep_report.json` |
-| 5 | `CaptionStep` | Opens bbox annotation UI, captions with Qwen VL, enforces concept token when supplied, and writes `.txt` sidecars. | Caption sidecars, `CaptionStep_report.json` |
+| 4 | `CaptionStep` | Opens bbox annotation UI, captions with Qwen VL, enforces concept token when supplied, and writes `.txt` sidecars. | Caption sidecars, `CaptionStep_report.json` |
+| 5 | `VaeGateStep` | Reconstructs images through the target VAE and flags high-frequency loss outliers. | Updated `dataset/`, `VaeGateStep_report.json` |
 | 6 | `AuditStep` | Verifies image-caption pairing, corrupt files, caption length, and minimum resolution. | `AuditStep_report.json` |
 | 7 | `ConfigGenStep` | Builds ai-toolkit training YAML from dataset stats, project settings, and network profile defaults. | `run_config.yaml`, `ConfigGenStep_report.json` |
 | 8 | `BucketDryRunStep` | Simulates bucket assignment and flags thin buckets before training. | Bucket report, optional `cache_info.json` |
@@ -158,8 +158,8 @@ pipeline:
   - type: QualityGateStep
   - type: CurateStep
   - type: UpscaleStep
-  - type: VaeGateStep
   - type: CaptionStep
+  - type: VaeGateStep
   - type: AuditStep
   - type: ConfigGenStep
   - type: BucketDryRunStep
@@ -201,8 +201,8 @@ outputs/<dataset-name>/
     CurateStep_report.json
     coverage_pca.png
     UpscaleStep_report.json
-    VaeGateStep_report.json
     CaptionStep_report.json
+    VaeGateStep_report.json
     AuditStep_report.json
     ConfigGenStep_report.json
     BucketDryRunStep_report.json
