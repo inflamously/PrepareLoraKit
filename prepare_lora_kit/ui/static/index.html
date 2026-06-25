@@ -58,7 +58,7 @@
             <p id="shellProjectLabel" class="nf-appbar__path"></p>
           </div>
           <div class="nf-appbar__spacer"></div>
-          <button id="backToLibrary" class="nf-btn nf-btn--ghost nf-btn--sm">← Library</button>
+          <button id="backToLibrary" class="nf-btn nf-btn--secondary nf-btn--sm">← Library</button>
           <div class="nf-runstatus nf-runstatus--idle" aria-live="polite">
             <span class="nf-runstatus__label">Run status</span>
             <strong id="jobSummary" class="nf-runstatus__value">Idle</strong>
@@ -66,75 +66,45 @@
         </header>
 
         <main class="nf-workspace">
-          <aside class="nf-col config-rail">
-            <section class="nf-panel nf-panel--glass">
-              <div class="nf-panel__head">
-                <div class="nf-panel__titles">
-                  <h2 class="nf-panel__title">Dataset</h2>
-                </div>
-              </div>
-              <div class="nf-panel__body">
-                <label class="nf-field">
-                  <span class="nf-label">Dataset folder</span>
-                  <div class="nf-inputgroup">
-                    <input id="inputDir" class="nf-input" type="text" placeholder="/path/to/source/images" />
-                    <button id="chooseInput" class="nf-btn nf-btn--secondary" title="Choose folder">Browse</button>
-                  </div>
-                </label>
-
-                <label class="nf-field">
-                  <span class="nf-label">Output folder</span>
-                  <div class="nf-inputgroup">
-                    <input id="outputDir" class="nf-input" type="text" placeholder="outputs/<dataset>" />
-                    <button id="chooseOutput" class="nf-btn nf-btn--secondary" title="Choose folder">Browse</button>
-                  </div>
-                </label>
-              </div>
-            </section>
-
-            <section class="nf-panel nf-panel--glass">
-              <div class="nf-panel__head">
-                <div class="nf-panel__titles">
-                  <h2 class="nf-panel__title">Project</h2>
-                </div>
-              </div>
-              <div class="nf-panel__body">
-                <label class="nf-field">
-                  <span class="nf-label">Project preset</span>
-                  <select id="projectSelect" class="nf-select"></select>
-                </label>
-
-                <label class="nf-field">
-                  <span class="nf-label">Concept token</span>
-                  <input id="tokenInput" class="nf-input" type="text" placeholder="Optional; blank for style training" />
-                </label>
-              </div>
-            </section>
-
-            <section class="nf-panel nf-panel--glass">
-              <div class="nf-panel__body force-panel">
-                <label class="force-row">
-                  <input id="pauseConfig" class="nf-check" type="checkbox" checked />
-                  <span>Pause to edit step config</span>
-                </label>
-                <label class="force-row">
-                  <input id="forceInput" class="nf-check" type="checkbox" />
-                  <span>Force re-run active pipeline</span>
-                </label>
-              </div>
-            </section>
-          </aside>
-
           <section class="nf-col">
             <div class="nf-panel nf-panel--glass step-panel">
               <div class="nf-panel__head">
-                <div class="nf-panel__titles">
-                  <h2 class="nf-panel__title">Pipeline</h2>
-                  <p id="projectSummary" class="nf-panel__sub">Select a project and dataset.</p>
+                <div class="nf-tabs" role="tablist">
+                  <button id="tabPipeline" class="nf-tab is-active" type="button" role="tab" aria-selected="true" data-tab="pipeline">Pipeline</button>
+                  <button id="tabMetadata" class="nf-tab" type="button" role="tab" aria-selected="false" data-tab="metadata">Project</button>
                 </div>
                 <button id="selectPending" class="nf-btn nf-btn--secondary nf-btn--sm nf-panel__action">Reset active</button>
               </div>
-              <div id="stepList" class="step-list nf-panel__body"></div>
+              <div class="nf-panel__body">
+                <div class="tab-pane" role="tabpanel" data-pane="pipeline">
+                  <p id="projectSummary" class="nf-panel__sub">Select a project and dataset.</p>
+                  <div id="stepList" class="step-list"></div>
+                </div>
+                <div class="tab-pane is-hidden" role="tabpanel" data-pane="metadata">
+                  <div class="metadata-grid">
+                    <div class="meta-row">
+                      <span class="nf-label">Name</span>
+                      <span id="metaName" class="meta-value">—</span>
+                    </div>
+                    <div class="meta-row">
+                      <span class="nf-label">Network</span>
+                      <span id="metaNetwork" class="meta-value">—</span>
+                    </div>
+                    <div class="meta-row">
+                      <span class="nf-label">Dataset folder</span>
+                      <span id="metaInput" class="meta-value meta-value--path">—</span>
+                    </div>
+                    <div class="meta-row">
+                      <span class="nf-label">Output folder</span>
+                      <span id="metaOutput" class="meta-value meta-value--path">—</span>
+                    </div>
+                  </div>
+                  <label class="nf-field">
+                    <span class="nf-label">Concept token</span>
+                    <input id="tokenInput" class="nf-input" type="text" placeholder="Optional; blank for style training" />
+                  </label>
+                </div>
+              </div>
             </div>
           </section>
 
@@ -159,6 +129,14 @@
             <span class="nf-statusbar__msg">Ready</span>
           </div>
           <div class="nf-statusbar__actions">
+            <label class="force-row">
+              <input id="pauseConfig" class="nf-check" type="checkbox" checked />
+              <span>Pause to edit step config</span>
+            </label>
+            <label class="force-row">
+              <input id="forceInput" class="nf-check" type="checkbox" />
+              <span>Force re-run</span>
+            </label>
             <button id="refreshProject" class="nf-btn nf-btn--secondary">Refresh</button>
             <button id="openOutput" class="nf-btn nf-btn--secondary" disabled>Open output</button>
             <button id="cancelButton" class="nf-btn nf-btn--secondary danger" disabled>Cancel</button>

@@ -12,7 +12,7 @@ export function renderSteps() {
     return;
   }
 
-  const needsDataset = $("inputDir").value.trim() ? "" : " / select dataset";
+  const needsDataset = state.inputDir.trim() ? "" : " / select dataset";
   const networkType = state.project.network_type
     ? ` / ${state.project.network_type}`
     : "";

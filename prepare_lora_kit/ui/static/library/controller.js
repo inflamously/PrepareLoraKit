@@ -42,11 +42,7 @@ export async function openProject(name) {
   const target = name || state.librarySelected;
   if (!target) return;
 
-  const select = $("projectSelect");
-  if (![...select.options].some((option) => option.value === target)) {
-    select.append(new Option(target, target));
-  }
-  select.value = target;
+  state.activeProject = target;
   setText("shellProjectLabel", target);
   showShellView();
   await loadProject({ resetSession: true });

@@ -7,28 +7,21 @@ const TERMINAL_JOB_STATUSES = new Set(["completed", "failed", "cancelled"]);
 
 export async function loadProjects() {
   const result = await api().list_projects();
-  // list_projects returns detailed card objects; the shell preset dropdown only
-  // needs the names.
+  // list_projects returns detailed card objects; the shell only needs the names.
   state.projects = (result.projects || []).map((p) =>
     typeof p === "string" ? p : p.name,
   );
-
-  const select = $("projectSelect");
-  const placeholder = new Option("Select project", "");
-  const options = state.projects.map((project) => new Option(project, project));
-  select.replaceChildren(placeholder, ...options);
 }
 
 export async function applyBootstrap(bootstrap) {
   if (!bootstrap) return;
 
   ensureProjectOption(bootstrap.project);
-  $("projectSelect").value = bootstrap.project || "";
-  $("inputDir").value = bootstrap.input_dir || "";
-  $("outputDir").value = bootstrap.output_dir || "";
-  $("tokenInput").value = bootstrap.token || "";
-  $("forceInput").checked = Boolean(bootstrap.force);
+  state.activeProject = bootstrap.project || "";
+  state.inputDir = bootstrap.input_dir || "";
   state.outputDir = bootstrap.output_dir || "";
+  state.token = bootstrap.token || "";
+  $("forceInput").checked = Boolean(bootstrap.force);
   state.outputCustomized = Boolean(state.outputDir);
   state.mockRuntime = Boolean(bootstrap.mock_runtime);
   state.mockProjectName = bootstrap.mock_runtime ? bootstrap.project : null;
@@ -40,11 +33,10 @@ export async function applyBootstrap(bootstrap) {
   );
   applyProjectResult(result, { updateInput: true });
 
-  $("inputDir").value = bootstrap.input_dir || result.input_dir || "";
-  $("outputDir").value = bootstrap.output_dir || result.output_dir || "";
-  $("tokenInput").value = bootstrap.token || "";
+  state.inputDir = bootstrap.input_dir || result.input_dir || "";
+  state.outputDir = bootstrap.output_dir || result.output_dir || "";
+  state.token = bootstrap.token || "";
   $("forceInput").checked = Boolean(bootstrap.force);
-  state.outputDir = $("outputDir").value;
   state.outputCustomized = Boolean(state.outputDir.trim());
   state.selectedSteps = selectedAvailableSteps(new Set(bootstrap.selected_steps || []));
   state.selectedSubsteps = selectedAvailableSubsteps(state.selectedSteps);
@@ -52,7 +44,7 @@ export async function applyBootstrap(bootstrap) {
 }
 
 export async function loadProject(options = {}) {
-  const name = $("projectSelect").value;
+  const name = state.activeProject;
   if (!name) {
     resetProjectSelection();
     return;
@@ -62,9 +54,7 @@ export async function loadProject(options = {}) {
     state.outputCustomized = false;
   }
 
-  const output = state.outputCustomized
-    ? $("outputDir").value.trim() || null
-    : null;
+  const output = state.outputCustomized ? state.outputDir.trim() || null : null;
   const result = await api().load_project(name, output);
   state.mockRuntime = state.mockProjectName === name;
   applyProjectResult(result, {
@@ -75,12 +65,12 @@ export async function loadProject(options = {}) {
 }
 
 export async function reloadCurrentProject(options = {}) {
-  if ($("inputDir").value.trim() && !$("projectSelect").value) {
+  if (state.inputDir.trim() && !state.activeProject) {
     await loadProjectForInput();
     return;
   }
 
-  if ($("projectSelect").value) {
+  if (state.activeProject) {
     await loadProject(options);
     return;
   }
@@ -89,16 +79,14 @@ export async function reloadCurrentProject(options = {}) {
 }
 
 export async function loadProjectForInput() {
-  const input = $("inputDir").value.trim();
+  const input = state.inputDir.trim();
   if (!input) return;
 
-  const output = state.outputCustomized
-    ? $("outputDir").value.trim() || null
-    : null;
+  const output = state.outputCustomized ? state.outputDir.trim() || null : null;
   const result = await api().load_or_create_project_for_input(input, output);
 
   ensureProjectOption(result.project_name);
-  $("projectSelect").value = result.project_name;
+  state.activeProject = result.project_name;
   state.mockRuntime = state.mockProjectName === result.project_name;
   applyProjectResult(result, { updateInput: true });
 }
@@ -116,23 +104,21 @@ function ensureProjectOption(name) {
 
   state.projects.push(name);
   state.projects.sort();
-  $("projectSelect").append(new Option(name, name));
 }
 
 function resetProjectSelection() {
   state.project = null;
   state.selectedSteps = new Set();
   state.selectedSubsteps = new Map();
+  state.inputDir = "";
   state.outputDir = "";
+  state.token = "";
   state.outputCustomized = false;
   state.mockRuntime = false;
   state.mockProjectName = null;
   state.mockCurateCoverage = "auto";
   clearTerminalJobState();
 
-  $("inputDir").value = "";
-  $("outputDir").value = "";
-  $("tokenInput").value = "";
   $("forceInput").checked = false;
   render();
 }
@@ -145,12 +131,11 @@ function applyProjectResult(result, options = {}) {
   state.project = result.project;
 
   if (options.updateInput) {
-    $("inputDir").value = result.input_dir || result.project?.input_dir || "";
+    state.inputDir = result.input_dir || result.project?.input_dir || "";
   }
 
   if (!state.outputCustomized) {
     state.outputDir = result.output_dir || "";
-    $("outputDir").value = state.outputDir;
   }
 
   state.selectedSteps = previousSelectedSteps
@@ -159,7 +144,7 @@ function applyProjectResult(result, options = {}) {
   state.selectedSubsteps = selectedAvailableSubsteps(state.selectedSteps);
 
   if (options.resetSession) {
-    $("tokenInput").value = "";
+    state.token = "";
     $("forceInput").checked = false;
     clearTerminalJobState();
   }

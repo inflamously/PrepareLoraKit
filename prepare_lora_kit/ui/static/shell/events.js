@@ -1,43 +1,15 @@
-import { api } from "../core/api.js";
 import { $ } from "../core/dom.js";
 import { state } from "../+state/index.js";
-import {
-  loadProject,
-  loadProjectForInput,
-  reloadCurrentProject,
-  selectPending,
-} from "../project/controller.js";
+import { reloadCurrentProject, selectPending } from "../project/controller.js";
 import { cancelRun, openOutput, startRun } from "../job/controller.js";
+import { setActiveTab } from "./tabs.js";
 
 export function bindEvents() {
-  $("chooseInput").addEventListener("click", async () => {
-    const result = await api().choose_folder();
-    if (!result.path) return;
-
-    $("inputDir").value = result.path;
-    await loadProjectForInput();
+  $("tabPipeline").addEventListener("click", () => setActiveTab("pipeline"));
+  $("tabMetadata").addEventListener("click", () => setActiveTab("metadata"));
+  $("tokenInput").addEventListener("input", (event) => {
+    state.token = event.target.value;
   });
-
-  $("chooseOutput").addEventListener("click", async () => {
-    const result = await api().choose_folder();
-    if (!result.path) return;
-
-    $("outputDir").value = result.path;
-    state.outputDir = result.path;
-    state.outputCustomized = true;
-    await reloadCurrentProject();
-  });
-
-  $("inputDir").addEventListener("change", loadProjectForInput);
-  $("outputDir").addEventListener("change", async () => {
-    state.outputDir = $("outputDir").value;
-    state.outputCustomized = Boolean(state.outputDir.trim());
-    await reloadCurrentProject();
-  });
-
-  $("projectSelect").addEventListener("change", () =>
-    loadProject({ resetSession: true }),
-  );
   $("refreshProject").addEventListener("click", () =>
     reloadCurrentProject({ preserveSelection: true }),
   );

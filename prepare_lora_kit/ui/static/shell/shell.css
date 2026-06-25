@@ -11,7 +11,6 @@ body {
   border: 0;
   border-radius: 0;
   box-shadow: none;
-  --col-left: minmax(260px, 0.82fr);
   --col-gap: 20px;
   --col-right: 1.18fr;
   --panel-pad: var(--space-6);
@@ -23,8 +22,7 @@ body {
 
 #app .nf-workspace {
   grid-template-columns:
-    var(--col-left)
-    minmax(320px, 1.12fr)
+    minmax(360px, 1.2fr)
     minmax(340px, var(--col-right));
   padding: 25px 31px 24px;
 }
@@ -33,18 +31,75 @@ body {
   padding: 18px 31px 16px;
 }
 
-.config-rail {
-  --panel-pad: var(--space-5);
-}
-
 .step-panel,
 .run-panel {
   flex: 1 1 auto;
   min-height: 0;
 }
 
-.force-panel {
-  padding-top: var(--space-5);
+.nf-tabs {
+  display: flex;
+  gap: var(--space-2);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.nf-tab {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-sm);
+  color: var(--text-3);
+  font: var(--weight-semibold) var(--text-sm) / 1 var(--font-display);
+  cursor: pointer;
+}
+
+.nf-tab:hover {
+  color: var(--text-1);
+}
+
+.nf-tab.is-active {
+  color: var(--text-heading);
+  background: var(--night-850);
+}
+
+.tab-pane {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: var(--field-gap);
+}
+
+.tab-pane.is-hidden {
+  display: none;
+}
+
+.metadata-grid {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-3) var(--space-5);
+  align-items: baseline;
+}
+
+.meta-row {
+  display: contents;
+}
+
+.meta-value {
+  color: var(--text-1);
+  font: var(--type-body-sm);
+  overflow-wrap: anywhere;
+}
+
+.meta-value--path {
+  font-family: var(--font-mono, monospace);
+  color: var(--text-2);
+}
+
+.meta-value.is-empty {
+  color: var(--text-3);
 }
 
 .force-row {
@@ -53,6 +108,7 @@ body {
   gap: var(--space-3);
   color: var(--text-2);
   font: var(--type-body-sm);
+  white-space: nowrap;
 }
 
 .nf-inputgroup .nf-btn {

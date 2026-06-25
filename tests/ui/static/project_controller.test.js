@@ -43,9 +43,6 @@ beforeEach(() => {
     <pre id="logOutput"></pre>
     <button id="openOutput"></button>
     <button id="runButton"></button>
-    <input id="inputDir" value="/images" />
-    <input id="outputDir" value="" />
-    <input id="tokenInput" value="" />
     <input id="forceInput" type="checkbox" />
   </body>`);
   global.window = dom.window;
@@ -54,6 +51,9 @@ beforeEach(() => {
 
   loadProjectCalls = [];
   state.projects = ["sample"];
+  state.activeProject = "sample";
+  state.inputDir = "/images";
+  state.token = "";
   state.project = project("sample", [
     step("ImportStep", "pending", false),
     step("QualityGateStep", "pending", false),
@@ -140,10 +140,8 @@ describe("project controller selection", () => {
         step("UpscaleStep", "pending", true),
       ]),
     );
-    appendProjectOption("other");
-    document.getElementById("projectSelect").value = "other";
-    document.getElementById("outputDir").value = "/outputs/old-custom";
-    document.getElementById("tokenInput").value = "old-token";
+    state.activeProject = "other";
+    state.token = "old-token";
     document.getElementById("forceInput").checked = true;
     document.getElementById("logOutput").textContent = "old log";
     state.outputDir = "/outputs/old-custom";
@@ -167,7 +165,6 @@ describe("project controller selection", () => {
       projectName: "other",
       outputDir: null,
     });
-    assert.equal(document.getElementById("outputDir").value, "/outputs/other");
     assert.equal(state.outputDir, "/outputs/other");
     assert.equal(state.outputCustomized, false);
     assert.deepEqual([...state.selectedSteps], ["ImportStep", "CaptionStep"]);
@@ -175,7 +172,7 @@ describe("project controller selection", () => {
       ImportStep: ["s0_import"],
       CaptionStep: ["s5_1_caption"],
     });
-    assert.equal(document.getElementById("tokenInput").value, "");
+    assert.equal(state.token, "");
     assert.equal(document.getElementById("forceInput").checked, false);
     assert.equal(state.jobId, null);
     assert.equal(state.job, null);
@@ -185,7 +182,6 @@ describe("project controller selection", () => {
   });
 
   it("preserves selected steps and custom output when requested", async () => {
-    document.getElementById("outputDir").value = "/outputs/custom";
     state.outputDir = "/outputs/custom";
     state.outputCustomized = true;
     state.selectedSteps = new Set(["UpscaleStep"]);
@@ -196,7 +192,7 @@ describe("project controller selection", () => {
       projectName: "sample",
       outputDir: "/outputs/custom",
     });
-    assert.equal(document.getElementById("outputDir").value, "/outputs/custom");
+    assert.equal(state.outputDir, "/outputs/custom");
     assert.equal(state.outputCustomized, true);
     assert.deepEqual([...state.selectedSteps], ["UpscaleStep"]);
   });
@@ -248,11 +244,4 @@ function step(type, status, optional, config = {}) {
     config,
     substeps: substeps[type] || [],
   };
-}
-
-function appendProjectOption(name) {
-  const option = document.createElement("option");
-  option.value = name;
-  option.textContent = name;
-  document.getElementById("projectSelect").append(option);
 }

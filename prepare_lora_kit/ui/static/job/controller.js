@@ -86,9 +86,9 @@ function isActiveJob(job) {
 }
 
 function buildRunRequest() {
-  const inputDir = $("inputDir").value.trim();
-  if (!inputDir) throw new Error("Choose a dataset folder.");
-  if (!$("projectSelect").value) throw new Error("Select a project.");
+  const inputDir = state.inputDir.trim();
+  if (!inputDir) throw new Error("This project has no dataset folder. Set it in the Library.");
+  if (!state.activeProject) throw new Error("Select a project.");
 
   const steps = selectedStepArray();
   if (!steps.length) throw new Error("Select at least one active step.");
@@ -96,9 +96,9 @@ function buildRunRequest() {
 
   return {
     input_dir: inputDir,
-    output_dir: $("outputDir").value.trim() || null,
-    project: $("projectSelect").value,
-    token: $("tokenInput").value.trim() || null,
+    output_dir: state.outputDir.trim() || null,
+    project: state.activeProject,
+    token: state.token.trim() || null,
     force: $("forceInput").checked,
     pause_for_config: $("pauseConfig").checked,
     mock_runtime: state.mockRuntime === true,
