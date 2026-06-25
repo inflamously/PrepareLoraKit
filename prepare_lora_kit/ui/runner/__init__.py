@@ -7,7 +7,13 @@ from .interactions import UiInteractionProvider
 from .job import PipelineJob
 from .logging import _LogStream
 from .manager import JobManager
-from .payloads import _default_output, _image_payload, _jsonable, project_payload
+from .payloads import (
+    _default_output,
+    _image_payload,
+    _jsonable,
+    project_payload,
+    project_status,
+)
 
 __all__ = [
     "JobManager",
@@ -20,4 +26,5 @@ __all__ = [
     "_image_payload",
     "_jsonable",
     "project_payload",
+    "project_status",
 ]

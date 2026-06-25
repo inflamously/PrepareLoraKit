@@ -10,7 +10,18 @@ from typing import Any
 from ..paths import PROJECT_ROOT
 from ..project.base import ProjectConfig
 from ..project import registry as project_registry
-from .runner import JobManager, _default_output, project_payload
+from ..networks import registry as network_registry
+from .runner import JobManager, _default_output, project_payload, project_status
+
+
+def _initials(name: str) -> str:
+    """Two-character mono badge derived from a project name."""
+    parts = [p for p in name.replace("-", "_").replace(" ", "_").split("_") if p]
+    if len(parts) >= 2:
+        return (parts[0][0] + parts[1][0]).upper()
+    if parts:
+        return parts[0][:2].upper()
+    return "??"
 
 
 class UiBridge:
@@ -34,8 +45,77 @@ class UiBridge:
         }
 
     def list_projects(self) -> dict[str, Any]:
-        projects = sorted(set(project_registry.list_projects()) | set(self._projects))
-        return {"projects": projects}
+        names = sorted(set(project_registry.list_projects()) | set(self._projects))
+        live = self.jobs.project_statuses()
+        return {"projects": [self._project_card(name, live) for name in names]}
+
+    def list_networks(self) -> dict[str, Any]:
+        return {"networks": network_registry.list_networks()}
+
+    def _project_card(
+        self, name: str, live: dict[str, str] | None = None
+    ) -> dict[str, Any]:
+        live = live if live is not None else self.jobs.project_statuses()
+        try:
+            loaded = self._load_project(name)
+        except Exception as exc:
+            return {
+                "name": name,
+                "network": None,
+                "network_type": None,
+                "input_dir": None,
+                "output_dir": None,
+                "initials": _initials(name),
+                "token": None,
+                "status": "draft",
+                "mtime": 0,
+                "error": str(exc),
+            }
+        out = (
+            Path(loaded.output_dir).expanduser()
+            if loaded.output_dir
+            else (_default_output(Path(loaded.input_dir).expanduser()) if loaded.input_dir else None)
+        )
+        config_path = project_registry.config_path_for_name(loaded.name)
+        mtime = config_path.stat().st_mtime if config_path.exists() else 0
+        return {
+            "name": loaded.name,
+            "network": loaded.network,
+            "network_type": loaded.network_type,
+            "input_dir": loaded.input_dir,
+            "output_dir": str(out) if out is not None else None,
+            "initials": _initials(loaded.name),
+            "token": None,
+            "status": project_status(loaded, out, live.get(loaded.name)),
+            "mtime": mtime,
+        }
+
+    def create_project(self, payload: dict[str, Any]) -> dict[str, Any]:
+        project_registry.create_project(
+            name=str(payload.get("name", "")),
+            network=str(payload.get("network") or "flux-klein-9b"),
+            input_dir=payload.get("input_dir") or None,
+            output_dir=payload.get("output_dir") or None,
+        )
+        return {"project": self._project_card(str(payload["name"]).strip())}
+
+    def update_project(self, orig_name: str, payload: dict[str, Any]) -> dict[str, Any]:
+        project_registry.update_project_meta(
+            orig_name=orig_name,
+            name=str(payload.get("name", "")),
+            network=str(payload.get("network") or "flux-klein-9b"),
+            input_dir=payload.get("input_dir") or None,
+            output_dir=payload.get("output_dir") or None,
+        )
+        return {"project": self._project_card(str(payload["name"]).strip())}
+
+    def delete_project(self, name: str) -> dict[str, Any]:
+        project_registry.delete_project(name)
+        return {"deleted": True}
+
+    def duplicate_project(self, name: str) -> dict[str, Any]:
+        new_name = project_registry.duplicate_project(name)
+        return {"project": self._project_card(new_name)}
 
     def choose_folder(self) -> dict[str, Any]:
         try:
@@ -57,6 +137,8 @@ class UiBridge:
     def load_project(self, project: str, output_dir: str | None = None) -> dict[str, Any]:
         loaded = self._load_project(project)
         out = Path(output_dir).expanduser() if output_dir else None
+        if out is None and loaded.output_dir:
+            out = Path(loaded.output_dir).expanduser()
         if out is None and loaded.input_dir:
             out = _default_output(Path(loaded.input_dir).expanduser())
         return {

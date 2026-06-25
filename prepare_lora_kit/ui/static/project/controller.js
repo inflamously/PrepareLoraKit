@@ -7,7 +7,11 @@ const TERMINAL_JOB_STATUSES = new Set(["completed", "failed", "cancelled"]);
 
 export async function loadProjects() {
   const result = await api().list_projects();
-  state.projects = result.projects || [];
+  // list_projects returns detailed card objects; the shell preset dropdown only
+  // needs the names.
+  state.projects = (result.projects || []).map((p) =>
+    typeof p === "string" ? p : p.name,
+  );
 
   const select = $("projectSelect");
   const placeholder = new Option("Select project", "");

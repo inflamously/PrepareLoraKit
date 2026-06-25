@@ -1,0 +1,70 @@
+/* Project library (browser) view ------------------------------------------ */
+
+/* Top-level view containers fill the window and stack their own
+   appbar / body / statusbar exactly like the original shell layout. */
+.nf-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+}
+
+/* Toolbar between the appbar and the grid: search left, count + sort right. */
+.lib-toolbar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-7) 0;
+}
+.lib-toolbar__right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.lib-toolbar__right .nf-select { flex: none; width: auto; }
+.lib-count {
+  font: var(--type-mono);
+  font-size: var(--text-2xs);
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+/* Empty-state message shown when no projects match the current filter. */
+.lib-empty {
+  grid-column: 1 / -1;
+  display: grid;
+  place-items: center;
+  padding: var(--space-7);
+  color: var(--text-3);
+  font: var(--weight-medium) var(--text-sm)/1.4 var(--font-sans);
+  text-align: center;
+}
+
+/* Status badge → pill colour mapping (uses existing .nf-pill colours). */
+.nf-pill--running { color: var(--warning-500); background: var(--warning-bg); border-color: transparent; }
+.nf-pill--draft   { color: var(--text-3);      background: var(--night-850);  border-color: var(--border); }
+
+/* Compact modal for the new/edit form and confirm dialog. */
+.modal--sm { width: min(520px, 94vw); }
+
+/* Modal form (new / edit project). Reuses .nf-field / .nf-input etc. */
+.lib-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-width: 420px;
+}
+.lib-form__error {
+  color: var(--danger-500);
+  font: var(--weight-medium) var(--text-xs)/1.4 var(--font-sans);
+  min-height: 1em;
+}
+.lib-form__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}

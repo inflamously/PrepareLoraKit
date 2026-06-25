@@ -191,9 +191,36 @@
  */
 
 /**
+ * @typedef {Object} ProjectCard
+ * @property {string} name
+ * @property {string | null} network
+ * @property {string | null} network_type
+ * @property {string | null} input_dir
+ * @property {string | null} output_dir
+ * @property {string} initials
+ * @property {string | null} token
+ * @property {"completed" | "running" | "failed" | "draft"} status
+ * @property {number} mtime
+ * @property {string} [error]
+ */
+
+/**
+ * @typedef {Object} ProjectMetaPayload
+ * @property {string} name
+ * @property {string} input_dir
+ * @property {string} output_dir
+ * @property {string} network
+ */
+
+/**
  * @typedef {Object} PyWebviewApi
  * @property {() => Promise<{project_root: string, default_outputs: string, bootstrap: BootstrapPayload | null}>} app_info
- * @property {() => Promise<{projects: string[]}>} list_projects
+ * @property {() => Promise<{projects: ProjectCard[]}>} list_projects
+ * @property {() => Promise<{networks: string[]}>} list_networks
+ * @property {(payload: ProjectMetaPayload) => Promise<{project: ProjectCard}>} create_project
+ * @property {(orig_name: string, payload: ProjectMetaPayload) => Promise<{project: ProjectCard}>} update_project
+ * @property {(name: string) => Promise<{deleted: boolean}>} delete_project
+ * @property {(name: string) => Promise<{project: ProjectCard}>} duplicate_project
  * @property {() => Promise<{path: string | null, error?: string}>} choose_folder
  * @property {(input_dir: string) => Promise<{output_dir: string}>} default_output
  * @property {(project: string, output_dir: string | null) => Promise<ProjectLoadResult>} load_project

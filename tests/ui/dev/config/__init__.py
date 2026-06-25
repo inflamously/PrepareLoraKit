@@ -1,0 +1,1 @@
+"""Mock UI config tests."""

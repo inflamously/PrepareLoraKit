@@ -40,6 +40,7 @@ class JobManager:
         projects: dict[str, ProjectConfig] | None = None,
     ) -> None:
         self._jobs: dict[str, PipelineJob] = {}
+        self._job_projects: dict[str, str] = {}
         self._active_job_id: str | None = None
         self._media_base_url = media_base_url
         self._projects = projects or {}
@@ -54,9 +55,22 @@ class JobManager:
             job_id = uuid.uuid4().hex
             job = PipelineJob(self, job_id)
             self._jobs[job_id] = job
+            project_name = request.get("project")
+            if project_name:
+                self._job_projects[job_id] = str(project_name)
             self._active_job_id = job_id
         job.start(self._run_job, job, request)
         return job_id
+
+    def project_statuses(self) -> dict[str, str]:
+        """Map project name -> latest job status for any project that has run."""
+        statuses: dict[str, str] = {}
+        for job_id, name in self._job_projects.items():
+            job = self._jobs.get(job_id)
+            if job is None:
+                continue
+            statuses[name] = job.snapshot()["status"]
+        return statuses
 
     def get(self, job_id: str) -> PipelineJob:
         try:

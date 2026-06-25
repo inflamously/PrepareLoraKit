@@ -51,6 +51,9 @@ class ProjectConfig:
     # it wins over the profile's config_template.network.type in step 7.
     network_type: Optional[str] = None
     input_dir: Optional[str] = None
+    # Optional output directory override. When blank, callers compute the default
+    # as outputs/<dataset-name> via runner._default_output.
+    output_dir: Optional[str] = None
     pipeline: list[PipelineStep] = field(default_factory=list)
 
     def __post_init__(self) -> None:
@@ -103,6 +106,7 @@ class ProjectConfig:
         network = data.pop("network")
         network_type = data.pop("network_type", None)
         input_dir = data.pop("input_dir", None)
+        output_dir = data.pop("output_dir", None)
         raw_pipeline = data.pop("pipeline", []) or []
         raw_pipeline = _normalize_raw_pipeline(raw_pipeline)
 
@@ -132,7 +136,7 @@ class ProjectConfig:
             )
 
         return cls(name=name, network=network, network_type=network_type,
-                   input_dir=input_dir, pipeline=pipeline)
+                   input_dir=input_dir, output_dir=output_dir, pipeline=pipeline)
 
 
 def _normalize_raw_pipeline(raw_pipeline: list[dict[str, Any]]) -> list[dict[str, Any]]:

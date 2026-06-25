@@ -42,6 +42,43 @@ def _image_payload(path: Path, media_base_url: str | None = None) -> dict[str, s
     }
 
 
+_RUNNING_JOB_STATUSES = {"queued", "running", "waiting_input", "starting"}
+
+
+def project_status(
+    project: ProjectConfig,
+    output_dir: Path | None = None,
+    live_status: str | None = None,
+) -> str:
+    """Derive a coarse library badge status for a project.
+
+    Live job status (when supplied) wins; otherwise the persisted RunState is
+    inspected: a project whose non-optional pipeline steps are all ``done`` is
+    ``completed``, anything else is ``draft``. Persisted state has no failure
+    marker, so ``failed`` is only reported from a live/terminal job this session.
+    """
+    if live_status:
+        if live_status in _RUNNING_JOB_STATUSES:
+            return "running"
+        if live_status == "failed":
+            return "failed"
+        if live_status == "completed":
+            return "completed"
+
+    if output_dir is None:
+        return "draft"
+
+    state = RunState(output_dir)
+    required = [
+        step.type for step in project.pipeline if step.type not in OPTIONAL_STEP_TYPES
+    ]
+    if required and all(
+        state.get(step_type).get("status") == "done" for step_type in required
+    ):
+        return "completed"
+    return "draft"
+
+
 def project_payload(project: ProjectConfig, output_dir: Path | None = None) -> dict[str, Any]:
     state = RunState(output_dir) if output_dir is not None else None
     return {
