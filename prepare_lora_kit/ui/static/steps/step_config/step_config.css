@@ -1,0 +1,80 @@
+.step-config {
+  width: min(1180px, 96vw);
+}
+
+.step-config__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--hairline);
+  padding: 14px 16px;
+}
+
+.step-config__head h2 {
+  margin: 0;
+}
+
+.step-config__head p {
+  margin: 2px 0 0;
+  color: var(--caption);
+}
+
+.step-config__actions {
+  display: flex;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.step-config__error {
+  margin: 0;
+  padding: 10px 16px;
+  color: #ffd7dc;
+  background: var(--danger-bg, rgba(255, 92, 106, 0.14));
+  border-bottom: 1px solid var(--hairline);
+}
+
+/* Horizontal, left-to-right scrollable strip of label + control items. */
+.step-config__fields {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  overflow-x: auto;
+  padding: 16px;
+}
+
+.step-config__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 0 0 auto;
+  min-width: 200px;
+  max-width: 260px;
+}
+
+.step-config__field--check {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  align-self: center;
+  padding-top: 18px;
+}
+
+.step-config__label {
+  color: var(--caption);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.step-config__field--check .step-config__label {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 14px;
+  color: inherit;
+}
+
+.step-config__custom {
+  margin-top: 6px;
+}

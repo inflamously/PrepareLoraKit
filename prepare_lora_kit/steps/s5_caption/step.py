@@ -79,13 +79,13 @@ def run(
     check_cancel(cancel_check)
     img_utils.materialize(all_images, dataset_dir, output_dir)
 
-    runtime = _create_runtime(
+    runtime = vlm.CaptionRuntime(
         model_id,
-        caption_model_task=caption_model_task,
+        task=caption_model_task,
         quantization=quantization,
         dtype=dtype,
         max_pixels=max_pixels,
-        caption_status_callback=caption_status_callback,
+        status_callback=caption_status_callback,
     )
 
     try:
@@ -119,25 +119,6 @@ def run(
         )
     finally:
         runtime.unload()
-
-
-def _create_runtime(
-        model_id: str,
-        *,
-        caption_model_task: str,
-        quantization: str,
-        dtype: str,
-        max_pixels: int,
-        caption_status_callback: Callable[[dict[str, Any]], None] | None,
-) -> vlm.CaptionRuntime:
-    return vlm.CaptionRuntime(
-        model_id,
-        task=caption_model_task,
-        quantization=quantization,
-        dtype=dtype,
-        max_pixels=max_pixels,
-        status_callback=caption_status_callback,
-    )
 
 
 def _caption_dataset(

@@ -65,9 +65,17 @@ def _fake_runtime_class(
                 "max_pixels": max_pixels,
             }
             self.status = status or {"phase": "ready", "message": "fake ready"}
+            self._status_callback = status_callback
+            self._loaded = False
             events.append(("init", model_id, task, quantization, dtype, max_pixels))
-            if status_callback:
-                status_callback(self.status)
+
+        def load(self):
+            # Mirror CaptionRuntime.load: idempotent, emits status, no caption work.
+            if self._loaded:
+                return
+            self._loaded = True
+            if self._status_callback:
+                self._status_callback(self.status)
 
         def caption_region(self, crop):
             events.append(("region", crop.size))

@@ -1,3 +1,5 @@
+import threading
+import time
 from unittest.mock import MagicMock, patch
 from urllib.parse import parse_qs, quote, urlparse
 from urllib.request import urlopen
@@ -216,6 +218,66 @@ def test_ui_force_run_starts_active_pipeline_from_beginning(tmp_path):
 
     assert calls == _active_step_types()
     assert job.snapshot()["skipped_steps"] == []
+
+
+def _wait_for_pending(job, kind, timeout=5.0):
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        pending = job.snapshot()["pending_input"]
+        if pending and pending["kind"] == kind:
+            return pending
+        time.sleep(0.02)
+    raise AssertionError(f"pending input {kind!r} not seen within {timeout}s")
+
+
+def test_ui_run_pauses_for_step_config_and_applies_overrides(tmp_path):
+    out = tmp_path / "out"
+    project = ProjectConfig(
+        name="test",
+        network="flux-klein-9b",
+        pipeline=[
+            PipelineStep("ImportStep", ImportConfig()),
+            PipelineStep("QualityGateStep", QualityGateConfig(auto_only=False)),
+        ],
+    )
+    captured: dict[str, object] = {}
+    invoke_map: dict[str, MagicMock] = {}
+    for step_type in ("ImportStep", "QualityGateStep"):
+        def side_effect(working_dir, output_dir, cfg, *args, _t=step_type, **kwargs):
+            captured[_t] = cfg
+            return None
+        invoke_map[step_type] = MagicMock(name=step_type, side_effect=side_effect)
+
+    manager = JobManager(projects={"test": project})
+    job = PipelineJob(manager, "test-job")
+    request = _run_request(tmp_path, out)
+    request["steps"] = ["ImportStep", "QualityGateStep"]
+    request["pause_for_config"] = True
+
+    errors: list[Exception] = []
+
+    def run():
+        try:
+            with patch("prepare_lora_kit.networks.registry.load", return_value=MagicMock()), \
+                    patch.dict("prepare_lora_kit.ui.runner.STEP_INVOKE_MAP", invoke_map, clear=True):
+                manager._execute(job, request)
+        except Exception as exc:  # pragma: no cover - surfaced via assertion
+            errors.append(exc)
+
+    thread = threading.Thread(target=run)
+    thread.start()
+    try:
+        pending = _wait_for_pending(job, "step_config")
+        assert pending["payload"]["step_type"] == "QualityGateStep"
+        assert any(f["name"] == "auto_only" for f in pending["payload"]["fields"])
+        assert job.submit_input(pending["id"], {"overrides": {"auto_only": True}})
+    finally:
+        thread.join(timeout=5)
+
+    assert not errors
+    assert not thread.is_alive()
+    # ImportStep has no schema, so only QualityGateStep paused; the override applied.
+    assert captured["QualityGateStep"].auto_only is True
 
 
 def test_validate_selection_rejects_deactivated_unmet_prerequisite(tmp_path):

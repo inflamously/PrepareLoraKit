@@ -15,7 +15,6 @@ This directory contains the pywebview browser UI for PrepareLoraKit.
 | `+state/outputs.js` | Defines initial in-memory output directory state and customization tracking. |
 | `+state/projects.js` | Defines initial in-memory project list and active project state. |
 | `+state/steps.js` | Defines initial in-memory selected pipeline step state. |
-| `caption/config.js` | Reads caption step defaults into the form and returns the selected caption model settings. |
 | `caption/status.js` | Renders caption model load and inference status in job and annotation surfaces. |
 | `components/modal.css` | Styles the shared modal overlay, modal container, headers, and footers. |
 | `components/modal.js` | Shows and closes content inside the shared modal layer. |
@@ -48,6 +47,8 @@ This directory contains the pywebview browser UI for PrepareLoraKit.
 | `steps/source_review/format.js` | Formats source-review quality values and arbitrary score values for display. |
 | `steps/source_review/source_review.css` | Styles the source-review modal grid, cards, decision controls, detail panel, and quality sections. |
 | `steps/source_review/source_review.js` | Orchestrates source-review state, card selection, detail rendering, and decision submission. |
+| `steps/step_config/step_config.css` | Styles the mid-run per-step config strip (horizontal scrollable label + control fields). |
+| `steps/step_config/step_config.js` | Renders the pre-step config strip from the backend field schema and submits edited overrides. |
 | `steps/vae_review/components/card.js` | Builds VAE review cards with original, VAE, diff, and hard-mask thumbnails. |
 | `steps/vae_review/components/detail.js` | Renders the selected VAE review item, preview tabs, decision buttons, and metrics. |
 | `steps/vae_review/components/modal.js` | Creates the VAE review modal structure. |

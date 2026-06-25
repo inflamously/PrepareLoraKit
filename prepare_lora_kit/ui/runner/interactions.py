@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from ...interaction import InteractionProvider, RegionCaptioner
+from ...project.config_schema import schema_payload
 from .job import PipelineJob
 from .payloads import _image_payload, _jsonable
 
@@ -19,6 +20,25 @@ class UiInteractionProvider(InteractionProvider):
         self._caption_lock = threading.Lock()
         self._captioner: RegionCaptioner | None = None
         self._caption_image: Path | None = None
+
+    def step_config(self, step_type: str, current_config: Any, error: str | None = None) -> dict:
+        """Pause before a step so the frontend can edit its config tunables.
+
+        Returns the submitted overrides mapping (``{field: value}``); an empty
+        mapping means "run with the project defaults".
+        """
+
+        payload = {
+            "step_type": step_type,
+            "fields": schema_payload(step_type),
+            "values": _jsonable(current_config),
+            "error": error,
+        }
+        answer = self._job.request_input("step_config", payload)
+        if not isinstance(answer, dict):
+            return {}
+        overrides = answer.get("overrides", {})
+        return overrides if isinstance(overrides, dict) else {}
 
     def source_review(self, scored: list[tuple[Path, dict]]) -> dict[str, str]:
         items = []

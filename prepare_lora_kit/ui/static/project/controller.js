@@ -1,10 +1,6 @@
 import { api } from "../core/api.js";
 import { $ } from "../core/dom.js";
 import { state } from "../+state/index.js";
-import {
-  applyCaptionConfigDefaults,
-  resetCaptionConfigDefaults,
-} from "../caption/config.js";
 import { render } from "../shell/render.js";
 
 const TERMINAL_JOB_STATUSES = new Set(["completed", "failed", "cancelled"]);
@@ -134,7 +130,6 @@ function resetProjectSelection() {
   $("outputDir").value = "";
   $("tokenInput").value = "";
   $("forceInput").checked = false;
-  resetCaptionConfigDefaults();
   render();
 }
 
@@ -165,7 +160,6 @@ function applyProjectResult(result, options = {}) {
     clearTerminalJobState();
   }
 
-  applyCaptionConfigDefaults();
   render();
 }
 

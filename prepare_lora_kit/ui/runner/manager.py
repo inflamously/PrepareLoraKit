@@ -10,10 +10,12 @@ from typing import Any
 
 from rich.console import Console
 
+from . import UiInteractionProvider
 from ...cancellation import CancelledRun
 from ...pipeline import RunConfig
 from ...project import registry as project_registry
 from ...project.base import ProjectConfig
+from ...project.config_schema import apply_overrides, has_schema
 from ...project.steps import (
     STEP_PREREQUISITES,
     SUBSTEP_REGISTRY,
@@ -121,6 +123,7 @@ class JobManager:
             if isinstance(substeps, list)
         }
         force = bool(request.get("force", False))
+        pause_for_config = bool(request.get("pause_for_config", False))
 
         project = self._load_project(project_name)
         selected_substeps = self._resolve_selected_substeps(project, selected_steps, requested_substeps)
@@ -186,13 +189,17 @@ class JobManager:
                 job.add_log(f"{step.type} already done; skipping")
                 continue
 
+            effective_config = step.config
+            if pause_for_config and has_schema(step.type):
+                effective_config = self._resolve_step_config(job, interaction, step)
+
             from . import STEP_INVOKE_MAP
 
             invoke = STEP_INVOKE_MAP[step.type]
             result = invoke(
                 working_dir,
                 cfg.resolved_output_dir,
-                step.config,
+                effective_config,
                 **shared_kw,
                 enabled_substeps=enabled_substeps,
             )
@@ -218,6 +225,21 @@ class JobManager:
             "run_config": str(cfg.resolved_output_dir / "run_config.yaml"),
         }
         job.set_status("completed", current_step=None, current_substep=None)
+
+    def _resolve_step_config(self, job: PipelineJob, interaction, step):
+        """Pause for frontend config edits and return the validated step config.
+
+        Re-prompts (with the validation error) until the overrides apply cleanly
+        or the run is cancelled.
+        """
+        error: str | None = None
+        while True:
+            overrides = interaction.step_config(step.type, step.config, error=error)
+            try:
+                return apply_overrides(step.type, step.config, overrides)
+            except ValueError as exc:
+                error = str(exc)
+                job.add_log(f"{step.type} config rejected: {exc}")
 
     def _resolve_selected_substeps(
         self,

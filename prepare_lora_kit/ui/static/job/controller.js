@@ -1,10 +1,10 @@
 import { api } from "../core/api.js";
 import { $, setText } from "../core/dom.js";
 import { state } from "../+state/index.js";
-import { selectedCaptionModel, selectedCaptionTask } from "../caption/config.js";
 import { showAnnotator } from "../steps/bbox_annotation/bbox_annotation.js";
 import { showCurateDetails } from "../steps/curate_details/curate_details.js";
 import { showSourceReview } from "../steps/source_review/source_review.js";
+import { showStepConfig } from "../steps/step_config/step_config.js";
 import { showVaeReview } from "../steps/vae_review/vae_review.js";
 import { loadProject } from "../project/controller.js";
 import { selectedStepArray, selectedSubstepMap } from "../project/selection.js";
@@ -93,14 +93,6 @@ function buildRunRequest() {
   const steps = selectedStepArray();
   if (!steps.length) throw new Error("Select at least one active step.");
   const substeps = selectedSubstepMap();
-  const captionModel = selectedCaptionModel();
-  if (
-    steps.includes("CaptionStep") &&
-    (substeps.CaptionStep || []).includes("s5_2_caption") &&
-    !captionModel
-  ) {
-    throw new Error("Select a Hugging Face caption model before running CaptionStep.");
-  }
 
   return {
     input_dir: inputDir,
@@ -108,9 +100,7 @@ function buildRunRequest() {
     project: $("projectSelect").value,
     token: $("tokenInput").value.trim() || null,
     force: $("forceInput").checked,
-    caption_model_id: captionModel || null,
-    caption_model_task: selectedCaptionTask(),
-    caption_vram_mode: $("captionVramMode").value || "auto",
+    pause_for_config: $("pauseConfig").checked,
     mock_runtime: state.mockRuntime === true,
     mock_curate_coverage:
       state.mockRuntime === true ? state.mockCurateCoverage : "auto",
@@ -138,5 +128,9 @@ function handlePendingInput(pending) {
 
   if (pending.kind === "vae_review") {
     showVaeReview(pending, { onSubmitted: pollJob });
+  }
+
+  if (pending.kind === "step_config") {
+    showStepConfig(pending, { onSubmitted: pollJob });
   }
 }

@@ -118,10 +118,25 @@
  */
 
 /**
+ * @typedef {Object} StepConfigField
+ * @property {string} name
+ * @property {string} label
+ * @property {"select" | "number" | "text" | "checkbox"} control
+ * @property {"str" | "int" | "float" | "bool"} value_type
+ * @property {{value: string, label: string}[]} options
+ * @property {boolean} allow_custom
+ * @property {boolean} nullable
+ *
+ * @typedef {Object} StepConfigPayload
+ * @property {string} step_type
+ * @property {StepConfigField[]} fields
+ * @property {Object} values
+ * @property {string | null} error
+ *
  * @typedef {Object} PendingInput
  * @property {string} id
- * @property {"source_review" | "bbox_annotation" | "vae_review" | "curate_details"} kind
- * @property {ImagePayload | {items: SourceReviewItem[]} | {items: VaeReviewItem[]} | CurateDetailsPayload} payload
+ * @property {"source_review" | "bbox_annotation" | "vae_review" | "curate_details" | "step_config"} kind
+ * @property {ImagePayload | {items: SourceReviewItem[]} | {items: VaeReviewItem[]} | CurateDetailsPayload | StepConfigPayload} payload
  */
 
 /**

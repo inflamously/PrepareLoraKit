@@ -1,7 +1,6 @@
 import { api } from "../core/api.js";
 import { $ } from "../core/dom.js";
 import { state } from "../+state/index.js";
-import { syncCaptionModelInput } from "../caption/config.js";
 import {
   loadProject,
   loadProjectForInput,
@@ -39,7 +38,6 @@ export function bindEvents() {
   $("projectSelect").addEventListener("change", () =>
     loadProject({ resetSession: true }),
   );
-  $("captionModelPreset").addEventListener("change", syncCaptionModelInput);
   $("refreshProject").addEventListener("click", () =>
     reloadCurrentProject({ preserveSelection: true }),
   );
