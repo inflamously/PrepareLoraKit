@@ -31,7 +31,7 @@ export async function applyBootstrap(bootstrap) {
     bootstrap.project,
     bootstrap.output_dir || null,
   );
-  applyProjectResult(result, { updateInput: true });
+  loadProjectData(result, { updateInput: true });
 
   state.inputDir = bootstrap.input_dir || result.input_dir || "";
   state.outputDir = bootstrap.output_dir || result.output_dir || "";
@@ -57,7 +57,7 @@ export async function loadProject(options = {}) {
   const output = state.outputCustomized ? state.outputDir.trim() || null : null;
   const result = await api().load_project(name, output);
   state.mockRuntime = state.mockProjectName === name;
-  applyProjectResult(result, {
+  loadProjectData(result, {
     updateInput: true,
     preserveSelection: options.preserveSelection === true,
     resetSession: options.resetSession === true,
@@ -88,7 +88,7 @@ export async function loadProjectForInput() {
   ensureProjectOption(result.project_name);
   state.activeProject = result.project_name;
   state.mockRuntime = state.mockProjectName === result.project_name;
-  applyProjectResult(result, { updateInput: true });
+  loadProjectData(result, { updateInput: true });
 }
 
 export function selectPending() {
@@ -145,12 +145,13 @@ function resetProjectSelection() {
   render();
 }
 
-function applyProjectResult(result, options = {}) {
+function loadProjectData(result, options = {}) {
   const previousSelectedSteps = options.preserveSelection
     ? new Set(state.selectedSteps)
     : null;
 
   state.project = result.project;
+  state.collapsedSteps = new Set(state.project.steps.map((step) => step.type));
 
   if (options.updateInput) {
     state.inputDir = result.input_dir || result.project?.input_dir || "";

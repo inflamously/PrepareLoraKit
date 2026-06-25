@@ -47,13 +47,14 @@
 .nf-pill--running { color: var(--warning-500); background: var(--warning-bg); border-color: transparent; }
 .nf-pill--draft   { color: var(--text-3);      background: var(--night-850);  border-color: var(--border); }
 
-/* Compact modal for the new/edit form and confirm dialog. */
-.modal--sm { width: min(520px, 94vw); }
-
-/* Modal form (new / edit project). Reuses .nf-field / .nf-input etc. */
+/* Modal form (new / edit project). Reuses .nf-field / .nf-input etc.
+   Grows to fill the fixed-height compact modal so the action row can pin to
+   the bottom (see .lib-form__actions) instead of floating mid-box. */
 .lib-form {
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
   gap: var(--space-5);
   min-width: 420px;
 }
@@ -66,5 +67,5 @@
   display: flex;
   justify-content: flex-end;
   gap: var(--space-3);
-  margin-top: var(--space-2);
+  margin-top: auto;
 }

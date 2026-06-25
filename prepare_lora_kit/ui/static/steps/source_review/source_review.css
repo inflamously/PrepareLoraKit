@@ -1,7 +1,8 @@
 .source-review-workspace {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  min-height: min(680px, calc(92vh - 73px));
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: hidden;
 }
 

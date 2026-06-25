@@ -11,7 +11,7 @@ export function showStepConfig(pending, { onSubmitted }) {
   const { step_type: stepType, fields = [], values = {}, error } = pending.payload;
 
   const strip = document.createElement("div");
-  strip.className = "modal step-config";
+  strip.className = "modal modal--compact step-config";
   strip.innerHTML = `
     <div class="step-config__head">
       <div>

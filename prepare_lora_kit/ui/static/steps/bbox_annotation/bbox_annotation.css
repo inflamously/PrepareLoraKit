@@ -1,7 +1,8 @@
 .annotator {
   display: grid;
   grid-template-columns: minmax(360px, 1fr) 320px;
-  min-height: min(560px, calc(92vh - 138px));
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: hidden;
 }
 

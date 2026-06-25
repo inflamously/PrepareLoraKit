@@ -13,7 +13,7 @@ export async function openProjectModal({ mode, project = null, onSaved }) {
   const networks = await loadNetworks();
 
   const modal = document.createElement("div");
-  modal.className = "modal modal--sm";
+  modal.className = "modal modal--compact";
   modal.innerHTML = `
     <div class="modal-header">
       <div>
@@ -148,7 +148,7 @@ export async function openProjectModal({ mode, project = null, onSaved }) {
 export function confirmModal({ title, message, confirmLabel = "Confirm" }) {
   return new Promise((resolve) => {
     const modal = document.createElement("div");
-    modal.className = "modal modal--sm";
+    modal.className = "modal modal--compact";
     modal.innerHTML = `
       <div class="modal-header">
         <div><h2>${escapeText(title)}</h2></div>
