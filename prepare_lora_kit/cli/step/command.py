@@ -6,49 +6,21 @@ name (or alias) using that step's config from the project. It reuses the same
 manually-run step operates on the same ``<output>/dataset`` working tree.
 """
 from __future__ import annotations
-from pathlib import Path
 
 import click
 
-from ._shared import cli, cli_option_input, cli_option_output, cli_option_token
-from ..invoke import STEP_INVOKE_MAP
-from ..project import registry as project_registry
-from ..project.base import STEP_TYPE_MAP
-from ..project.steps import (
+from .._shared import cli, cli_option_input, cli_option_output, cli_option_token
+from .bbox import build_bbox_interaction
+from .resolve import _load_project, _resolve_step_type
+from ...invoke import STEP_INVOKE_MAP
+from ...pipeline import RunConfig
+from ...project.base import STEP_TYPE_MAP
+from ...project.steps import (
     STEP_PREREQUISITES,
     default_substeps_for,
     enabled_substep_ids,
     mark_legacy_import_satisfied,
-    step_aliases,
 )
-from ..pipeline import RunConfig
-
-
-# Short aliases (sN / bare index) → canonical step type, preserving s1..s8.
-_STEP_ALIASES = step_aliases()
-
-
-def _resolve_step_type(raw: str) -> str:
-    """Map a user-supplied step name/alias to a canonical step type."""
-    low = raw.strip().lower()
-    if low in _STEP_ALIASES:
-        return _STEP_ALIASES[low]
-    for t in STEP_TYPE_MAP:
-        if t.lower() == low:
-            return t
-    raise click.BadParameter(
-        f"Unknown step '{raw}'.\n"
-        f"  Types:   {', '.join(STEP_TYPE_MAP)}\n"
-        f"  Aliases: {', '.join(sorted(_STEP_ALIASES))}",
-        param_hint="--step",
-    )
-
-
-def _load_project(name: str):
-    try:
-        return project_registry.load(name)
-    except ValueError as exc:
-        raise click.BadParameter(str(exc), param_hint="--project")
 
 
 @cli.command()
@@ -62,13 +34,27 @@ def _load_project(name: str):
 @cli_option_token
 @click.option("--force", is_flag=True,
               help="Run even if run-state already marks this step done.")
-def step(ctx, step_name, project_name, input_dir, output_dir, token, force):
+@click.option("--model", "model_id", default=None,
+              help="CaptionStep only: override the project's caption model for this run.")
+@click.option("--bbox", "bboxes", multiple=True, metavar="X1,Y1,X2,Y2[:LABEL]",
+              help="CaptionStep only: region to caption around (repeatable). Pixel "
+                   "coords, or normalized [0,1] if all four values are <= 1.0.")
+@click.option("--bbox-image", "bbox_image", default=None,
+              help="CaptionStep only: which dataset image the --bbox regions apply to "
+                   "(required when the dataset has more than one image).")
+def step(ctx, step_name, project_name, input_dir, output_dir, token, force,
+         model_id, bboxes, bbox_image):
     """Run a single pipeline step manually, using the project's step config.
 
     The step's parameters come from the project pipeline entry of the same type;
     if the project does not define that step, built-in defaults are used.
     """
     step_type = _resolve_step_type(step_name)
+    if step_type != "CaptionStep" and (model_id or bboxes or bbox_image):
+        raise click.BadParameter(
+            "--model/--bbox/--bbox-image are only valid for CaptionStep (-s s5).",
+            param_hint="--step")
+
     project = _load_project(project_name)
     ctx.obj.project = project
 
@@ -89,9 +75,9 @@ def step(ctx, step_name, project_name, input_dir, output_dir, token, force):
     out_dir = cfg.resolved_output_dir
     working_dir = out_dir / "dataset"
 
-    from ..networks import registry as net_registry
-    from ..utils import report as rpt
-    from ..utils.state import RunState
+    from ...networks import registry as net_registry
+    from ...utils import report as rpt
+    from ...utils.state import RunState
 
     network = net_registry.load(project.network)
     state = RunState(out_dir)
@@ -124,6 +110,16 @@ def step(ctx, step_name, project_name, input_dir, output_dir, token, force):
     rpt.info(f"Running {step_type} for project '{project.name}'.")
     substeps = match.substeps if match is not None else default_substeps_for(step_type, config)
     enabled_substeps = enabled_substep_ids(step_type, substeps)
+
+    if model_id:
+        shared_kw["caption_runtime"] = {"model_id": model_id}
+    if bboxes:
+        interaction, target, boxes = build_bbox_interaction(working_dir, bboxes, bbox_image)
+        shared_kw["interaction"] = interaction
+        if "s5_1_annotate" not in enabled_substeps:
+            enabled_substeps = [*enabled_substeps, "s5_1_annotate"]
+        rpt.info(f"Applying {len(boxes)} bbox region(s) to {target.name}.")
+
     invoke = STEP_INVOKE_MAP[step_type]
     result = invoke(working_dir, out_dir, config, **shared_kw, enabled_substeps=enabled_substeps)
     if step_type == "AuditStep" and isinstance(result, dict) and not result.get("pass"):

@@ -1,0 +1,120 @@
+# example: reference project config — every field shows its default.
+# Copy to configs/projects/<your-name>.yaml and edit. Select with `--project <name>`
+# or name it after your dataset folder for automatic detection.
+
+name: example
+network: flux-klein-9b
+
+# pipeline: ordered list of steps to run. Each entry has a `type:` that picks
+# which operation runs, plus step-specific options. Remove or reorder steps as
+# needed. Available types:
+#   ImportStep       QualityGateStep  CurateStep  UpscaleStep  VaeGateStep
+#   CaptionStep      AuditStep        ConfigGenStep  BucketDryRunStep
+#
+# Ordering rules (enforced on load):
+#   - Each step after ImportStep requires the previous pipeline step.
+#   - Legacy configs that start with QualityGateStep are loaded with ImportStep
+#     inserted automatically.
+# Each step can also list ordered substeps with enabled flags. Omitted substeps
+# are filled from defaults when the project is loaded.
+
+pipeline:
+  - type: ImportStep
+    substeps:
+      - {id: s0_import, enabled: true}
+
+  - type: QualityGateStep
+    substeps:
+      - {id: s1_1_score, enabled: true}
+      - {id: s1_2_decide, enabled: true}
+    scorers:
+      - {name: min_side,  enabled: true, op: lt, threshold: 1024.0}
+      - {name: blur,      enabled: true, op: lt, threshold: 100.0, borderline: 150.0}
+      - {name: noise,     enabled: true, op: gt, threshold: 25.0}
+      - {name: jpeg,      enabled: true, op: gt, threshold: 0.08}
+      - {name: watermark, enabled: true, op: gt, threshold: 0.80}
+    manual_review: true
+    auto_only: false         # true = skip all manual review
+    manual_all: false        # true = review every image (mutually exclusive w/ auto_only)
+
+  - type: CurateStep
+    substeps:
+      - {id: s2_1_dupecheck, enabled: true}
+      - {id: s2_2_clipscan, enabled: true}
+      - {id: s2_3_drop_images, enabled: true}
+    dedup_hamming_distance: 8   # 4 = stricter, 12 = looser
+    occlusion_threshold: 0.35   # 0..1
+    pca_umap_switch_threshold: 30
+    umap_n_neighbors: 15
+    umap_min_dist: 0.1
+    pca_n_components: 2
+    clip_model_id: "openai/clip-vit-base-patch32"
+
+  - type: UpscaleStep
+    substeps:
+      - {id: s3_1_select_candidates, enabled: true}
+      - {id: s3_2_upscale, enabled: true}
+      - {id: s3_3_hallucination_check, enabled: true}
+    upscale_target: 3072
+    hallucination_ssim_threshold: 0.60  # 0..1
+    upscale_model: seedvr2              # seedvr2 | lanczos | custom
+    seedvr2_dit_model: seedvr2_ema_3b_fp8_e4m3fn.safetensors
+    seedvr2_model_residency: auto       # auto | gpu | cpu
+    # Recommended 20-24 GB 7B path:
+    # seedvr2_dit_model: seedvr2_ema_7b_fp8_e4m3fn_mixed_block35_fp16.safetensors
+
+  - type: VaeGateStep
+    substeps:
+      - {id: s4_1_reconstruct, enabled: true}
+      - {id: s4_2_review, enabled: true}
+      - {id: s4_3_apply_decisions, enabled: true}
+    diff_amplification: 4.0            # 8.0 = brighter DIFF panel
+    gaussian_blur_sigma: 2.0
+    gaussian_blur_kernel: 21           # must be odd
+    otsu_enabled: true
+    output_previews: true
+    output_silhouettes: true
+    output_hard_silhouettes: true
+    outlier_sigma: 2.0
+    hf_cutoff_fraction: 0.25           # (0, 0.5)
+    max_side: null                     # null → network.max_bucket_side
+    seed: 42
+
+  - type: CaptionStep
+    substeps:
+      - {id: s5_1_annotate, enabled: true}
+      - {id: s5_2_caption, enabled: true}
+      - {id: s5_3_validate, enabled: true}
+    qwen_model_id: "Qwen/Qwen2-VL-7B-Instruct"
+    vram_tier: auto   # auto | low (<=16GB,4bit) | mid (<=24GB,8bit) | high | max
+    max_new_tokens: 200
+    spot_check_pct: 0.10  # 0..1
+
+  - type: AuditStep
+    substeps:
+      - {id: s6_1_pairing, enabled: true}
+      - {id: s6_2_corrupt, enabled: true}
+      - {id: s6_3_caption_quality, enabled: true}
+      - {id: s6_4_resolution, enabled: true}
+    min_caption: 5
+    max_caption: 600
+    check_pairing: true
+    check_corrupt: true
+    check_caption_length: true
+    check_resolution_gate: true
+
+  - type: ConfigGenStep
+    substeps:
+      - {id: s7_1_dataset_stats, enabled: true}
+      - {id: s7_2_build_config, enabled: true}
+      - {id: s7_3_write_config, enabled: true}
+    base_template_path: null  # optional: configs/templates/flux_base.yaml
+
+  - type: BucketDryRunStep
+    substeps:
+      - {id: s8_1_assign_buckets, enabled: true}
+      - {id: s8_2_report_thin_buckets, enabled: true}
+      - {id: s8_3_cache_info, enabled: false}
+    thin_threshold: 2
+    cache_mode: false            # true = write cache_info.json
+    bucket_overrides: null       # [[1024,1024],[896,1152]] or null → network buckets

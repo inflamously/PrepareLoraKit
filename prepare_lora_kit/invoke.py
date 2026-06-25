@@ -34,7 +34,7 @@ def _invoke_ImportStep(working_dir: Path, output_dir: Path, cfg: ImportConfig,
 
 
 def _invoke_QualityGateStep(working_dir: Path, output_dir: Path, cfg: QualityGateConfig,
-                             *, original_dir: Path, **_kw) -> None:
+                            *, original_dir: Path, **_kw) -> None:
     from .steps import s1_source
     _require_working_dataset(working_dir)
     s1_source.run(
@@ -51,7 +51,7 @@ def _invoke_QualityGateStep(working_dir: Path, output_dir: Path, cfg: QualityGat
 
 
 def _invoke_CurateStep(working_dir: Path, output_dir: Path, cfg: CurateConfig,
-                        **_kw) -> None:
+                       **_kw) -> None:
     _require_working_dataset(working_dir)
     if _kw.get("mock_runtime"):
         return _mock_curate(
@@ -76,7 +76,7 @@ def _invoke_CurateStep(working_dir: Path, output_dir: Path, cfg: CurateConfig,
 
 
 def _invoke_UpscaleStep(working_dir: Path, output_dir: Path, cfg: UpscaleConfig,
-                         **_kw) -> None:
+                        **_kw) -> None:
     _require_working_dataset(working_dir)
     from .steps import s3_upscale
     s3_upscale.run(
@@ -101,7 +101,7 @@ def _invoke_UpscaleStep(working_dir: Path, output_dir: Path, cfg: UpscaleConfig,
 
 
 def _invoke_VaeGateStep(working_dir: Path, output_dir: Path, cfg: VaeGateConfig,
-                         *, network, **_kw) -> None:
+                        *, network, **_kw) -> None:
     _require_working_dataset(working_dir)
     if _kw.get("mock_runtime"):
         _mock_vae_gate(
@@ -135,14 +135,13 @@ def _invoke_VaeGateStep(working_dir: Path, output_dir: Path, cfg: VaeGateConfig,
 
 
 def _invoke_CaptionStep(working_dir: Path, output_dir: Path, cfg: CaptionConfig,
-                         *, concept_token: Optional[str], **_kw) -> None:
+                        *, concept_token: Optional[str], **_kw) -> None:
     _require_working_dataset(working_dir)
     if _kw.get("mock_runtime"):
         _mock_caption(
             working_dir,
             output_dir,
             concept_token=concept_token,
-            interaction=_kw.get("interaction"),
             force=bool(_kw.get("force", False)),
             enabled_substeps=_kw.get("enabled_substeps"),
             cancel_check=_kw.get("cancel_check"),
@@ -174,7 +173,7 @@ def _invoke_CaptionStep(working_dir: Path, output_dir: Path, cfg: CaptionConfig,
 
 
 def _invoke_AuditStep(working_dir: Path, output_dir: Path, cfg: AuditConfig,
-                       *, network, **_kw) -> dict:
+                      *, network, **_kw) -> dict:
     _require_working_dataset(working_dir)
     from .steps import s6_audit
     return s6_audit.run(
@@ -187,8 +186,8 @@ def _invoke_AuditStep(working_dir: Path, output_dir: Path, cfg: AuditConfig,
 
 
 def _invoke_ConfigGenStep(working_dir: Path, output_dir: Path, cfg: ConfigGenConfig,
-                           *, network, concept_token: Optional[str],
-                           network_type: Optional[str] = None, **_kw) -> None:
+                          *, network, concept_token: Optional[str],
+                          network_type: Optional[str] = None, **_kw) -> None:
     _require_working_dataset(working_dir)
     from .steps import s7_config
     s7_config.run(
@@ -204,7 +203,7 @@ def _invoke_ConfigGenStep(working_dir: Path, output_dir: Path, cfg: ConfigGenCon
 
 
 def _invoke_BucketDryRunStep(working_dir: Path, output_dir: Path, cfg: BucketDryRunConfig,
-                              *, network, **_kw) -> None:
+                             *, network, **_kw) -> None:
     _require_working_dataset(working_dir)
     from .steps import s8_bucket
     s8_bucket.run(
@@ -220,14 +219,14 @@ def _invoke_BucketDryRunStep(working_dir: Path, output_dir: Path, cfg: BucketDry
 
 
 STEP_INVOKE_MAP: dict[str, Callable] = {
-    "ImportStep":       _invoke_ImportStep,
-    "QualityGateStep":  _invoke_QualityGateStep,
-    "CurateStep":       _invoke_CurateStep,
-    "UpscaleStep":      _invoke_UpscaleStep,
-    "VaeGateStep":      _invoke_VaeGateStep,
-    "CaptionStep":      _invoke_CaptionStep,
-    "AuditStep":        _invoke_AuditStep,
-    "ConfigGenStep":    _invoke_ConfigGenStep,
+    "ImportStep": _invoke_ImportStep,
+    "QualityGateStep": _invoke_QualityGateStep,
+    "CurateStep": _invoke_CurateStep,
+    "UpscaleStep": _invoke_UpscaleStep,
+    "VaeGateStep": _invoke_VaeGateStep,
+    "CaptionStep": _invoke_CaptionStep,
+    "AuditStep": _invoke_AuditStep,
+    "ConfigGenStep": _invoke_ConfigGenStep,
     "BucketDryRunStep": _invoke_BucketDryRunStep,
 }
 
@@ -238,13 +237,13 @@ def _require_working_dataset(working_dir: Path) -> None:
 
 
 def _mock_curate(
-    working_dir: Path,
-    output_dir: Path,
-    cfg: CurateConfig,
-    *,
-    coverage_mode: str = "auto",
-    enabled_substeps: list[str] | None = None,
-    cancel_check=None,
+        working_dir: Path,
+        output_dir: Path,
+        cfg: CurateConfig,
+        *,
+        coverage_mode: str = "auto",
+        enabled_substeps: list[str] | None = None,
+        cancel_check=None,
 ) -> dict:
     from .steps.s2_curate.coverage import _save_pca, _save_umap
     from .steps.s2_curate.dedupe import _compute_hashes, _find_duplicates
@@ -281,7 +280,7 @@ def _mock_curate(
         check_cancel(cancel_check)
         embeddings = _mock_embeddings(kept_images)
         use_umap = mode == "umap" or (
-            mode == "auto" and len(kept_images) > cfg.pca_umap_switch_threshold
+                mode == "auto" and len(kept_images) > cfg.pca_umap_switch_threshold
         )
         if use_umap:
             coverage_path = reports_dir / "coverage_umap.png"
@@ -352,12 +351,12 @@ def _mock_embeddings(paths: list[Path]) -> "np.ndarray":
 
 
 def _mock_vae_gate(
-    working_dir: Path,
-    output_dir: Path,
-    *,
-    interaction=None,
-    enabled_substeps: list[str] | None = None,
-    cancel_check=None,
+        working_dir: Path,
+        output_dir: Path,
+        *,
+        interaction=None,
+        enabled_substeps: list[str] | None = None,
+        cancel_check=None,
 ) -> dict:
     from .utils import image as img_utils
     from .utils import report as rpt
@@ -400,7 +399,7 @@ def _mock_vae_gate(
     survivors = [
         path for path in images
         if "s4_3_apply_decisions" not in enabled
-        or decisions.get(str(path), decisions.get(str(path.resolve()), "keep")) != "drop"
+           or decisions.get(str(path), decisions.get(str(path.resolve()), "keep")) != "drop"
     ]
     img_utils.materialize(survivors, working_dir, working_dir)
     report = {
@@ -436,34 +435,26 @@ def _mock_vae_gate(
 
 
 def _mock_caption(
-    working_dir: Path,
-    output_dir: Path,
-    *,
-    concept_token: Optional[str],
-    interaction,
-    force: bool,
-    enabled_substeps: list[str] | None = None,
-    cancel_check=None,
+        working_dir: Path,
+        output_dir: Path,
+        *,
+        concept_token: Optional[str],
+        force: bool,
+        enabled_substeps: list[str] | None = None,
+        cancel_check=None,
 ) -> dict:
-    from .interaction import CliInteractionProvider
     from .utils import image as img_utils
     from .utils import report as rpt
 
     rpt.step_header(5, "Caption — Mock Runtime")
     enabled = set(enabled_substeps or ["s5_1_annotate", "s5_2_caption", "s5_3_validate"])
     working_dir.mkdir(parents=True, exist_ok=True)
-    provider = interaction or CliInteractionProvider()
     images = img_utils.iter_images(working_dir)
     token_prefix = f"{concept_token}, " if concept_token else ""
 
     captions: dict[str, str] = {}
     annotation_log: dict[str, list] = {}
     skipped_annotation: list[str] = []
-    skip_all = False
-
-    def _region_captioner(_crop, _metadata=None):
-        check_cancel(cancel_check)
-        return {"caption": f"{token_prefix}mock region caption".strip(", ")}
 
     for path in images:
         check_cancel(cancel_check)
@@ -478,15 +469,9 @@ def _mock_caption(
                 captions[str(path)] = txt_path.read_text(encoding="utf-8").strip()
             continue
 
-        if "s5_1_annotate" not in enabled:
-            annotations, skipped = [], True
-        elif skip_all:
-            annotations, skipped = [], True
-        else:
-            annotations, skipped, skip_all = provider.annotate_image(
-                path,
-                captioner=_region_captioner,
-            )
+        # Region annotation is a UI-only feature; the mock always skips it.
+        annotations, skipped = [], True
+
         annotation_log[str(path)] = annotations
         check_cancel(cancel_check)
         if skipped:

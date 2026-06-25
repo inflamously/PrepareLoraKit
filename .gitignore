@@ -6,4 +6,4 @@ __pycache__
 outputs
 node_modules
 configs/projects/*.yaml
-!configs/projects/exampe.yaml
+!configs/projects/example.yaml

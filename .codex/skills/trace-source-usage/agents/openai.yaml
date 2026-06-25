@@ -1,0 +1,4 @@
+interface:
+  display_name: "Trace Source Usage"
+  short_description: "Explain where a file or symbol is used"
+  default_prompt: "Use $trace-source-usage to explain when this file is used and where it is called from."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Vertical Slice Source"
+  short_description: "Split source into focused vertical slices"
+  default_prompt: "Use $vertical-slice-source to split this source module by responsibility while preserving behavior and confirming the slice layout first."

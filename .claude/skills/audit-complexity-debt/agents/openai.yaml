@@ -1,0 +1,4 @@
+interface:
+  display_name: "Audit Complexity Debt"
+  short_description: "Find oversized and mixed-intent files"
+  default_prompt: "Use $audit-complexity-debt to scan this repository for large, mixed-responsibility, or unreadable files and write the findings as a concise table."
