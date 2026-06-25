@@ -73,10 +73,15 @@
                   <button id="tabPipeline" class="nf-tab is-active" type="button" role="tab" aria-selected="true" data-tab="pipeline">Pipeline</button>
                   <button id="tabMetadata" class="nf-tab" type="button" role="tab" aria-selected="false" data-tab="metadata">Project</button>
                 </div>
-                <button id="selectPending" class="nf-btn nf-btn--secondary nf-btn--sm nf-panel__action">Reset active</button>
               </div>
               <div class="nf-panel__body">
                 <div class="tab-pane" role="tabpanel" data-pane="pipeline">
+                  <div class="step-toolbar">
+                    <button id="collapseAllSteps" class="nf-btn nf-btn--secondary nf-btn--sm" type="button">Collapse all</button>
+                    <button id="expandAllSteps" class="nf-btn nf-btn--secondary nf-btn--sm" type="button">Show all</button>
+                    <button id="unselectAllSteps" class="nf-btn nf-btn--secondary nf-btn--sm" type="button">Unselect all</button>
+                    <button id="selectPending" class="nf-btn nf-btn--secondary nf-btn--sm" type="button">Reset active</button>
+                  </div>
                   <p id="projectSummary" class="nf-panel__sub">Select a project and dataset.</p>
                   <div id="stepList" class="step-list"></div>
                 </div>

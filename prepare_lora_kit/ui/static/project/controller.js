@@ -99,6 +99,28 @@ export function selectPending() {
   render();
 }
 
+export function unselectAll() {
+  if (!state.project) return;
+
+  state.selectedSteps = new Set();
+  state.selectedSubsteps = new Map();
+  render();
+}
+
+export function collapseAll() {
+  if (!state.project) return;
+
+  state.collapsedSteps = new Set(state.project.steps.map((step) => step.type));
+  render();
+}
+
+export function expandAll() {
+  if (!state.project) return;
+
+  state.collapsedSteps = new Set();
+  render();
+}
+
 function ensureProjectOption(name) {
   if (!name || state.projects.includes(name)) return;
 

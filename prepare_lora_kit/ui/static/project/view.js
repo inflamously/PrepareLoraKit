@@ -37,17 +37,19 @@ function renderStep(step) {
   const optional = step.optional ? " - Optional" : "";
   const availableSubsteps = step.substeps || [];
   const checked = state.selectedSteps.has(step.type) ? "checked" : "";
+  const collapsed = state.collapsedSteps.has(step.type);
   row.className = [
     "step",
     "nf-step",
     checked ? "is-checked" : "nf-step--disabled",
     running ? "nf-step--active" : "",
+    collapsed ? "collapsed" : "",
   ].filter(Boolean).join(" ");
 
   row.innerHTML = `
     <div class="nf-step__lead">
       <input class="nf-check" type="checkbox" ${checked} ${disabled} data-step="${escapeText(step.type)}" />
-      <button class="step-toggle nf-step__caret" type="button" aria-expanded="true" ${disabled}>v</button>
+      <button class="step-toggle nf-step__caret" type="button" aria-expanded="${!collapsed}" ${disabled}>${collapsed ? "▸" : "▾"}</button>
     </div>
     <div class="step-content nf-step__body">
       <strong class="nf-step__title">${escapeText(stepLabel(step.type))}</strong>
@@ -82,10 +84,12 @@ function renderStep(step) {
   });
 
   row.querySelector(".step-toggle").addEventListener("click", () => {
-    row.classList.toggle("collapsed");
-    const expanded = !row.classList.contains("collapsed");
-    row.querySelector(".step-toggle").setAttribute("aria-expanded", String(expanded));
-    row.querySelector(".step-toggle").textContent = expanded ? "v" : ">";
+    if (state.collapsedSteps.has(step.type)) {
+      state.collapsedSteps.delete(step.type);
+    } else {
+      state.collapsedSteps.add(step.type);
+    }
+    renderSteps();
   });
 
   return row;

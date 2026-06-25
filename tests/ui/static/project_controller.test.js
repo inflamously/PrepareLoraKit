@@ -5,8 +5,11 @@ import { JSDOM } from "jsdom";
 
 import { state } from "../../../prepare_lora_kit/ui/static/core/state.js";
 import {
+  collapseAll,
+  expandAll,
   loadProject,
   selectPending,
+  unselectAll,
 } from "../../../prepare_lora_kit/ui/static/project/controller.js";
 import { selectedSubstepMap } from "../../../prepare_lora_kit/ui/static/project/selection.js";
 
@@ -68,6 +71,7 @@ beforeEach(() => {
   state.selectedSubsteps = new Map([
     ["UpscaleStep", new Set(["s3_1_select_candidates"])],
   ]);
+  state.collapsedSteps = new Set();
   state.jobId = null;
   state.job = null;
   state.handledRequestId = null;
@@ -126,6 +130,29 @@ describe("project controller selection", () => {
       "s1_1_score",
       "s1_2_decide",
     ]);
+  });
+
+  it("clears all selected steps and substeps on unselect all", () => {
+    unselectAll();
+
+    assert.deepEqual([...state.selectedSteps], []);
+    assert.equal(state.selectedSubsteps.size, 0);
+  });
+
+  it("collapses every step then expands them again", () => {
+    collapseAll();
+
+    assert.deepEqual([...state.collapsedSteps].sort(), [
+      "CurateStep",
+      "ImportStep",
+      "QualityGateStep",
+      "UpscaleStep",
+      "VaeGateStep",
+    ]);
+
+    expandAll();
+
+    assert.equal(state.collapsedSteps.size, 0);
   });
 
   it("resets project-scoped session state on explicit project change", async () => {
