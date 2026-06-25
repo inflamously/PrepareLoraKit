@@ -6,9 +6,15 @@ from ..fields import FieldSpec, _number, _select
 STEP_TYPE = "CaptionStep"
 
 _CAPTION_MODELS = [
+    ("Qwen/Qwen3-VL-2B-Instruct", "Qwen3-VL 2B"),
+    ("Qwen/Qwen3-VL-4B-Instruct", "Qwen3-VL 4B"),
+    ("Qwen/Qwen3-VL-8B-Instruct", "Qwen3-VL 8B"),
     ("Qwen/Qwen2.5-VL-3B-Instruct", "Qwen2.5-VL 3B"),
     ("Qwen/Qwen2.5-VL-7B-Instruct", "Qwen2.5-VL 7B"),
     ("Qwen/Qwen2-VL-7B-Instruct", "Qwen2-VL 7B"),
+    ("fancyfeast/llama-joycaption-beta-one-hf-llava", "JoyCaption Beta One"),
+    ("OpenGVLab/InternVL3-8B", "InternVL3 8B"),
+    ("openbmb/MiniCPM-V-4_5", "MiniCPM-V 4.5"),
 ]
 
 FIELDS: list[FieldSpec] = [
