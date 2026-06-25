@@ -5,7 +5,7 @@ import { closeModal, showModal } from "../../components/modal.js";
 
 const CUSTOM = "__custom__";
 
-// Render the mid-run, pre-step config strip. The run thread is paused waiting on
+// Render the mid-run, pre-step config modal. The run thread is paused waiting on
 // `pending`; submitting resolves it with the edited overrides and continues.
 export function showStepConfig(pending, { onSubmitted }) {
   const { step_type: stepType, fields = [], values = {}, error } = pending.payload;
