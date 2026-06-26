@@ -14,7 +14,7 @@ def _is_bbox_artifact(path: Path) -> bool:
 
 
 def _clean_bbox_artifacts(folder: Path) -> None:
-    for path in folder.iterdir():
+    for path in folder.rglob("*"):
         if path.is_file() and path.stem.startswith(BBOX_PREFIX):
             path.unlink(missing_ok=True)
 
@@ -30,10 +30,13 @@ def _save_bbox_training_item(
     caption: str,
     concept_token: str | None,
 ) -> dict[str, str]:
-    count = len(list(output_dir.glob(f"{BBOX_PREFIX}{source_path.stem}__*.png"))) + 1
+    # Keep region crops in the same subdirectory as their source image so the
+    # mirrored dataset layout is preserved (output_dir is the dataset root).
+    artifact_dir = source_path.parent
+    count = len(list(artifact_dir.glob(f"{BBOX_PREFIX}{source_path.stem}__*.png"))) + 1
     stem = _bbox_stem(source_path, count)
-    img_path = output_dir / f"{stem}.png"
-    txt_path = output_dir / f"{stem}.txt"
+    img_path = artifact_dir / f"{stem}.png"
+    txt_path = artifact_dir / f"{stem}.txt"
 
     final_caption = cap_utils.strip_boilerplate(caption)
     if concept_token and final_caption and not cap_utils.token_present(final_caption, concept_token):

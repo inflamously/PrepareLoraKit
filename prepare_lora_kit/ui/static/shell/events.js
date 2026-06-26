@@ -7,7 +7,7 @@ import {
   selectPending,
   unselectAll,
 } from "../project/controller.js";
-import { cancelRun, openOutput, startRun } from "../job/controller.js";
+import { cancelRun, openInput, openOutput, startRun } from "../job/controller.js";
 import { setActiveTab } from "./tabs.js";
 
 export function bindEvents() {
@@ -26,4 +26,5 @@ export function bindEvents() {
   $("runButton").addEventListener("click", startRun);
   $("cancelButton").addEventListener("click", cancelRun);
   $("openOutput").addEventListener("click", openOutput);
+  $("openInput").addEventListener("click", openInput);
 }

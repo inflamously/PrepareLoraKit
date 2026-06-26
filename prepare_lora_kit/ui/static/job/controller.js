@@ -60,6 +60,13 @@ export async function openOutput() {
   }
 }
 
+export async function openInput() {
+  const inputDir = state.inputDir.trim();
+  if (inputDir) {
+    await api().open_path(inputDir);
+  }
+}
+
 export async function pollJob() {
   if (!state.jobId) return;
 

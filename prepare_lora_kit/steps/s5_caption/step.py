@@ -94,6 +94,7 @@ def run(
 
         caption_result = _caption_dataset(
             images,
+            dataset_dir=dataset_dir,
             output_dir=output_dir,
             overwrite=overwrite,
             enabled=enabled,
@@ -124,6 +125,7 @@ def run(
 def _caption_dataset(
         images: list[Path],
         *,
+        dataset_dir: Path,
         output_dir: Path,
         overwrite: bool,
         enabled: set[str],
@@ -147,7 +149,8 @@ def _caption_dataset(
     for path in images:
         check_cancel(cancel_check)
 
-        txt_path = output_dir / (path.stem + ".txt")
+        txt_path = (output_dir / path.relative_to(dataset_dir)).with_suffix(".txt")
+        txt_path.parent.mkdir(parents=True, exist_ok=True)
 
         if _load_existing_caption(path, txt_path, result.captions, overwrite):
             continue

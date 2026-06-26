@@ -16,32 +16,46 @@ def is_image(path: Path) -> bool:
 
 
 def iter_images(folder: Path) -> list[Path]:
-    return sorted(p for p in folder.iterdir() if p.is_file() and is_image(p))
+    """Recursively collect images under ``folder`` (mirrored-subdir aware)."""
+    return sorted(p for p in folder.rglob("*") if p.is_file() and is_image(p))
+
+
+def _prune_empty_dirs(root: Path) -> None:
+    """Remove empty subdirectories under ``root`` (never ``root`` itself)."""
+    for d in sorted(root.rglob("*"), key=lambda p: len(p.parts), reverse=True):
+        if d.is_dir() and not any(d.iterdir()):
+            d.rmdir()
 
 
 def materialize(survivors, src_dir: Path, output_dir: Path) -> None:
     """Make ``output_dir`` hold exactly the images in ``survivors``.
+
+    Images may live in mirrored subdirectories under ``src_dir``; their relative
+    subpaths are preserved either way.
 
     Two modes, picked by whether output_dir is the folder the images already
     live in:
 
     - **in-place** (output_dir == src_dir): the pipeline's single working dir.
       Delete every image NOT in survivors; survivors stay put — no copy, no
-      per-step duplication.
+      per-step duplication. Empty subdirectories left behind are pruned.
     - **copy** (output_dir != src_dir): standalone single-step CLI use, where
-      the caller points -i and -o at different folders. Copy survivors across.
+      the caller points -i and -o at different folders. Copy survivors across,
+      recreating their relative subpaths.
     """
     output_dir.mkdir(parents=True, exist_ok=True)
-    keep = {Path(s).name for s in survivors}
+    keep = {Path(s).resolve() for s in survivors}
     if output_dir.resolve() == src_dir.resolve():
         for p in iter_images(src_dir):
-            if p.name not in keep:
+            if p.resolve() not in keep:
                 p.unlink()
+        _prune_empty_dirs(src_dir)
     else:
         for s in survivors:
             s = Path(s)
-            dst = output_dir / s.name
+            dst = output_dir / s.relative_to(src_dir)
             if not dst.exists():
+                dst.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(s, dst)
 
 

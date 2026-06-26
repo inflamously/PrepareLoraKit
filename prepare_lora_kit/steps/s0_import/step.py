@@ -1,6 +1,7 @@
 """Step 0 - Import source images into the working dataset."""
 from __future__ import annotations
 
+import os
 import shutil
 from pathlib import Path
 
@@ -10,28 +11,35 @@ from ...utils import report as rpt
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tiff", ".tif"}
 
 
+def get_recursive_mirror_paths(root_path: Path, item_path: Path) -> Path:
+    return item_path.relative_to(root_path)
+
+
 def run(
-    input_dir: Path,
-    output_dir: Path,
-    report_path: Path | None = None,
-    enabled_substeps: list[str] | None = None,
-    cancel_check: CancelCheck | None = None,
+        input_dir: Path,
+        output_dir: Path,
+        report_path: Path | None = None,
+        enabled_substeps: list[str] | None = None,
+        cancel_check: CancelCheck | None = None,
 ) -> dict:
     """Copy source images into the working dataset directory."""
 
     rpt.step_header(0, "Import Source Images")
-    images = _iter_images(input_dir)
-    if not images:
+    image_paths = _iter_images(input_dir)
+    if not image_paths:
         rpt.warn(f"No images found in {input_dir}")
 
     try:
         check_cancel(cancel_check)
         output_dir.mkdir(parents=True, exist_ok=True)
         imported: list[str] = []
-        for path in images:
+        for i in range(len(image_paths)):
+            source_image_path = image_paths[i]
+            target_image_path = get_recursive_mirror_paths(input_dir, source_image_path)
             check_cancel(cancel_check)
-            dst = output_dir / path.name
-            shutil.copy2(path, dst)
+            dst = output_dir / target_image_path
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            shutil.copy2(source_image_path, dst)
             imported.append(str(dst))
         check_cancel(cancel_check)
     except CancelledRun:
@@ -54,8 +62,10 @@ def run(
 
 
 def _iter_images(folder: Path) -> list[Path]:
-    return sorted(
-        path
-        for path in folder.iterdir()
-        if path.is_file() and path.suffix.lower() in IMAGE_EXTS
-    )
+    images = []
+    for root, dirs, files in os.walk(folder):
+        for file in files:
+            path = Path(root) / Path(file)
+            if path.is_file() and path.suffix in IMAGE_EXTS:
+                images.append(path)
+    return images

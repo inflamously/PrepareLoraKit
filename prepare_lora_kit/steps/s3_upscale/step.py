@@ -34,6 +34,7 @@ class OutputContext:
     output_dir: Path
     report_path: Path
     in_place: bool
+    src_dir: Path
 
 
 @dataclass
@@ -188,7 +189,18 @@ def _prepare_output_context(
         output_dir=output_dir,
         report_path=report_path or (output_dir / "step3_report.json"),
         in_place=output_dir.resolve() == dataset_dir.resolve(),
+        src_dir=dataset_dir,
     )
+
+
+def _dest_for(context: OutputContext, path: Path) -> Path:
+    """Mirror a source image's subpath into the output dir."""
+    return context.output_dir / path.relative_to(context.src_dir)
+
+
+def _tmp_for(out_path: Path, path: Path) -> Path:
+    """Temp upscale target next to the final destination (same subdir)."""
+    return out_path.parent / (path.stem + ".upscaling.tmp" + path.suffix)
 
 
 def _partition_images(dataset_dir: Path, upscale_target: int) -> ImagePartitions:
@@ -256,10 +268,11 @@ def _process_seedvr2_candidates(
     results: dict,
     cancel_check: CancelCheck | None = None,
 ) -> None:
-    tmp_by_source = {
-        path: context.output_dir / (path.stem + ".upscaling.tmp" + path.suffix)
-        for path in candidates
-    }
+    tmp_by_source = {}
+    for path in candidates:
+        out_path = _dest_for(context, path)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        tmp_by_source[path] = _tmp_for(out_path, path)
     try:
         check_cancel(cancel_check)
         failures = upscaler.process_many(tmp_by_source, cancel_check=cancel_check)
@@ -326,7 +339,9 @@ def _process_candidate(
     results: dict,
     cancel_check: CancelCheck | None = None,
 ) -> None:
-    tmp_path = context.output_dir / (path.stem + ".upscaling.tmp" + path.suffix)
+    out_path = _dest_for(context, path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = _tmp_for(out_path, path)
     try:
         check_cancel(cancel_check)
         upscaler(path, tmp_path)
@@ -361,7 +376,7 @@ def _accept_candidate(
     hallucination_check_enabled: bool,
     results: dict,
 ) -> None:
-    out_path = context.output_dir / path.name
+    out_path = _dest_for(context, path)
     hall_ssim = _hallucination_check(path, tmp_path) if hallucination_check_enabled else 1.0
     if hallucination_check_enabled and hall_ssim < hallucination_ssim_threshold:
         rpt.warn(f"REJECT upscale {path.name} (SSIM={hall_ssim:.3f}) - keeping original size.")
@@ -384,8 +399,9 @@ def _pass_through(context: OutputContext, path: Path) -> None:
     """Ensure the original sits at its output slot unchanged."""
     if context.in_place:
         return
-    dst = context.output_dir / path.name
+    dst = _dest_for(context, path)
     if not dst.exists():
+        dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(path, dst)
 
 

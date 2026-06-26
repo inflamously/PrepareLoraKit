@@ -21,13 +21,17 @@ def collect_stems(dataset_dir: Path) -> tuple[dict, dict]:
     image_stems: dict[str, Path] = {}
     txt_stems: dict[str, Path] = {}
 
-    for p in sorted(dataset_dir.iterdir()):
+    # Recurse so mirrored subdirectories are audited, and key by the relative
+    # stem (subpath without extension) so an image pairs with the .txt beside it
+    # and same-named files in different subdirs never collide.
+    for p in sorted(dataset_dir.rglob("*")):
         if not p.is_file():
             continue
+        rel_stem = str(p.relative_to(dataset_dir).with_suffix(""))
         if p.suffix.lower() in _IMG_EXTS:
-            image_stems[p.stem] = p
+            image_stems[rel_stem] = p
         elif p.suffix.lower() == ".txt":
-            txt_stems[p.stem] = p
+            txt_stems[rel_stem] = p
 
     return image_stems, txt_stems
 
