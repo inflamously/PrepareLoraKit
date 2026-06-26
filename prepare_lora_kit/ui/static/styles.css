@@ -10,6 +10,7 @@
 @import "./steps/vae_review/vae_review.css";
 @import "./steps/bbox_annotation/bbox_annotation.css";
 @import "./steps/step_config/step_config.css";
+@import "./steps/step_help/step_help.css";
 
 .hidden {
   display: none;

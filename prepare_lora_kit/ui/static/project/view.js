@@ -1,5 +1,6 @@
 import { $, escapeText, setText, stepLabel } from "../core/dom.js";
 import { state } from "../+state/index.js";
+import { showStepHelp } from "../steps/step_help/step_help.js";
 
 const TERMINAL_STATUSES = new Set(["completed", "failed", "cancelled"]);
 
@@ -56,6 +57,7 @@ function renderStep(step) {
       <small class="nf-step__meta">${escapeText(step.type)} <span class="nf-sep">&middot;</span> ${escapeText(prereq)}${optional}</small>
     </div>
     <span class="step-status nf-step__status ${pillClass(status)}">${escapeText(status)}</span>
+    <button class="nf-step__help" type="button" title="What does this step do?" aria-label="Step help">?</button>
     <div class="substep-list">
       ${availableSubsteps.map((substep) => renderSubstep(step, substep, disabled)).join("")}
     </div>
@@ -81,6 +83,13 @@ function renderStep(step) {
       state.selectedSubsteps.delete(step.type);
     }
     renderSteps();
+  });
+
+  // Help is always available — intentionally not gated by `disabled` so users
+  // can read what a step does even while a job is running.
+  row.querySelector(".nf-step__help").addEventListener("click", (event) => {
+    event.stopPropagation();
+    showStepHelp(step.type);
   });
 
   row.querySelector(".step-toggle").addEventListener("click", () => {

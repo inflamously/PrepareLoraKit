@@ -18,7 +18,7 @@
 .step {
   --lead-col: 56px;
   display: grid;
-  grid-template-columns: var(--lead-col) minmax(0, 1fr) auto;
+  grid-template-columns: var(--lead-col) minmax(0, 1fr) auto auto;
   align-items: center;
   padding: var(--space-3) var(--space-4);
 }

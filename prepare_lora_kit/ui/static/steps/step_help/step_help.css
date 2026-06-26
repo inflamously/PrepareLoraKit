@@ -1,0 +1,126 @@
+/* Per-step "?" trigger button in the step header (see project/view.js). Sits in
+   the grid column added after the status pill. */
+.nf-step__help {
+  flex: none;
+  justify-self: end;
+  align-self: center;
+  width: 22px;
+  height: 22px;
+  min-height: 22px;
+  padding: 0;
+  margin-left: var(--space-2);
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--hairline);
+  background: var(--night-800);
+  color: var(--text-2);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.nf-step__help:hover {
+  color: var(--gold-500);
+  border-color: var(--gold-500);
+}
+
+/* ── Help modal ──────────────────────────────────────────────────────────── */
+.step-help .modal-header h2 {
+  margin: 0;
+}
+
+.step-help .modal-header p {
+  margin: 2px 0 0;
+  color: var(--caption);
+  white-space: normal;
+}
+
+.step-help__tabs {
+  display: flex;
+  gap: var(--space-2);
+  flex: 0 0 auto;
+  padding: var(--space-2) var(--space-4) 0;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.step-help__tab {
+  padding: var(--space-2) var(--space-3);
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: var(--text-2);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.step-help__tab:hover {
+  color: var(--text-1);
+}
+
+.step-help__tab--active {
+  color: var(--gold-500);
+  border-bottom-color: var(--gold-500);
+}
+
+.step-help__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-4);
+}
+
+.step-help__heading {
+  margin: var(--space-4) 0 var(--space-2);
+  font-size: var(--text-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--caption);
+}
+
+.step-help__panel + .step-help__panel .step-help__heading {
+  margin-top: var(--space-5);
+}
+
+.step-help__detail {
+  margin: 0;
+  line-height: 1.55;
+  color: var(--text-1);
+}
+
+.step-help__empty {
+  margin: 0;
+  color: var(--caption);
+}
+
+.step-help__list {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.step-help__row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.step-help__term {
+  font-weight: 650;
+  color: var(--text-1);
+}
+
+.step-help__id {
+  margin-left: var(--space-2);
+  font-weight: 400;
+  font-size: var(--text-xs);
+  color: var(--text-3);
+}
+
+.step-help__desc {
+  margin: 0;
+  line-height: 1.5;
+  color: var(--text-2);
+}
