@@ -55,7 +55,8 @@ def _default_pipeline() -> list[dict[str, Any]]:
             "umap_n_neighbors": 15,
             "umap_min_dist": 0.1,
             "pca_n_components": 2,
-            "clip_model_id": "openai/clip-vit-base-patch32",
+            "clip_model_id": "ViT-B-32",
+            "coverage_embedding_model": "auto",
             "substeps": _default_substep_data("CurateStep"),
         },
         {

@@ -6,29 +6,35 @@ from ...cancellation import CancelCheck, check_cancel
 from ...utils import report as rpt
 
 
-def _clip_embeddings(paths: list[Path], cancel_check: CancelCheck | None = None) -> "np.ndarray":
-    import torch
-    import numpy as np
-    from PIL import Image
-    from .clip_model import load_clip
+def _coverage_embeddings(
+    paths: list[Path],
+    model_id: str,
+    cancel_check: CancelCheck | None = None,
+) -> "np.ndarray":
+    """Image embeddings for the coverage plot using the selected model family.
 
-    model, processor = load_clip()
+    Dispatches to CLIP (open_clip), DINOv2, or Qwen via the shared embedding
+    package. Each loader flattens to a 1D row so the stacked array is 2D (N, D)
+    for PCA/UMAP regardless of the model's native feature shape.
+    """
+    from ...embedding.loaders import embed_images
 
-    embeddings = []
-    for p in paths:
-        check_cancel(cancel_check)
-        image = Image.open(p).convert("RGB")
-        inputs = processor(images=image, return_tensors="pt")
-        with torch.no_grad():
-            feat = model.get_image_features(**inputs)
-        # Flatten to 1D so the stacked array is 2D (N, D) for PCA/UMAP,
-        # regardless of whether the model returns pooled (D,) or spatial (C,H,W) features.
-        embeddings.append(feat[0].cpu().numpy().reshape(-1))
+    emb = embed_images(model_id, paths, cancel_check=cancel_check)
     check_cancel(cancel_check)
-    return np.stack(embeddings)
+    return emb
 
 
-def _save_umap(embeddings, paths: list[Path], out_path: Path) -> dict:
+def _embedding_meta(model_id: str) -> dict:
+    from ...embedding import catalog
+
+    spec = catalog.get(model_id)
+    return {
+        "embedding": spec.family if spec else "custom",
+        "embedding_model": model_id,
+    }
+
+
+def _save_umap(embeddings, paths: list[Path], out_path: Path, model_id: str = "") -> dict:
     import warnings
 
     import matplotlib.pyplot as plt
@@ -51,20 +57,20 @@ def _save_umap(embeddings, paths: list[Path], out_path: Path) -> dict:
     ax.scatter(coords[:, 0], coords[:, 1], alpha=0.7, s=60)
     for i, p in enumerate(paths):
         ax.annotate(p.name[:20], (coords[i, 0], coords[i, 1]), fontsize=6, alpha=0.6)
-    ax.set_title("Dataset Coverage — CLIP UMAP")
+    ax.set_title("Dataset Coverage — UMAP")
     plt.tight_layout()
     plt.savefig(out_path, dpi=150)
     plt.close()
     rpt.ok(f"Coverage UMAP saved → {out_path}")
     return {
         "method": "umap",
-        "embedding": "clip",
+        **_embedding_meta(model_id),
         "preprocess": "pca",
         "pca_components": int(pca_components),
     }
 
 
-def _save_pca(embeddings, paths: list[Path], out_path: Path) -> dict:
+def _save_pca(embeddings, paths: list[Path], out_path: Path, model_id: str = "") -> dict:
     import matplotlib.pyplot as plt
     from sklearn.decomposition import PCA
 
@@ -74,13 +80,13 @@ def _save_pca(embeddings, paths: list[Path], out_path: Path) -> dict:
     ax.scatter(coords[:, 0], coords[:, 1], alpha=0.8, s=60)
     for i, p in enumerate(paths):
         ax.annotate(p.name[:20], (coords[i, 0], coords[i, 1]), fontsize=6, alpha=0.6)
-    ax.set_title("Dataset Coverage — CLIP PCA")
+    ax.set_title("Dataset Coverage — PCA")
     plt.tight_layout()
     plt.savefig(out_path, dpi=150)
     plt.close()
     rpt.ok(f"Coverage PCA saved → {out_path}")
     return {
         "method": "pca",
-        "embedding": "clip",
+        **_embedding_meta(model_id),
         "pca_components": 2,
     }

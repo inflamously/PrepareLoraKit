@@ -72,6 +72,8 @@ def _invoke_CurateStep(working_dir: Path, output_dir: Path, cfg: CurateConfig,
         report_path=output_dir / "reports" / "CurateStep_report.json",
         enabled_substeps=_kw.get("enabled_substeps"),
         cancel_check=_kw.get("cancel_check"),
+        clip_model_id=cfg.clip_model_id,
+        coverage_embedding_model=cfg.coverage_embedding_model,
     )
 
 

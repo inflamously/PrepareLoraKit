@@ -7,6 +7,8 @@ scikit-learn>=1.3
 imagehash>=4.3
 torch>=2.1
 torchvision>=0.16
+# open_clip backs the Curate-step CLIP coverage/occlusion model dropdown.
+open_clip_torch>=2.24
 # Qwen3-VL / InternVL3 caption models need native Auto-class support added in 4.57.
 transformers>=4.57
 accelerate>=0.27

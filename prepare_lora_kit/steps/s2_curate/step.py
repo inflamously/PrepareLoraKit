@@ -2,8 +2,8 @@
 Step 2 — Curation
 
 1. Perceptual-hash dedupe (phash, Hamming ≤ 8).
-2. CLIP coverage: UMAP scatter (N > 30) or PCA scatter (N ≤ 30).
-3. Occlusion filter via CLIP zero-shot.
+2. Coverage embedding (CLIP/DINOv2/Qwen, VRAM-auto): UMAP (N > 30) or PCA (N ≤ 30) scatter.
+3. Occlusion filter via CLIP zero-shot (text↔image, CLIP only).
 """
 from __future__ import annotations
 from pathlib import Path
@@ -13,8 +13,25 @@ from ...utils import image as img_utils
 from ...utils import report as rpt
 
 from .dedupe import _compute_hashes, _find_duplicates, _resolve_duplicates
-from .coverage import _clip_embeddings, _save_umap, _save_pca
+from .coverage import _coverage_embeddings, _save_umap, _save_pca
 from .occlusion import OCCLUSION_THRESHOLD, _occlusion_scores
+
+
+def _resolve_clip_model(clip_model_id: str | None) -> str:
+    """Canonical CLIP id for the occlusion filter (maps legacy HF ids)."""
+    from ...embedding import catalog
+
+    return catalog.normalize_id(clip_model_id)
+
+
+def _resolve_coverage_model(coverage_embedding_model: str | None) -> str:
+    """Resolve the coverage model, expanding ``auto`` from detected VRAM."""
+    from ...embedding import catalog, vram
+
+    choice = (coverage_embedding_model or catalog.AUTO).strip()
+    if choice == catalog.AUTO:
+        return catalog.auto_select(vram.total_vram_gb())
+    return catalog.normalize_id(choice)
 
 
 def run(
@@ -25,6 +42,8 @@ def run(
     report_path: Path | None = None,
     enabled_substeps: list[str] | None = None,
     cancel_check: CancelCheck | None = None,
+    clip_model_id: str | None = None,
+    coverage_embedding_model: str | None = None,
 ) -> dict:
     rpt.step_header(2, "Curation — Dedupe + Coverage")
     enabled = set(enabled_substeps or ["s2_1_dupecheck", "s2_2_clipscan", "s2_3_drop_images"])
@@ -65,20 +84,23 @@ def run(
     else:
         rpt.info(f"Drop-images substep disabled; retaining all {len(images)} image(s).")
 
+    # Resolve embedding model selections once for the clipscan substep.
+    occlusion_model = _resolve_clip_model(clip_model_id)
+    coverage_model = _resolve_coverage_model(coverage_embedding_model)
+
     # Coverage
     coverage_path: Path | None = None
     coverage_metadata: dict | None = None
     if not skip_clip and "s2_2_clipscan" in enabled:
         try:
-            emb = _clip_embeddings(kept_images, cancel_check=cancel_check)
+            rpt.info(f"Computing coverage embeddings ({coverage_model}) …")
+            emb = _coverage_embeddings(kept_images, coverage_model, cancel_check=cancel_check)
             if len(kept_images) > 30:
-                rpt.info("Computing CLIP embeddings for UMAP coverage …")
                 coverage_path = artifact_dir / "coverage_umap.png"
-                coverage_metadata = _save_umap(emb, kept_images, coverage_path)
+                coverage_metadata = _save_umap(emb, kept_images, coverage_path, coverage_model)
             else:
-                rpt.info("Computing CLIP embeddings for PCA coverage …")
                 coverage_path = artifact_dir / "coverage_pca.png"
-                coverage_metadata = _save_pca(emb, kept_images, coverage_path)
+                coverage_metadata = _save_pca(emb, kept_images, coverage_path, coverage_model)
         except CancelledRun:
             raise
         except Exception as exc:
@@ -90,8 +112,10 @@ def run(
     occluded: list[str] = []
     if not skip_clip and "s2_2_clipscan" in enabled:
         try:
-            rpt.info("Running occlusion filter (CLIP zero-shot) …")
-            occ_scores = _occlusion_scores(kept_images, cancel_check=cancel_check)
+            rpt.info(f"Running occlusion filter (CLIP zero-shot, {occlusion_model}) …")
+            occ_scores = _occlusion_scores(
+                kept_images, clip_model_id=occlusion_model, cancel_check=cancel_check
+            )
             occluded = [str(p) for p, s in occ_scores.items() if s < OCCLUSION_THRESHOLD]
             if occluded:
                 rpt.warn(f"{len(occluded)} images flagged as possibly occluded/ambiguous:")

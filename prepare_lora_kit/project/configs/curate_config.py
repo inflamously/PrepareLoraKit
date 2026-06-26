@@ -12,7 +12,8 @@ class CurateConfig:
     umap_n_neighbors: int = 15
     umap_min_dist: float = 0.1
     pca_n_components: int = 2
-    clip_model_id: str = "openai/clip-vit-base-patch32"
+    clip_model_id: str = "ViT-B-32"
+    coverage_embedding_model: str = "auto"
     skip_clip: bool = False
 
     def __post_init__(self) -> None:
