@@ -1,7 +1,7 @@
 import { api } from "../../core/api.js";
 import { stepLabel } from "../../core/dom.js";
 import { state } from "../../+state/index.js";
-import { closeModal, showModal } from "../../components/modal.js";
+import { closeModal, modalCancelButton, showModal } from "../../components/modal.js";
 
 const CUSTOM = "__custom__";
 
@@ -43,6 +43,9 @@ export function showStepConfig(pending, { onSubmitted }) {
     submit(overrides);
   });
   strip.querySelector("#stepConfigDefaults").addEventListener("click", () => submit({}));
+
+  const actions = strip.querySelector(".step-config__actions");
+  actions.insertBefore(modalCancelButton(onSubmitted), actions.firstChild);
 
   showModal(strip);
 }

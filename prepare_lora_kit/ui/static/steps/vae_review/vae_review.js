@@ -1,6 +1,6 @@
 import { api } from "../../core/api.js";
 import { state } from "../../+state/index.js";
-import { closeModal, showModal } from "../../components/modal.js";
+import { closeModal, modalCancelButton, showModal } from "../../components/modal.js";
 import { vaeReviewCard, syncVaeCards } from "./components/card.js";
 import { renderVaeDetail } from "./components/detail.js";
 import { vaeReviewModal } from "./components/modal.js";
@@ -60,6 +60,9 @@ export function showVaeReview(pending, { onSubmitted }) {
     closeModal();
     await onSubmitted();
   });
+
+  const actions = modal.querySelector(".modal-actions");
+  actions.insertBefore(modalCancelButton(onSubmitted), actions.firstChild);
 
   showModal(modal);
 }

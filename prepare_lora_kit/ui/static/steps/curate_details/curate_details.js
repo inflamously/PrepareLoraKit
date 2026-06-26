@@ -1,7 +1,7 @@
 import { api } from "../../core/api.js";
 import { escapeText } from "../../core/dom.js";
 import { state } from "../../+state/index.js";
-import { closeModal, showModal } from "../../components/modal.js";
+import { closeModal, modalCancelButton, showModal } from "../../components/modal.js";
 
 export function showCurateDetails(pending, { onSubmitted }) {
   const payload = pending.payload || {};
@@ -12,6 +12,9 @@ export function showCurateDetails(pending, { onSubmitted }) {
     closeModal();
     await onSubmitted();
   });
+
+  const actions = modal.querySelector(".modal-actions");
+  actions.insertBefore(modalCancelButton(onSubmitted), actions.firstChild);
 
   showModal(modal);
 }
@@ -25,7 +28,9 @@ function curateDetailsModal(payload) {
         <h2>Curate Details</h2>
         <p>${escapeText(subtitle(payload))}</p>
       </div>
-      <button class="primary" id="continueCurateDetails">Continue</button>
+      <div class="modal-actions">
+        <button class="primary" id="continueCurateDetails">Continue</button>
+      </div>
     </div>
     <div class="curate-details-body">
       <section class="curate-coverage">

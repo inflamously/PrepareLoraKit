@@ -2,7 +2,7 @@ import { api } from "../../core/api.js";
 import { escapeText } from "../../core/dom.js";
 import { state } from "../../+state/index.js";
 import { renderCaptionStatus } from "../../caption/status.js";
-import { closeModal, showModal } from "../../components/modal.js";
+import { closeModal, modalCancelButton, showModal } from "../../components/modal.js";
 import { createBoxPanel } from "./box_panel.js";
 import { createAnnotationCanvas } from "./canvas.js";
 
@@ -54,9 +54,16 @@ export function showAnnotator(pending, { onSubmitted }) {
     onChange: refresh,
   });
 
-  async function submitAnnotator(value) {
+  // Detach the canvas pointer handlers and the global caption-status listener so
+  // they don't leak once the modal is gone — runs whether the user continues or
+  // cancels the run.
+  function cleanup() {
     canvasController.cleanup();
     globalThis.removeEventListener("plk:job-status", renderModalCaptionStatus);
+  }
+
+  async function submitAnnotator(value) {
+    cleanup();
     await api().submit_interaction(state.jobId, pending.id, value);
     closeModal();
     await onSubmitted();
@@ -118,6 +125,15 @@ export function showAnnotator(pending, { onSubmitted }) {
       });
     });
 
+  const actions = modal.querySelector(".modal-actions");
+  actions.insertBefore(
+    modalCancelButton(async () => {
+      cleanup();
+      await onSubmitted();
+    }),
+    actions.firstChild,
+  );
+
   img.onload = canvasController.resizeToImage;
   img.src = image.uri;
   showModal(modal);
@@ -132,7 +148,9 @@ function annotatorModal(image) {
         <h2>Annotate Regions</h2>
         <p>${escapeText(image.name)} · drag on the image to add a box</p>
       </div>
-      <button class="primary" id="doneAnnotate">Done</button>
+      <div class="modal-actions">
+        <button class="primary" id="doneAnnotate">Done</button>
+      </div>
     </div>
     <div class="annotator">
       <div class="canvas-wrap"><canvas id="annotationCanvas"></canvas></div>

@@ -7,7 +7,9 @@ export function vaeReviewModal(itemCount) {
         <h2>VAE Review</h2>
         <p>${itemCount} images · review diagnostics and decide input handling</p>
       </div>
-      <button class="primary" id="finishVaeReview">Continue</button>
+      <div class="modal-actions">
+        <button class="primary" id="finishVaeReview">Continue</button>
+      </div>
     </div>
     <div class="vae-review-workspace">
       <div class="vae-review-grid"></div>

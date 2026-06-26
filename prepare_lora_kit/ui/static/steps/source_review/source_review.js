@@ -1,6 +1,6 @@
 import { api } from "../../core/api.js";
 import { state } from "../../+state/index.js";
-import { closeModal, showModal } from "../../components/modal.js";
+import { closeModal, modalCancelButton, showModal } from "../../components/modal.js";
 import { sourceReviewCard } from "./card.js";
 import { normalizeDecision } from "./decisions.js";
 import { renderSourceReviewDetail } from "./detail.js";
@@ -53,6 +53,9 @@ export function showSourceReview(pending, { onSubmitted }) {
     await onSubmitted();
   });
 
+  const actions = modal.querySelector(".modal-actions");
+  actions.insertBefore(modalCancelButton(onSubmitted), actions.firstChild);
+
   showModal(modal);
 }
 
@@ -65,7 +68,9 @@ function sourceReviewModal(itemCount) {
         <h2>Source Review</h2>
         <p>${itemCount} images · choose keep, reject, or flag</p>
       </div>
-      <button class="primary" id="finishReview">Continue</button>
+      <div class="modal-actions">
+        <button class="primary" id="finishReview">Continue</button>
+      </div>
     </div>
     <div class="source-review-workspace">
       <div class="review-grid"></div>

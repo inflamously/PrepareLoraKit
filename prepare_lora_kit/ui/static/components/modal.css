@@ -49,6 +49,16 @@
   min-width: 0;
 }
 
+/* Groups the header action buttons (Continue/Done alongside the Cancel run
+   button) so they sit together on the right of the header instead of being
+   spread apart by the header's space-between layout. */
+.modal-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 10px;
+}
+
 .modal-header p {
   color: var(--caption);
   overflow: hidden;
