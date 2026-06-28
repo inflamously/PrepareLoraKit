@@ -2,6 +2,7 @@ import { api } from "../core/api.js";
 import { $ } from "../core/dom.js";
 import { state } from "../+state/index.js";
 import { render } from "../shell/render.js";
+import { reconnectActiveJob } from "../job/controller.js";
 
 const TERMINAL_JOB_STATUSES = new Set(["completed", "failed", "cancelled"]);
 
@@ -62,6 +63,9 @@ export async function loadProject(options = {}) {
     preserveSelection: options.preserveSelection === true,
     resetSession: options.resetSession === true,
   });
+
+  // Re-adopt a pipeline still running on the backend (e.g. after an F5 reload).
+  await reconnectActiveJob(name);
 }
 
 export async function reloadCurrentProject(options = {}) {

@@ -92,6 +92,21 @@ function isActiveJob(job) {
   return job && !TERMINAL_STATUSES.has(job.status);
 }
 
+export async function reconnectActiveJob(projectName) {
+  if (isActiveJob(state.job) || state.jobId) return;
+
+  const result = await api().active_job();
+  const active = result?.active;
+  if (!active || !active.job_id) return;
+  if (projectName && active.project && active.project !== projectName) return;
+
+  state.jobId = active.job_id;
+  state.job = active.job;
+  state.runStarting = false;
+  state.handledRequestId = null;
+  await pollJob();
+}
+
 function buildRunRequest() {
   const inputDir = state.inputDir.trim();
   if (!inputDir) throw new Error("This project has no dataset folder. Set it in the Library.");

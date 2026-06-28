@@ -170,6 +170,10 @@ class UiBridge:
     def get_job_status(self, job_id: str) -> dict[str, Any]:
         return {"job": self.jobs.get(job_id).snapshot()}
 
+    def active_job(self) -> dict[str, Any]:
+        """Expose the in-flight job so a reloaded frontend can reconnect to it."""
+        return {"active": self.jobs.active_job()}
+
     def submit_interaction(self, job_id: str, request_id: str, value: Any) -> dict[str, Any]:
         accepted = self.jobs.get(job_id).submit_input(request_id, value)
         return {"accepted": accepted}

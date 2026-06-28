@@ -227,6 +227,7 @@
  * @property {(input_dir: string, output_dir: string | null) => Promise<ProjectLoadResult>} load_or_create_project_for_input
  * @property {(request: RunRequest) => Promise<{job_id: string}>} start_run
  * @property {(job_id: string) => Promise<{job: JobPayload}>} get_job_status
+ * @property {() => Promise<{active: {job_id: string, project: string | null, job: JobPayload} | null}>} active_job
  * @property {(job_id: string, request_id: string, value: unknown) => Promise<{accepted: boolean}>} submit_interaction
  * @property {(job_id: string) => Promise<{cancel_requested: boolean}>} cancel_job
  * @property {() => Promise<{cancel_requested: boolean}>} shutdown

@@ -147,6 +147,7 @@ def _invoke_CaptionStep(working_dir: Path, output_dir: Path, cfg: CaptionConfig,
             force=bool(_kw.get("force", False)),
             enabled_substeps=_kw.get("enabled_substeps"),
             cancel_check=_kw.get("cancel_check"),
+            interaction=_kw.get("interaction"),
         )
         return
 
@@ -444,9 +445,11 @@ def _mock_caption(
         force: bool,
         enabled_substeps: list[str] | None = None,
         cancel_check=None,
+        interaction=None,
 ) -> dict:
     from .utils import image as img_utils
     from .utils import report as rpt
+    from .steps.s5_caption.artifacts import _save_bbox_training_item
 
     rpt.step_header(5, "Caption — Mock Runtime")
     enabled = set(enabled_substeps or ["s5_1_annotate", "s5_2_caption", "s5_3_validate"])
@@ -454,9 +457,22 @@ def _mock_caption(
     images = img_utils.iter_images(working_dir)
     token_prefix = f"{concept_token}, " if concept_token else ""
 
+    # Mirror steps/s5_caption/regions.py::make_region_captioner but caption the
+    # cropped region with deterministic mock text instead of a VLM, so the UI
+    # "Caption selected box" button works end-to-end under --mock.
+    def mock_region_captioner(crop, metadata=None):
+        check_cancel(cancel_check)
+        source_raw = (metadata or {}).get("source_path") or (metadata or {}).get("image_path")
+        if not source_raw:
+            raise ValueError("Region caption metadata missing source_path")
+        source_path = Path(source_raw)
+        text = f"mock region caption for {source_path.stem}"
+        return _save_bbox_training_item(crop, source_path, output_dir, text, concept_token)
+
     captions: dict[str, str] = {}
     annotation_log: dict[str, list] = {}
     skipped_annotation: list[str] = []
+    skip_all = False
 
     for path in images:
         check_cancel(cancel_check)
@@ -471,8 +487,16 @@ def _mock_caption(
                 captions[str(path)] = txt_path.read_text(encoding="utf-8").strip()
             continue
 
-        # Region annotation is a UI-only feature; the mock always skips it.
-        annotations, skipped = [], True
+        # Drive the same annotation interaction the real workflow does
+        # (steps/s5_caption/workflow.py::_collect_annotations). Without a UI
+        # provider (headless/CLI mock), there is no annotator, so skip cleanly.
+        if "s5_1_annotate" not in enabled or skip_all or interaction is None:
+            annotations, skipped = [], True
+        else:
+            annotations, skipped, skip_all = interaction.annotate_image(
+                path,
+                captioner=mock_region_captioner,
+            )
 
         annotation_log[str(path)] = annotations
         check_cancel(cancel_check)

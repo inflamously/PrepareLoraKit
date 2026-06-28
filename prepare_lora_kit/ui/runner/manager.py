@@ -72,6 +72,24 @@ class JobManager:
             statuses[name] = job.snapshot()["status"]
         return statuses
 
+    def active_job(self) -> dict[str, Any] | None:
+        """Return the in-flight job (id, project, snapshot), or None if idle.
+
+        Used to reconnect the frontend to a still-running pipeline after the
+        webview is reloaded (F5), which wipes JS state but leaves this manager
+        and its job thread untouched.
+        """
+        with self._lock:
+            job_id = self._active_job_id
+            job = self._jobs.get(job_id) if job_id else None
+            project = self._job_projects.get(job_id) if job_id else None
+        if job_id is None or job is None:
+            return None
+        snapshot = job.snapshot()
+        if snapshot["status"] in TERMINAL_STATUSES:
+            return None
+        return {"job_id": job_id, "project": project, "job": snapshot}
+
     def get(self, job_id: str) -> PipelineJob:
         try:
             return self._jobs[job_id]

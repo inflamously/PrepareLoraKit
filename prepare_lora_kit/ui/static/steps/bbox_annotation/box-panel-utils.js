@@ -33,8 +33,9 @@ export function edgesToNormalizedBox(edges, width, height) {
 function applyBoundedStepValue(input, dir, step) {
   const min = input.min === "" ? -Infinity : Number(input.min);
   const max = input.max === "" ? Infinity : Number(input.max);
-  const next = (parseFloat(input.value) || 0) + dir * step;
-  return Math.max(min, Math.min(max, next));
+  const prevValue = (Number.parseFloat(input.value) || 0)
+  const nextValue = prevValue + dir * step;
+  return Math.max(min, Math.min(max, nextValue));
 }
 
 // Let Shift+ArrowUp/ArrowDown nudge a number input by `step` (instead of the
@@ -51,9 +52,12 @@ export function attachShiftStep(input, step) {
       event.key === "ArrowUp" ? 1 : event.key === "ArrowDown" ? -1 : 0;
     if (!dir) return;
     event.preventDefault();
-    applyBoundedStepValue(input, dir, step);
+    input.value = applyBoundedStepValue(input, dir, step);
     input.dispatchEvent(new Event("input", { bubbles: true }));
   });
+  input.addEventListener("keyup", (event) => {
+    isShiftPressed = event.shiftKey
+  })
   input.addEventListener("wheel", (event) => {
     if (document.activeElement !== input) {
       return;
@@ -66,7 +70,7 @@ export function attachShiftStep(input, step) {
     if (Number.isNaN(dir)) {
       return;
     }
-    applyBoundedStepValue(input, dir, step);
+    input.value = applyBoundedStepValue(input, dir, step);
     input.dispatchEvent(new Event("input", { bubbles: true }));
   })
 }
