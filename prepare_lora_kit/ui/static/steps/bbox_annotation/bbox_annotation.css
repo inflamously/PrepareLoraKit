@@ -75,12 +75,17 @@
   margin-top: 0;
 }
 
-/* Compact 2x2 grid of Left/Top/Right/Bottom pixel inputs so they stay tidy in
-   the 320px side panel. */
+/* Left/Top/Right/Bottom pixel inputs in a single inline row; each field flexes
+   evenly and is allowed to shrink within the side panel. */
 .box-coords {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  flex-direction: row;
   gap: 6px;
+}
+
+.box-coords .coord-field {
+  flex: 1 1 0;
+  min-width: 0;
 }
 
 .coord-field {

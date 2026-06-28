@@ -1,9 +1,13 @@
 import { escapeText } from "../../core/dom.js";
 import {
+  attachShiftStep,
   boxToPixelEdges,
   edgesToNormalizedBox,
   makeField,
 } from "./box-panel-utils.js";
+
+// Pixel step applied to a coordinate field while Shift is held.
+const SHIFT_STEP = 25;
 
 // Renders the side list of boxes: per-box label input, Left/Top/Right/Bottom
 // coordinate fields, and Select/Delete actions.
@@ -83,21 +87,29 @@ export class BoxPanel {
       field.input.max =
         key === "x1" || key === "x2" ? this.imgWidth() : this.imgHeight();
       field.input.addEventListener("input", applyFromFields);
+      attachShiftStep(field.input, SHIFT_STEP);
       wrap.appendChild(field.cell);
     }
     syncFromBox();
     return wrap;
   }
 
-  render() {
-    const { boxList, boxes } = this;
+  // Update the status line + caption button without rebuilding the list, so a
+  // focused input survives the change.
+  renderStatus() {
     const selected = this.getSelected();
-    const selectedBox = boxes[selected];
+    const selectedBox = this.boxes[selected];
     const selectedBoxLabel = selectedBox?.label ? ` - ${selectedBox.label}` : "";
     this.bboxStatus.textContent = selectedBox
       ? `Selected: Region ${selected + 1}${selectedBoxLabel}`
       : "No box selected";
     this.captionBoxButton.disabled = selected < 0;
+  }
+
+  render() {
+    const { boxList, boxes } = this;
+    const selected = this.getSelected();
+    this.renderStatus();
     boxList.replaceChildren();
     boxes.forEach((box, index) => {
       const item = document.createElement("div");
@@ -110,9 +122,13 @@ export class BoxPanel {
         <button class="danger">Delete</button>
       `;
       const input = item.querySelector("input");
+      // Update the box label in place: repaint the canvas + status only, never
+      // re-render the list, otherwise this input would be torn out from under
+      // the cursor on every keystroke.
       input.addEventListener("input", () => {
         box.label = input.value;
-        this.onChange();
+        this.renderStatus();
+        this.redraw?.();
       });
       item.querySelector(".secondary").addEventListener("click", () => {
         this.setSelected(index);

@@ -30,6 +30,47 @@ export function edgesToNormalizedBox(edges, width, height) {
   return { x1: left, y1: top, x2: right, y2: bottom };
 }
 
+function applyBoundedStepValue(input, dir, step) {
+  const min = input.min === "" ? -Infinity : Number(input.min);
+  const max = input.max === "" ? Infinity : Number(input.max);
+  const next = (parseFloat(input.value) || 0) + dir * step;
+  return Math.max(min, Math.min(max, next));
+}
+
+// Let Shift+ArrowUp/ArrowDown nudge a number input by `step` (instead of the
+// native 1), clamped to its min/max. Dispatches a synthetic input event so the
+// field's normal input handler runs and treats it like any other edit.
+export function attachShiftStep(input, step) {
+  let isShiftPressed = false;
+  input.addEventListener("keydown", (event) => {
+    isShiftPressed = event.shiftKey
+    if (!event.shiftKey) {
+      return;
+    }
+    const dir =
+      event.key === "ArrowUp" ? 1 : event.key === "ArrowDown" ? -1 : 0;
+    if (!dir) return;
+    event.preventDefault();
+    applyBoundedStepValue(input, dir, step);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  input.addEventListener("wheel", (event) => {
+    if (document.activeElement !== input) {
+      return;
+    }
+    if (!isShiftPressed) {
+      return;
+    }
+    event.preventDefault();
+    const dir = event.deltaY < 0 ? 1 : -1;
+    if (Number.isNaN(dir)) {
+      return;
+    }
+    applyBoundedStepValue(input, dir, step);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  })
+}
+
 // Build a single labelled number input (one box edge).
 export function makeField(label) {
   const cell = document.createElement("label");
