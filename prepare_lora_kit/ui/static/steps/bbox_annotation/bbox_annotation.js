@@ -4,7 +4,7 @@ import { renderCaptionStatus } from "../../caption/status.js";
 import { closeModal, modalCancelButton, showModal } from "../../components/modal.js";
 import { BoxPanel } from "./box_panel.js";
 import { AnnotationCanvas } from "./canvas.js";
-import { annotatorModal } from "./bbox-annotation-utils.js";
+import { annotatorModal, isUncaptioned } from "./bbox-annotation-utils.js";
 
 // Entry point kept as a function to match its sibling step handlers
 // (showSourceReview, showVaeReview, …) in job/controller.js.
@@ -21,6 +21,10 @@ class Annotator {
     this.image = pending.payload;
     this.boxes = [];
     this.selected = -1;
+    this.busy = false;
+    // Turns on after a Done click that found un-captioned regions, so the canvas
+    // and box list glow-highlight the offending frames until they're captioned.
+    this.highlightMissing = false;
     this.img = new Image();
 
     const modal = annotatorModal(this.image);
@@ -40,6 +44,8 @@ class Annotator {
       setSelected: (index) => {
         this.selected = index;
       },
+      getBusy: () => this.busy,
+      getHighlightMissing: () => this.highlightMissing,
       onBoxesChanged: this.refresh,
     });
 
@@ -53,6 +59,8 @@ class Annotator {
       setSelected: (index) => {
         this.selected = index;
       },
+      getBusy: () => this.busy,
+      getHighlightMissing: () => this.highlightMissing,
       onChange: this.refresh,
       redraw: () => this.canvasController.draw(),
     });
@@ -70,6 +78,18 @@ class Annotator {
     this.boxPanel?.render();
     this.canvasController?.draw();
   };
+
+  // Blocks a Done click that left regions un-captioned: turn on highlight mode,
+  // repaint so the offending frames glow, then set the message — after refresh()
+  // so BoxPanel.renderStatus doesn't overwrite it.
+  flagMissingCaptions(count) {
+    this.highlightMissing = true;
+    this.refresh();
+    this.bboxStatus.textContent = `Caption every region before finishing — ${count} region${
+      count === 1 ? "" : "s"
+    } still need a description.`;
+    this.bboxStatus.classList.add("bbox-status--error");
+  }
 
   renderModalCaptionStatus = (event) => {
     renderCaptionStatus(this.captionModelStatus, event.detail?.caption_status);
@@ -90,10 +110,30 @@ class Annotator {
     await this.onSubmitted();
   }
 
+  // Lock the whole modal while a caption request is in flight: every interactive
+  // control is disabled except closing the window, then re-enabled when the
+  // request finishes. `busy` is the single source of truth the canvas and box
+  // panel also read (via getBusy) to block drawing/selection mid-run.
+  setBusy(busy) {
+    this.busy = busy;
+    for (const id of [
+      "captionBox",
+      "clearBoxes",
+      "doneAnnotate",
+      "skipAnnotate",
+      "skipAllAnnotate",
+    ]) {
+      const el = this.modal.querySelector(`#${id}`);
+      if (el) el.disabled = busy;
+    }
+    if (this.cancelButton) this.cancelButton.disabled = busy;
+    this.boxPanel.setBusy(busy);
+  }
+
   async captionSelected() {
     const { boxes, selected, captionBoxButton } = this;
     if (selected < 0) return alert("Select a box first.");
-    captionBoxButton.disabled = true;
+    this.setBusy(true);
     captionBoxButton.textContent = "Captioning...";
     let errorMessage = "";
     try {
@@ -110,6 +150,7 @@ class Annotator {
       errorMessage = err?.message || String(err);
     } finally {
       captionBoxButton.textContent = "Caption selected box";
+      this.setBusy(false);
       renderCaptionStatus(this.captionModelStatus, state.job?.caption_status);
       this.refresh();
       if (errorMessage) {
@@ -127,6 +168,11 @@ class Annotator {
       this.refresh();
     });
     modal.querySelector("#doneAnnotate").addEventListener("click", () => {
+      const missing = this.boxes.filter(isUncaptioned);
+      if (missing.length) {
+        this.flagMissingCaptions(missing.length);
+        return;
+      }
       this.submitAnnotator({
         annotations: this.boxes.filter((box) => (box.label || "").trim()),
         skipped: false,
@@ -141,12 +187,10 @@ class Annotator {
     });
 
     const actions = modal.querySelector(".modal-actions");
-    actions.insertBefore(
-      modalCancelButton(async () => {
-        this.cleanup();
-        await this.onSubmitted();
-      }),
-      actions.firstChild,
-    );
+    this.cancelButton = modalCancelButton(async () => {
+      this.cleanup();
+      await this.onSubmitted();
+    });
+    actions.insertBefore(this.cancelButton, actions.firstChild);
   }
 }

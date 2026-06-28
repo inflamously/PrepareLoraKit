@@ -71,6 +71,30 @@
   background: var(--success-bg);
 }
 
+/* A region flagged as still needing a caption after a Done click: gold glow that
+   pulses to draw the eye. */
+.box-item--missing {
+  border-color: rgba(255, 224, 0, 0.65);
+  box-shadow: var(--glow-gold);
+  animation: bbox-missing-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes bbox-missing-pulse {
+  0%,
+  100% {
+    box-shadow: var(--glow-gold);
+  }
+  50% {
+    box-shadow: var(--glow-gold-strong);
+  }
+}
+
+.bbox-status--error {
+  border-color: var(--danger-500);
+  background: var(--danger-bg, rgba(255, 92, 106, 0.14));
+  color: #ffd7dc;
+}
+
 .box-item input {
   margin-top: 0;
 }

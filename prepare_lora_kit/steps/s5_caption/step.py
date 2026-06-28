@@ -27,7 +27,8 @@ from .artifacts import (
 from .reports import _save_failure_report, build_success_report, save_success_report
 from .validation import render_spot_check, validate_captions
 from .workflow import CaptionWorkflowResult, _load_existing_caption, \
-    _preserve_sidecar_when_captioning_disabled, _collect_annotations, _caption_full_image, _write_caption
+    _preserve_sidecar_when_captioning_disabled, _collect_annotations, \
+    _persist_region_caption_edits, _caption_full_image, _write_caption
 
 DEFAULT_SUBSTEPS = ["s5_1_annotate", "s5_2_caption", "s5_3_validate"]
 __all__ = [
@@ -168,6 +169,11 @@ def _caption_dataset(
             region_captioner=region_captioner,
             result=result,
             cancel_check=cancel_check,
+        )
+        _persist_region_caption_edits(
+            annotations,
+            result.captions,
+            concept_token=concept_token,
         )
         caption = _caption_full_image(
             path,

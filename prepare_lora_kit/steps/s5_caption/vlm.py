@@ -490,7 +490,7 @@ class CaptionRuntime:
         ann_lines = []
         for ann in annotations:
             x1, y1, x2, y2 = ann["x1"], ann["y1"], ann["x2"], ann["y2"]
-            region_desc = f"top-left ({x1:.2f},{y1:.2f}) to bottom-right ({x2:.2f},{y2:.2f})"
+            region_desc = cap_utils.describe_box_position(x1, y1, x2, y2)
             ann_lines.append({
                 "label": ann["label"],
                 "region_desc": region_desc,

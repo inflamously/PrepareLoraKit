@@ -1,5 +1,15 @@
 import { escapeText } from "../../core/dom.js";
 
+// A region still needs a caption if its label is blank or still the auto-filled
+// "region N" placeholder produced by canvas.js when the box was drawn. The regex
+// only matches "region" + digits, so real captions like "region of interest" are
+// left untouched.
+const PLACEHOLDER_RE = /^region\s+\d+$/i;
+export function isUncaptioned(box) {
+  const label = (box.label || "").trim();
+  return label === "" || PLACEHOLDER_RE.test(label);
+}
+
 // Build the "Annotate Regions" modal element. Stateless markup builder kept out
 // of the Annotator class; the class queries it for the elements it wires up.
 export function annotatorModal(image) {
@@ -12,6 +22,8 @@ export function annotatorModal(image) {
         <p>${escapeText(image.name)} · drag on the image to add a box</p>
       </div>
       <div class="modal-actions">
+        <button id="clearBoxes" class="secondary">Clear all boxes</button>
+        <button id="captionBox" class="primary">Caption selected box</button>
         <button class="primary" id="doneAnnotate">Done</button>
       </div>
     </div>
@@ -20,8 +32,6 @@ export function annotatorModal(image) {
       <div class="box-panel">
         <div id="bboxStatus" class="bbox-status">No box selected</div>
         <div id="captionModelStatus" class="caption-status hidden"></div>
-        <button id="captionBox" class="secondary">Caption selected box</button>
-        <button id="clearBoxes" class="secondary">Clear</button>
         <div id="boxList"></div>
       </div>
     </div>

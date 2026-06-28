@@ -225,6 +225,8 @@ function canvasContext(contextCalls) {
     fillRect: (...args) => contextCalls.push(["fillRect", ...args]),
     fillText: (...args) => contextCalls.push(["fillText", ...args]),
     strokeRect: (...args) => contextCalls.push(["strokeRect", ...args]),
+    save: () => contextCalls.push(["save"]),
+    restore: () => contextCalls.push(["restore"]),
     set fillStyle(value) {
       contextCalls.push(["fillStyle", value]);
     },
@@ -236,6 +238,12 @@ function canvasContext(contextCalls) {
     },
     set strokeStyle(value) {
       contextCalls.push(["strokeStyle", value]);
+    },
+    set shadowColor(value) {
+      contextCalls.push(["shadowColor", value]);
+    },
+    set shadowBlur(value) {
+      contextCalls.push(["shadowBlur", value]);
     },
   };
 }

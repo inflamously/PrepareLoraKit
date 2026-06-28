@@ -10,6 +10,7 @@ from ...interaction import InteractionProvider
 from ...utils import report as rpt
 
 from . import vlm
+from .artifacts import _update_bbox_caption
 from .reports import _save_failure_report
 from .validation import clean_caption_for_mode
 
@@ -71,6 +72,32 @@ def _collect_annotations(
     if skipped:
         result.skipped_annotation.append(str(path))
     return annotations
+
+
+def _persist_region_caption_edits(
+        annotations: list,
+        captions: dict[str, str],
+        *,
+        concept_token: str | None,
+) -> None:
+    """Write back edits made to captioned regions before the modal was submitted.
+
+    A region captioned in the UI carries a ``sidecar_path`` (and ``crop_path``); its
+    label may have been edited after captioning. Rewrite each such sidecar from the
+    submitted label so the on-disk training caption reflects the edit, and keep the
+    in-memory ``captions`` map (keyed by crop path) consistent for reporting.
+    """
+    for ann in annotations:
+        if not isinstance(ann, dict):
+            continue
+        sidecar = ann.get("sidecar_path")
+        label = (ann.get("label") or "").strip()
+        if not sidecar or not label:
+            continue
+        final = _update_bbox_caption(Path(sidecar), label, concept_token)
+        crop_path = ann.get("crop_path")
+        if crop_path:
+            captions[crop_path] = final
 
 
 def _caption_full_image(

@@ -28,8 +28,28 @@ export function showStepConfig(pending, { onSubmitted }) {
   `;
 
   const row = strip.querySelector(".step-config__fields");
-  const controls = fields.map((spec) => buildField(spec, values[spec.name]));
-  row.replaceChildren(...controls.map((control) => control.element));
+  const hasPrompts = fields.some((f) => f.control === "prompt");
+  const controls = fields.map((spec) => ({
+    ...buildField(spec, values[spec.name]),
+    control: spec.control,
+  }));
+
+  // Caption-style configs (with large prompt fields) get a wider, two-column
+  // layout: plain settings on the left, prompt fields on the right. Other step
+  // configs keep the compact single-column layout.
+  if (hasPrompts) {
+    strip.classList.add("step-config--wide");
+    const left = document.createElement("div");
+    left.className = "step-config__col";
+    const right = document.createElement("div");
+    right.className = "step-config__col step-config__col--prompts";
+    for (const control of controls) {
+      (control.control === "prompt" ? right : left).append(control.element);
+    }
+    row.replaceChildren(left, right);
+  } else {
+    row.replaceChildren(...controls.map((control) => control.element));
+  }
 
   const submit = async (overrides) => {
     await api().submit_interaction(state.jobId, pending.id, { overrides });

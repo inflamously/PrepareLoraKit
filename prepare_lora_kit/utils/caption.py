@@ -78,6 +78,47 @@ color palette, mood — following this structure where applicable
 Caption:"""
 
 
+# Natural-language placement for a localized box, keyed by (vertical, horizontal) zone.
+_PLACEMENT_PROSE = {
+    ("top", "left"): "in the upper-left", ("top", "center"): "at the top-center", ("top", "right"): "in the upper-right",
+    ("middle", "left"): "on the left", ("middle", "center"): "in the center", ("middle", "right"): "on the right",
+    ("bottom", "left"): "in the lower-left", ("bottom", "center"): "at the bottom-center", ("bottom", "right"): "in the lower-right",
+}
+
+
+def describe_box_position(x1: float, y1: float, x2: float, y2: float) -> str:
+    """Turn a normalized [0,1] bounding box into a natural spatial phrase.
+
+    VL models (and the downstream text encoder) read everyday spatial English far
+    better than coordinate floats or synthetic grid jargon, so the box is measured
+    precisely but rendered as plain prose, e.g. ``"in the upper-left"``,
+    ``"across the bottom"``, ``"down the right side"``. Small regions — the ones a
+    captioner is most likely to drop — are flagged as ``"a small element ..."`` to
+    steer the model into mentioning them.
+    """
+    x1, x2 = sorted((max(0.0, min(1.0, x1)), max(0.0, min(1.0, x2))))
+    y1, y2 = sorted((max(0.0, min(1.0, y1)), max(0.0, min(1.0, y2))))
+    w, h = x2 - x1, y2 - y1
+    cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
+
+    wide, tall = w >= 0.66, h >= 0.66
+    if wide and tall:
+        return "filling the frame" if w * h >= 0.75 else "spread across most of the frame"
+
+    vz = "top" if cy < 0.30 else ("middle" if cy < 0.62 else "bottom")
+    hz = "left" if cx < 0.30 else ("center" if cx < 0.62 else "right")
+
+    if wide:
+        return {"top": "across the top", "middle": "across the middle", "bottom": "across the bottom"}[vz]
+    if tall:
+        return {"left": "down the left side", "center": "down the center", "right": "down the right side"}[hz]
+
+    placement = _PLACEMENT_PROSE[(vz, hz)]
+    if w * h < 0.06:
+        return f"a small element {placement}"
+    return placement
+
+
 def _format_annotations(bbox_annotations: list[dict]) -> str:
     if bbox_annotations:
         lines = []

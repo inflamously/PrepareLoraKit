@@ -6,6 +6,11 @@ const TERMINAL_STATUSES = new Set(["completed", "failed", "cancelled"]);
 
 export function renderSteps() {
   const list = $("stepList");
+  // While the run is paused on a modal interaction the step list can't change.
+  // Skip the rebuild so the 800ms poll doesn't blur modal inputs (e.g. the
+  // caption prompt textarea) by tearing down and recreating the #stepList DOM.
+  if (state.job?.status === "waiting_input" && list.childElementCount) return;
+
   list.replaceChildren();
 
   if (!state.project) {

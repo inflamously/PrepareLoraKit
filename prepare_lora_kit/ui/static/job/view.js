@@ -39,6 +39,7 @@ export function renderJob() {
     const nextLogs = (job.logs || []).join("\n");
     if (logRail.textContent !== nextLogs && !hasSelectionInside(logRail)) {
         logRail.textContent = nextLogs;
+        scrollLogsToBottom(logRail);
     }
 
     const cancelling = job.cancel_requested || job.status === "cancelling";
@@ -60,6 +61,11 @@ function renderCurrentStep(job, currentStepLabel) {
     const substep = job.current_substep ? ` / ${job.current_substep}` : "";
     currentStepLabel.textContent = `Current step: ${stepLabel(job.current_step)}${substep}`;
     currentStepLabel.classList.remove("hidden");
+}
+
+export function scrollLogsToBottom(logRail = $("logOutput")) {
+    if (!logRail || !$("autoScroll")?.checked) return;
+    logRail.scrollTop = logRail.scrollHeight;
 }
 
 function hasSelectionInside(element) {

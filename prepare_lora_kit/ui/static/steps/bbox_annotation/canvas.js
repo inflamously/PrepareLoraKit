@@ -5,18 +5,30 @@ import {
   normalizedFromPixels,
 } from "./canvas-utils.js";
 import { drawBox, drawPendingRect } from "./canvas-render.js";
+import { isUncaptioned } from "./bbox-annotation-utils.js";
 
 // Owns the annotation <canvas>: renders the image + boxes and turns pointer
 // drags into new normalized boxes. Handlers used as event listeners / img.onload
 // are arrow-function fields so they stay bound to the instance and keep a stable
 // reference for add/removeEventListener.
 export class AnnotationCanvas {
-  constructor({ canvas, img, boxes, getSelected, setSelected, onBoxesChanged }) {
+  constructor({
+    canvas,
+    img,
+    boxes,
+    getSelected,
+    setSelected,
+    getBusy,
+    getHighlightMissing,
+    onBoxesChanged,
+  }) {
     this.canvas = canvas;
     this.img = img;
     this.boxes = boxes;
     this.getSelected = getSelected;
     this.setSelected = setSelected;
+    this.getBusy = getBusy;
+    this.getHighlightMissing = getHighlightMissing;
     this.onBoxesChanged = onBoxesChanged;
 
     this.ctx = canvas.getContext("2d");
@@ -34,8 +46,17 @@ export class AnnotationCanvas {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
     const selected = this.getSelected();
+    const highlight = this.getHighlightMissing?.();
     boxes.forEach((box, index) =>
-      drawBox(ctx, box, index, selected, canvas.width, canvas.height),
+      drawBox(
+        ctx,
+        box,
+        index,
+        selected,
+        canvas.width,
+        canvas.height,
+        highlight && isUncaptioned(box),
+      ),
     );
     if (drawing) drawPendingRect(ctx, drawing);
   };
@@ -121,6 +142,8 @@ export class AnnotationCanvas {
   }
 
   onPointerDown = (event) => {
+    // Block drawing a new box while a caption request is in flight.
+    if (this.getBusy?.()) return;
     if (event.button != null && event.button !== 0) return;
     // Best-effort capture; the window listeners are the real safety net.
     try {

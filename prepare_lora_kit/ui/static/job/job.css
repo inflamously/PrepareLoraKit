@@ -27,3 +27,8 @@
   -webkit-user-select: text;
   cursor: text;
 }
+
+.autoscroll-toggle {
+  align-self: center;
+  cursor: pointer;
+}

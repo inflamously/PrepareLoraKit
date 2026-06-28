@@ -6,17 +6,30 @@ const STROKE = "#4ea1f3";
 const STROKE_SELECTED = "#5cc38a";
 const STROKE_PENDING = "#d9a441";
 
-// Draw a single normalized box (coords in 0–1) plus its label chip.
-export function drawBox(ctx, box, index, selected, width, height) {
+// Draw a single normalized box (coords in 0–1) plus its label chip. When
+// `highlight` is set the outline glows gold to flag a region still missing a
+// caption.
+export function drawBox(ctx, box, index, selected, width, height, highlight) {
   const x = box.x1 * width;
   const y = box.y1 * height;
   const w = (box.x2 - box.x1) * width;
   const h = (box.y2 - box.y1) * height;
   const isSelected = index === selected;
 
-  ctx.strokeStyle = isSelected ? STROKE_SELECTED : STROKE;
-  ctx.lineWidth = isSelected ? 3 : 2;
-  ctx.strokeRect(x, y, w, h);
+  if (highlight) {
+    // save/restore so the glow shadow doesn't bleed onto the label chip below.
+    ctx.save();
+    ctx.strokeStyle = "#ffe000"; // matches --accent gold
+    ctx.lineWidth = 3;
+    ctx.shadowColor = "rgba(255,224,0,0.9)";
+    ctx.shadowBlur = 16;
+    ctx.strokeRect(x, y, w, h);
+    ctx.restore();
+  } else {
+    ctx.strokeStyle = isSelected ? STROKE_SELECTED : STROKE;
+    ctx.lineWidth = isSelected ? 3 : 2;
+    ctx.strokeRect(x, y, w, h);
+  }
 
   ctx.fillStyle = "rgba(0,0,0,0.72)";
   ctx.fillRect(x, y, Math.min(260, Math.max(90, w)), 22);

@@ -8,6 +8,7 @@ import {
   unselectAll,
 } from "../project/controller.js";
 import { cancelRun, openInput, openOutput, startRun } from "../job/controller.js";
+import { scrollLogsToBottom } from "../job/view.js";
 import { setActiveTab } from "./tabs.js";
 
 export function bindEvents() {
@@ -27,4 +28,5 @@ export function bindEvents() {
   $("cancelButton").addEventListener("click", cancelRun);
   $("openOutput").addEventListener("click", openOutput);
   $("openInput").addEventListener("click", openInput);
+  $("autoScroll").addEventListener("change", () => scrollLogsToBottom());
 }

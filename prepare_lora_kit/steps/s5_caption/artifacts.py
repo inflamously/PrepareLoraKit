@@ -23,6 +23,41 @@ def _bbox_stem(source: Path, index: int) -> str:
     return f"{BBOX_PREFIX}{source.stem}__{index:02d}"
 
 
+def _normalize_bbox_caption(caption: str, concept_token: str | None) -> str:
+    """Clean a region caption and ensure the concept token leads it.
+
+    Mirrors the initial-write normalization (strip boilerplate, capitalize, prepend
+    the token). A concept token already at the front is preserved verbatim and split
+    off first, so re-normalizing an already-tokened caption — e.g. an edited region
+    label that displays as ``"tok, ..."`` — stays idempotent and never recapitalizes
+    or duplicates the token.
+    """
+    text = caption.strip()
+    prefix = ""
+    if concept_token:
+        token = concept_token.strip()
+        for sep in (", ", ",", " "):
+            candidate = f"{token}{sep}"
+            if token and text.lower().startswith(candidate.lower()):
+                prefix = f"{token}, "
+                text = text[len(candidate):]
+                break
+
+    body = cap_utils.strip_boilerplate(text)
+    if prefix:
+        return f"{prefix}{body}"
+    if concept_token and body and not cap_utils.token_present(body, concept_token):
+        return f"{concept_token}, {body}"
+    return body
+
+
+def _update_bbox_caption(sidecar_path: Path, label: str, concept_token: str | None) -> str:
+    """Rewrite an existing region sidecar from an edited label and return the text."""
+    final_caption = _normalize_bbox_caption(label, concept_token)
+    sidecar_path.write_text(final_caption, encoding="utf-8")
+    return final_caption
+
+
 def _save_bbox_training_item(
     crop: Any,
     source_path: Path,
@@ -38,9 +73,7 @@ def _save_bbox_training_item(
     img_path = artifact_dir / f"{stem}.png"
     txt_path = artifact_dir / f"{stem}.txt"
 
-    final_caption = cap_utils.strip_boilerplate(caption)
-    if concept_token and final_caption and not cap_utils.token_present(final_caption, concept_token):
-        final_caption = f"{concept_token}, {final_caption}"
+    final_caption = _normalize_bbox_caption(caption, concept_token)
 
     crop.convert("RGB").save(img_path)
     txt_path.write_text(final_caption, encoding="utf-8")

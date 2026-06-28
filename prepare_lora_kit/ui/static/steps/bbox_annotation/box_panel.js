@@ -1,4 +1,5 @@
 import { escapeText } from "../../core/dom.js";
+import { isUncaptioned } from "./bbox-annotation-utils.js";
 import {
   attachShiftStep,
   boxToPixelEdges,
@@ -20,6 +21,8 @@ export class BoxPanel {
     img,
     getSelected,
     setSelected,
+    getBusy,
+    getHighlightMissing,
     onChange,
     redraw,
   }) {
@@ -30,8 +33,20 @@ export class BoxPanel {
     this.img = img;
     this.getSelected = getSelected;
     this.setSelected = setSelected;
+    this.getBusy = getBusy;
+    this.getHighlightMissing = getHighlightMissing;
     this.onChange = onChange;
     this.redraw = redraw;
+  }
+
+  // Toggle every interactive control in the box list (per-box Select/Delete
+  // buttons, the label input, and the L/T/R/B coord inputs) so the list is locked
+  // while a caption request is in flight, then refresh the status + caption button.
+  setBusy(busy) {
+    this.boxList.querySelectorAll("button, input").forEach((el) => {
+      el.disabled = busy;
+    });
+    this.renderStatus();
   }
 
   // The image's natural pixel size — coordinate fields are shown/edited in
@@ -103,7 +118,9 @@ export class BoxPanel {
     this.bboxStatus.textContent = selectedBox
       ? `Selected: Region ${selected + 1}${selectedBoxLabel}`
       : "No box selected";
-    this.captionBoxButton.disabled = selected < 0;
+    // Selecting/editing a box resets the "missing captions" error state.
+    this.bboxStatus.classList.remove("bbox-status--error");
+    this.captionBoxButton.disabled = this.getBusy?.() || selected < 0;
   }
 
   render() {
@@ -113,7 +130,9 @@ export class BoxPanel {
     boxList.replaceChildren();
     boxes.forEach((box, index) => {
       const item = document.createElement("div");
-      item.className = `box-item${index === selected ? " selected" : ""}`;
+      const missing =
+        this.getHighlightMissing?.() && isUncaptioned(box) ? " box-item--missing" : "";
+      item.className = `box-item${index === selected ? " selected" : ""}${missing}`;
       item.innerHTML = `
         <strong>Region ${index + 1}</strong>
         <input value="${escapeText(box.label || "")}" placeholder="Description" />
@@ -127,6 +146,12 @@ export class BoxPanel {
       // the cursor on every keystroke.
       input.addEventListener("input", () => {
         box.label = input.value;
+        // Clear/keep the glow live without re-rendering the list (which would tear
+        // out the focused input); the canvas recomputes its own glow on redraw.
+        item.classList.toggle(
+          "box-item--missing",
+          Boolean(this.getHighlightMissing?.()) && isUncaptioned(box),
+        );
         this.renderStatus();
         this.redraw?.();
       });
@@ -143,5 +168,12 @@ export class BoxPanel {
       item.insertBefore(this.coordFields(box), input.nextSibling);
       boxList.appendChild(item);
     });
+    // Re-apply the lock to freshly created controls if a render lands while a
+    // caption request is still in flight.
+    if (this.getBusy?.()) {
+      boxList.querySelectorAll("button, input").forEach((el) => {
+        el.disabled = true;
+      });
+    }
   }
 }

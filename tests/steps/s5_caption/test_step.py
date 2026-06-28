@@ -41,6 +41,42 @@ class _AnnotatingProvider:
         )
 
 
+class _EditingProvider:
+    """Captions a region, then submits an annotation with an EDITED label.
+
+    Mirrors the UI flow: ``captionSelected`` writes the sidecar and stamps
+    ``crop_path``/``sidecar_path``/``label`` onto the box; the user then edits the
+    label before clicking Done, so the submitted annotation carries the edited text.
+    """
+
+    def __init__(self, edited_label: str):
+        self.edited_label = edited_label
+        self.region_result = None
+
+    def annotate_image(self, path, *, captioner=None):
+        crop = Image.new("RGB", (8, 6), "green")
+        self.region_result = captioner(
+            crop,
+            {"source_path": str(path), "box": {"x1": 0.1, "y1": 0.1, "x2": 0.5, "y2": 0.5}},
+        )
+        return (
+            [
+                {
+                    "x1": 0.1,
+                    "y1": 0.1,
+                    "x2": 0.5,
+                    "y2": 0.5,
+                    "label": self.edited_label,
+                    "crop_name": self.region_result["crop_name"],
+                    "crop_path": self.region_result["crop_path"],
+                    "sidecar_path": self.region_result["sidecar_path"],
+                }
+            ],
+            False,
+            False,
+        )
+
+
 class _SkippingProvider:
     def annotate_image(self, path, *, captioner=None):
         return [], True, False
@@ -54,7 +90,8 @@ def _fake_runtime_class(
     status: dict | None = None,
 ):
     class FakeRuntime:
-        def __init__(self, model_id, *, task, quantization, dtype, max_pixels, status_callback=None):
+        def __init__(self, model_id, *, task, quantization, dtype, max_pixels,
+                     status_callback=None, caption_prompt=None, region_prompt=None):
             self.metadata = {
                 "model_id": model_id,
                 "task": task,
@@ -118,6 +155,26 @@ def test_caption_step_reuses_runtime_for_region_and_original_caption(tmp_path, m
     assert (tmp_path / "plk_bbox__image__01.txt").read_text(encoding="utf-8") == "tok, Green detail"
     assert report["caption_model"]["adapter"] == "fake"
     assert report["caption_status"]["phase"] == "ready"
+
+
+def test_caption_step_persists_edited_region_caption_to_sidecar(tmp_path, monkeypatch):
+    # Regression: editing a captioned region's text must be written back to the
+    # region's .txt sidecar (it previously stayed as the original VLM output).
+    _write_image(tmp_path / "image.png")
+    events = []
+    monkeypatch.setattr(caption_step.vlm, "CaptionRuntime", _fake_runtime_class(events))
+
+    caption_step.run(
+        tmp_path,
+        concept_token="tok",
+        output_dir=tmp_path,
+        caption_model_id="fake/model",
+        interaction=_EditingProvider("tok, Green detail with a silver buckle"),
+        spot_check_pct=0,
+    )
+
+    sidecar = tmp_path / "plk_bbox__image__01.txt"
+    assert sidecar.read_text(encoding="utf-8") == "tok, Green detail with a silver buckle"
 
 
 def test_caption_step_requires_model_when_captioning_enabled(tmp_path):

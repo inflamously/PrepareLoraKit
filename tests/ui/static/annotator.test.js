@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
 import { showAnnotator } from "../../../prepare_lora_kit/ui/static/steps/bbox_annotation/bbox_annotation.js";
+import { isUncaptioned } from "../../../prepare_lora_kit/ui/static/steps/bbox_annotation/bbox-annotation-utils.js";
 import { state } from "../../../prepare_lora_kit/ui/static/core/state.js";
 import {
   annotationPending,
@@ -145,6 +146,101 @@ describe("annotation interaction", () => {
     assert.equal(secondSubmitted.count, 1);
   });
 
+  it("locks every interactive control while a caption request is in flight", async () => {
+    let release;
+    window.pywebview.api.caption_region = (jobId, imagePath, box) =>
+      new Promise((resolve) => {
+        release = () =>
+          resolve({ caption: "captioned region", crop_path: "/tmp/crop.png" });
+      });
+    showAnnotator(annotationPending("annotation-lock"), { onSubmitted: calls() });
+
+    const layer = document.getElementById("modalLayer");
+    const canvas = layer.querySelector("#annotationCanvas");
+    setCanvasClientRect(canvas, { left: 10, top: 20, width: 400, height: 300 });
+    drawBox(canvas, { start: [110, 95], end: [310, 245] });
+
+    const locked = [
+      "#captionBox",
+      "#clearBoxes",
+      "#doneAnnotate",
+      "#skipAnnotate",
+      "#skipAllAnnotate",
+      "#modalCancel",
+    ];
+
+    layer.querySelector("#captionBox").click();
+    await nextTick();
+
+    for (const sel of locked) {
+      assert.equal(layer.querySelector(sel).disabled, true, `${sel} disabled`);
+    }
+    // Per-box Select/Delete buttons and the label/coord inputs lock too.
+    layer
+      .querySelectorAll(".box-item button, .box-item input")
+      .forEach((el) => assert.equal(el.disabled, true));
+    // Drawing a new box is blocked mid-caption.
+    drawBox(canvas, { start: [20, 20], end: [120, 120], pointerId: 11 });
+    assert.equal(layer.querySelectorAll(".box-item").length, 1);
+
+    release();
+    await nextTick();
+
+    for (const sel of locked) {
+      assert.equal(layer.querySelector(sel).disabled, false, `${sel} re-enabled`);
+    }
+    layer
+      .querySelectorAll(".box-item button, .box-item input")
+      .forEach((el) => assert.equal(el.disabled, false));
+  });
+
+  it("blocks Done and flags regions still missing a caption", async () => {
+    // Keep the auto-filled "region N" placeholder instead of describing the box.
+    // canvas.js reads globalThis.prompt, so override the Node global too.
+    window.prompt = () => "region 1";
+    global.prompt = window.prompt;
+    const onSubmitted = calls();
+    showAnnotator(annotationPending("annotation-missing"), { onSubmitted });
+
+    const layer = document.getElementById("modalLayer");
+    const canvas = layer.querySelector("#annotationCanvas");
+    setCanvasClientRect(canvas, { left: 10, top: 20, width: 400, height: 300 });
+    drawBox(canvas, { start: [110, 95], end: [310, 245] });
+
+    layer.querySelector("#doneAnnotate").click();
+    await nextTick();
+
+    // Nothing submitted and the modal stays open.
+    assert.equal(apiCalls.submitted.length, 0);
+    assert.equal(onSubmitted.count, 0);
+    assert.equal(layer.classList.contains("hidden"), false);
+    // The region glows in the list and the status bar shows the error message.
+    assert.equal(
+      layer.querySelector(".box-item").classList.contains("box-item--missing"),
+      true,
+    );
+    const status = layer.querySelector("#bboxStatus");
+    assert.equal(status.classList.contains("bbox-status--error"), true);
+    assert.match(status.textContent, /Caption every region before finishing/);
+
+    // Describing the region clears its glow live (no list re-render needed).
+    const input = layer.querySelector(".box-item input");
+    input.value = "a red car";
+    input.dispatchEvent(new window.Event("input", { bubbles: true }));
+    assert.equal(
+      layer.querySelector(".box-item").classList.contains("box-item--missing"),
+      false,
+    );
+
+    // Done now submits the captioned region and closes the modal.
+    layer.querySelector("#doneAnnotate").click();
+    await nextTick();
+    assert.equal(apiCalls.submitted.length, 1);
+    assert.equal(apiCalls.submitted[0].value.annotations[0].label, "a red car");
+    assert.equal(onSubmitted.count, 1);
+    assert.equal(layer.classList.contains("hidden"), true);
+  });
+
   it("keeps selected box editable when captioning fails", async () => {
     window.pywebview.api.caption_region = async () => {
       throw new Error("model crashed");
@@ -162,5 +258,22 @@ describe("annotation interaction", () => {
     assert.equal(layer.querySelector(".box-item input").value, "prompt label");
     assert.equal(layer.querySelector("#captionBox").disabled, false);
     assert.match(layer.querySelector("#bboxStatus").textContent, /Caption failed: model crashed/);
+  });
+});
+
+describe("isUncaptioned", () => {
+  it("treats blank and placeholder labels as needing a caption", () => {
+    assert.equal(isUncaptioned({ label: "" }), true);
+    assert.equal(isUncaptioned({ label: "   " }), true);
+    assert.equal(isUncaptioned({}), true);
+    assert.equal(isUncaptioned({ label: "region 1" }), true);
+    assert.equal(isUncaptioned({ label: "Region 12" }), true);
+    assert.equal(isUncaptioned({ label: "  region 3  " }), true);
+  });
+
+  it("treats real descriptions as captioned", () => {
+    assert.equal(isUncaptioned({ label: "a red car" }), false);
+    assert.equal(isUncaptioned({ label: "region of interest" }), false);
+    assert.equal(isUncaptioned({ label: "region 1 with a hat" }), false);
   });
 });
