@@ -66,7 +66,116 @@ function buildField(spec, value) {
   if (spec.control === "select") {
     return selectField(spec, value, wrap);
   }
+  if (spec.control === "prompt") {
+    return promptField(spec, value, wrap);
+  }
   return inputField(spec, value, wrap);
+}
+
+// A saved-prompt dropdown + editable textarea backed by the global caption
+// prompt library. Picking an entry fills the textarea; Save/Delete manage the
+// library via the bridge. read() returns the textarea text used for this run
+// (blank → coerced to None → built-in default prompt).
+function promptField(spec, value, wrap) {
+  const kind = spec.name === "region_prompt" ? "region" : "full_image";
+  wrap.classList.add("step-config__field--prompt");
+
+  const select = document.createElement("select");
+  select.className = "nf-select";
+
+  const textarea = document.createElement("textarea");
+  textarea.className = "nf-input step-config__prompt-text";
+  textarea.rows = 6;
+  if (spec.placeholder) textarea.placeholder = spec.placeholder;
+  textarea.value = value == null ? "" : String(value);
+
+  const nameInput = document.createElement("input");
+  nameInput.type = "text";
+  nameInput.className = "nf-input step-config__prompt-name";
+  nameInput.placeholder = "Prompt name";
+
+  const saveBtn = document.createElement("button");
+  saveBtn.type = "button";
+  saveBtn.className = "secondary";
+  saveBtn.textContent = "Save";
+
+  const deleteBtn = document.createElement("button");
+  deleteBtn.type = "button";
+  deleteBtn.className = "secondary";
+  deleteBtn.textContent = "Delete";
+
+  const actions = document.createElement("div");
+  actions.className = "step-config__prompt-actions";
+  actions.append(nameInput, saveBtn, deleteBtn);
+
+  wrap.append(select, textarea, actions);
+
+  // name → text for the currently-loaded library entries.
+  let saved = new Map();
+  const BLANK = "";
+
+  const populate = (prompts, selectName) => {
+    saved = new Map(prompts.map((p) => [p.name, p.text]));
+    select.replaceChildren(new Option("— custom / unsaved —", BLANK));
+    for (const p of prompts) select.append(new Option(p.name, p.name));
+    if (selectName && saved.has(selectName)) {
+      select.value = selectName;
+      nameInput.value = selectName;
+    } else {
+      select.value = BLANK;
+    }
+  };
+
+  const refresh = async (selectName) => {
+    try {
+      const res = await api().list_caption_prompts(kind);
+      populate(res.prompts || [], selectName);
+    } catch (err) {
+      populate([], selectName);
+    }
+  };
+
+  select.addEventListener("change", () => {
+    const name = select.value;
+    if (name && saved.has(name)) {
+      textarea.value = saved.get(name);
+      nameInput.value = name;
+    }
+  });
+
+  saveBtn.addEventListener("click", async () => {
+    const name = nameInput.value.trim();
+    if (!name) {
+      nameInput.focus();
+      return;
+    }
+    await api().save_caption_prompt(kind, name, textarea.value);
+    await refresh(name);
+  });
+
+  deleteBtn.addEventListener("click", async () => {
+    const name = nameInput.value.trim() || select.value;
+    if (!name) return;
+    await api().delete_caption_prompt(kind, name);
+    nameInput.value = "";
+    await refresh(BLANK);
+  });
+
+  // Render now, populate async. If the current text matches a saved prompt,
+  // preselect it so the dropdown reflects what's in the textarea.
+  refresh().then(() => {
+    const current = textarea.value.trim();
+    if (!current) return;
+    for (const [name, text] of saved) {
+      if (text.trim() === current) {
+        select.value = name;
+        nameInput.value = name;
+        break;
+      }
+    }
+  });
+
+  return { name: spec.name, element: wrap, read: () => textarea.value };
 }
 
 function checkboxField(spec, value, wrap) {

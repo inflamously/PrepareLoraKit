@@ -232,6 +232,9 @@
  * @property {(job_id: string) => Promise<{cancel_requested: boolean}>} cancel_job
  * @property {() => Promise<{cancel_requested: boolean}>} shutdown
  * @property {(job_id: string, image_path: string, box: BoundingBox) => Promise<{caption: string, crop_path?: string, crop_name?: string, sidecar_path?: string}>} caption_region
+ * @property {(kind: string) => Promise<{prompts: {name: string, kind: string, text: string}[]}>} list_caption_prompts
+ * @property {(kind: string, name: string, text: string) => Promise<{saved: boolean, prompts: {name: string, kind: string, text: string}[]}>} save_caption_prompt
+ * @property {(kind: string, name: string) => Promise<{deleted: boolean, prompts: {name: string, kind: string, text: string}[]}>} delete_caption_prompt
  * @property {(path: string) => Promise<{opened: boolean, error?: string}>} open_path
  */
 

@@ -61,6 +61,8 @@ def run(
         cancel_check: CancelCheck | None = None,
         caption_status_callback: Callable[[dict[str, Any]], None] | None = None,
         qwen_model_id: str | None = None,
+        caption_prompt: str | None = None,
+        region_prompt: str | None = None,
 ) -> dict:
     style_mode = not concept_token
     rpt.step_header(5, "Caption — Bbox Annotation + HF Captioning")
@@ -86,6 +88,8 @@ def run(
         dtype=dtype,
         max_pixels=max_pixels,
         status_callback=caption_status_callback,
+        caption_prompt=caption_prompt,
+        region_prompt=region_prompt,
     )
 
     try:

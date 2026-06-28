@@ -10,7 +10,6 @@ from ...interaction import InteractionProvider
 from ...utils import report as rpt
 
 from . import vlm
-from .regions import make_region_captioner
 from .reports import _save_failure_report
 from .validation import clean_caption_for_mode
 

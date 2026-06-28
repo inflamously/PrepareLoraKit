@@ -1,0 +1,4 @@
+name: Default literal
+kind: region
+text: |-
+  Describe what is shown in this image with a short, literal phrase: a few comma-separated words or descriptors. Do not mention that this is a crop or region. Output only the description.

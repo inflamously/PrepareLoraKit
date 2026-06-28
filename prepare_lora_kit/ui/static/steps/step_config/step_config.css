@@ -70,3 +70,27 @@
 .step-config__custom {
   margin-top: 6px;
 }
+
+.step-config__prompt-text {
+  resize: vertical;
+  min-height: 96px;
+  font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.step-config__prompt-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.step-config__prompt-name {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.step-config__prompt-actions button {
+  flex: 0 0 auto;
+}

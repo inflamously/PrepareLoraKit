@@ -45,3 +45,13 @@ def _check(name, label, **kw) -> FieldSpec:
 
 def _text(name, label, **kw) -> FieldSpec:
     return FieldSpec(name=name, label=label, control="text", value_type="str", **kw)
+
+
+def _prompt(name, label, **kw) -> FieldSpec:
+    """A multi-line prompt field backed by the global caption prompt library.
+
+    Rendered by the frontend as a saved-prompt dropdown + editable textarea; an
+    empty value clears the field (``nullable``) so the built-in default is used.
+    """
+    kw.setdefault("nullable", True)
+    return FieldSpec(name=name, label=label, control="prompt", value_type="str", **kw)

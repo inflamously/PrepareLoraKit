@@ -1,7 +1,7 @@
 """Editable config fields for CaptionStep."""
 from __future__ import annotations
 
-from ..fields import FieldSpec, _number, _select
+from ..fields import FieldSpec, _number, _prompt, _select
 
 STEP_TYPE = "CaptionStep"
 
@@ -34,4 +34,11 @@ FIELDS: list[FieldSpec] = [
     ]),
     _number("max_new_tokens", "Max new tokens", "int", minimum=1, step=10),
     _number("spot_check_pct", "Spot check fraction", "float", minimum=0, maximum=1, step=0.05),
+    _prompt("caption_prompt", "Caption prompt",
+            placeholder="Leave blank to use the built-in default prompt…",
+            help="Full-image caption instruction. Supports {bbox_annotations} and "
+                 "{concept_token} placeholders. Blank = built-in default."),
+    _prompt("region_prompt", "Region prompt",
+            placeholder="Leave blank to use the built-in region prompt…",
+            help="Bbox/crop caption instruction. Blank = built-in default."),
 ]

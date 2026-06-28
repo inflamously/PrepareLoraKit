@@ -172,6 +172,8 @@ def _invoke_CaptionStep(working_dir: Path, output_dir: Path, cfg: CaptionConfig,
         enabled_substeps=_kw.get("enabled_substeps"),
         cancel_check=_kw.get("cancel_check"),
         caption_status_callback=_kw.get("caption_status_callback"),
+        caption_prompt=cfg.caption_prompt,
+        region_prompt=cfg.region_prompt,
     )
 
 

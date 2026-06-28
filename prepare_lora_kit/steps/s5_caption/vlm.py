@@ -387,12 +387,18 @@ class CaptionRuntime:
         dtype: str = "bfloat16",
         max_pixels: int = _DEFAULT_MAX_PIXELS,
         status_callback: CaptionStatusCallback | None = None,
+        caption_prompt: str | None = None,
+        region_prompt: str | None = None,
     ) -> None:
         self.model_id = str(model_id or "").strip()
         self.task = task
         self.quantization = quantization
         self.dtype = dtype
         self.max_pixels = max_pixels
+        # Optional custom prompt templates from the global prompt library; when
+        # unset, the built-in full-image / region defaults are used.
+        self.caption_prompt = caption_prompt or None
+        self.region_prompt = region_prompt or None
         self._loaded: LoadedCaptionModel | None = None
         self._lock = threading.Lock()
         self._status_callback = status_callback
@@ -491,7 +497,9 @@ class CaptionRuntime:
                 "crop_name": ann.get("crop_name", ""),
             })
 
-        prompt_text = cap_utils.build_bfl_prompt(ann_lines, concept_token)
+        prompt_text = cap_utils.build_full_image_prompt(
+            ann_lines, concept_token, template=self.caption_prompt
+        )
         image = _load_image(image_path, self.max_pixels)
         try:
             text = self._run(image, prompt_text, max_new_tokens)
@@ -514,8 +522,16 @@ class CaptionRuntime:
             img = _load_image(Path(image), self.max_pixels)
         else:
             img = _downscale(image.convert("RGB"), self.max_pixels)
+        # Region crops carry no bbox annotations; the concept token is applied to
+        # the crop caption afterwards (see artifacts._save_bbox_training_item), so
+        # the {concept_token} placeholder resolves to empty here.
+        region_prompt = (
+            cap_utils.apply_prompt_placeholders(self.region_prompt, "", None)
+            if self.region_prompt
+            else _REGION_PROMPT
+        )
         try:
-            text = self._run(img, _REGION_PROMPT, max_new_tokens)
+            text = self._run(img, region_prompt, max_new_tokens)
             self._emit_status("ready", f"Caption model ready: {self.model_id}")
             return text
         except Exception as exc:

@@ -11,6 +11,7 @@ from ..paths import PROJECT_ROOT
 from ..project.base import ProjectConfig
 from ..project import registry as project_registry
 from ..networks import registry as network_registry
+from ..caption_prompts import registry as caption_prompts
 from .runner import JobManager, _default_output, project_payload, project_status
 
 
@@ -184,6 +185,23 @@ class UiBridge:
 
     def shutdown(self, *_args) -> dict[str, Any]:
         return {"cancel_requested": self.jobs.cancel_active()}
+
+    def list_caption_prompts(self, kind: str) -> dict[str, Any]:
+        return {"prompts": [p.to_dict() for p in caption_prompts.list_prompts(kind)]}
+
+    def save_caption_prompt(self, kind: str, name: str, text: str) -> dict[str, Any]:
+        caption_prompts.save(kind, name, text)
+        return {
+            "saved": True,
+            "prompts": [p.to_dict() for p in caption_prompts.list_prompts(kind)],
+        }
+
+    def delete_caption_prompt(self, kind: str, name: str) -> dict[str, Any]:
+        caption_prompts.delete(kind, name)
+        return {
+            "deleted": True,
+            "prompts": [p.to_dict() for p in caption_prompts.list_prompts(kind)],
+        }
 
     def caption_region(self, job_id: str, image_path: str, box: dict[str, Any]) -> dict[str, Any]:
         provider = self.jobs.active_interaction_provider(job_id)
