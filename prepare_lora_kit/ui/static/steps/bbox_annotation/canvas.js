@@ -1,137 +1,136 @@
-export function createAnnotationCanvas({
-  canvas,
-  img,
-  boxes,
-  getSelected,
-  setSelected,
-  onBoxesChanged,
-}) {
-  const ctx = canvas.getContext("2d");
-  let drawing = null;
-  let activePointerId = null;
+import {
+  canvasPointFromEvent,
+  clampRect,
+  fitCanvasSize,
+  normalizedFromPixels,
+} from "./canvas-utils.js";
+import { drawBox, drawPendingRect } from "./canvas-render.js";
 
-  function normalizedFromPixels(rect) {
-    return {
-      x1: +(rect.x1 / canvas.width).toFixed(4),
-      y1: +(rect.y1 / canvas.height).toFixed(4),
-      x2: +(rect.x2 / canvas.width).toFixed(4),
-      y2: +(rect.y2 / canvas.height).toFixed(4),
-    };
+// Owns the annotation <canvas>: renders the image + boxes and turns pointer
+// drags into new normalized boxes. Handlers used as event listeners / img.onload
+// are arrow-function fields so they stay bound to the instance and keep a stable
+// reference for add/removeEventListener.
+export class AnnotationCanvas {
+  constructor({ canvas, img, boxes, getSelected, setSelected, onBoxesChanged }) {
+    this.canvas = canvas;
+    this.img = img;
+    this.boxes = boxes;
+    this.getSelected = getSelected;
+    this.setSelected = setSelected;
+    this.onBoxesChanged = onBoxesChanged;
+
+    this.ctx = canvas.getContext("2d");
+    this.drawing = null;
+    this.activePointerId = null;
+
+    canvas.addEventListener("pointerdown", this.onPointerDown);
+    canvas.addEventListener("pointercancel", this.cancelDrawing);
+    globalThis.addEventListener("blur", this.cancelDrawing);
   }
 
-  function draw() {
+  draw = () => {
+    const { ctx, canvas, img, boxes, drawing } = this;
     if (!img.complete || !canvas.width || !canvas.height) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    boxes.forEach((box, index) => {
-      const x = box.x1 * canvas.width;
-      const y = box.y1 * canvas.height;
-      const w = (box.x2 - box.x1) * canvas.width;
-      const h = (box.y2 - box.y1) * canvas.height;
-      ctx.strokeStyle = index === getSelected() ? "#5cc38a" : "#4ea1f3";
-      ctx.lineWidth = index === getSelected() ? 3 : 2;
-      ctx.strokeRect(x, y, w, h);
-      ctx.fillStyle = "rgba(0,0,0,0.72)";
-      ctx.fillRect(x, y, Math.min(260, Math.max(90, w)), 22);
-      ctx.fillStyle = "#edf0f2";
-      ctx.font = "13px Segoe UI";
-      ctx.fillText(box.label || `region ${index + 1}`, x + 5, y + 15);
-    });
-    if (drawing) {
-      ctx.strokeStyle = "#d9a441";
-      ctx.lineWidth = 2;
-      const x = Math.min(drawing.x1, drawing.x2);
-      const y = Math.min(drawing.y1, drawing.y2);
-      ctx.strokeRect(
-        x,
-        y,
-        Math.abs(drawing.x2 - drawing.x1),
-        Math.abs(drawing.y2 - drawing.y1),
-      );
-    }
+    const selected = this.getSelected();
+    boxes.forEach((box, index) =>
+      drawBox(ctx, box, index, selected, canvas.width, canvas.height),
+    );
+    if (drawing) drawPendingRect(ctx, drawing);
+  };
+
+  resizeToImage = () => {
+    const { img, canvas } = this;
+    const size = fitCanvasSize(
+      img.width,
+      img.height,
+      globalThis.innerWidth,
+      globalThis.innerHeight,
+    );
+    canvas.width = size.width;
+    canvas.height = size.height;
+    this.onBoxesChanged();
+  };
+
+  cleanup = () => {
+    this.detachDragListeners();
+    this.canvas.removeEventListener("pointerdown", this.onPointerDown);
+    this.canvas.removeEventListener("pointercancel", this.cancelDrawing);
+    globalThis.removeEventListener("blur", this.cancelDrawing);
+  };
+
+  canvasPoint(event) {
+    return canvasPointFromEvent(this.canvas, event);
   }
 
-  function canvasPoint(event) {
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    return {
-      x: Math.max(
-        0,
-        Math.min(canvas.width, (event.clientX - rect.left) * scaleX),
-      ),
-      y: Math.max(
-        0,
-        Math.min(canvas.height, (event.clientY - rect.top) * scaleY),
-      ),
-    };
-  }
-
-  function finishDrawing() {
+  finishDrawing() {
+    const { drawing, canvas, boxes } = this;
     if (!drawing) return;
-    const rect = {
-      x1: Math.max(0, Math.min(drawing.x1, drawing.x2)),
-      y1: Math.max(0, Math.min(drawing.y1, drawing.y2)),
-      x2: Math.min(canvas.width, Math.max(drawing.x1, drawing.x2)),
-      y2: Math.min(canvas.height, Math.max(drawing.y1, drawing.y2)),
-    };
-    drawing = null;
-    activePointerId = null;
+    const rect = clampRect(drawing, canvas.width, canvas.height);
+    this.drawing = null;
+    this.activePointerId = null;
+    this.detachDragListeners();
     if (rect.x2 - rect.x1 < 10 || rect.y2 - rect.y1 < 10) {
-      draw();
+      this.draw();
       return;
     }
     const label =
       globalThis.prompt("Describe this region", `region ${boxes.length + 1}`) || "";
-    boxes.push({ ...normalizedFromPixels(rect), label });
-    setSelected(boxes.length - 1);
-    onBoxesChanged();
+    boxes.push({
+      ...normalizedFromPixels(rect, canvas.width, canvas.height),
+      label,
+    });
+    this.setSelected(boxes.length - 1);
+    this.onBoxesChanged();
   }
 
-  function cancelDrawing() {
-    drawing = null;
-    activePointerId = null;
-    draw();
+  cancelDrawing = () => {
+    this.drawing = null;
+    this.activePointerId = null;
+    this.detachDragListeners();
+    this.draw();
+  };
+
+  // While a drag is active we track pointermove/pointerup on the window rather
+  // than the canvas. Inside pywebview's webview, canvas pointer capture is not
+  // reliably honored, so once the cursor crosses the scrollable .canvas-wrap
+  // border the canvas would stop receiving move events and the box froze at the
+  // edge. Listening on the window keeps the drag alive anywhere on screen.
+  moveDuringDrag = (event) => {
+    if (!this.drawing || event.pointerId !== this.activePointerId) return;
+    const p = this.canvasPoint(event);
+    this.drawing.x2 = p.x;
+    this.drawing.y2 = p.y;
+    this.draw();
+  };
+
+  upDuringDrag = (event) => {
+    if (event.pointerId !== this.activePointerId) return;
+    this.finishDrawing();
+  };
+
+  attachDragListeners() {
+    globalThis.addEventListener("pointermove", this.moveDuringDrag);
+    globalThis.addEventListener("pointerup", this.upDuringDrag);
   }
 
-  function resizeToImage() {
-    const maxW = Math.min(820, globalThis.innerWidth - 450);
-    const maxH = Math.min(640, globalThis.innerHeight - 220);
-    const scale = Math.min(maxW / img.width, maxH / img.height, 1);
-    canvas.width = Math.max(1, Math.round(img.width * scale));
-    canvas.height = Math.max(1, Math.round(img.height * scale));
-    onBoxesChanged();
+  detachDragListeners() {
+    globalThis.removeEventListener("pointermove", this.moveDuringDrag);
+    globalThis.removeEventListener("pointerup", this.upDuringDrag);
   }
 
-  canvas.addEventListener("pointerdown", (event) => {
+  onPointerDown = (event) => {
     if (event.button != null && event.button !== 0) return;
-    canvas.setPointerCapture(event.pointerId);
-    activePointerId = event.pointerId;
-    const p = canvasPoint(event);
-    drawing = { x1: p.x, y1: p.y, x2: p.x, y2: p.y };
-  });
-  canvas.addEventListener("pointermove", (event) => {
-    if (!drawing || event.pointerId !== activePointerId) return;
-    const p = canvasPoint(event);
-    drawing.x2 = p.x;
-    drawing.y2 = p.y;
-    draw();
-  });
-  canvas.addEventListener("pointerup", (event) => {
-    if (event.pointerId !== activePointerId) return;
-    if (canvas.hasPointerCapture(event.pointerId)) {
-      canvas.releasePointerCapture(event.pointerId);
+    // Best-effort capture; the window listeners are the real safety net.
+    try {
+      this.canvas.setPointerCapture(event.pointerId);
+    } catch {
+      /* capture unsupported — window listeners still keep the drag working */
     }
-    finishDrawing();
-  });
-  canvas.addEventListener("pointercancel", cancelDrawing);
-  globalThis.addEventListener("blur", cancelDrawing);
-
-  return {
-    draw,
-    resizeToImage,
-    cleanup() {
-      globalThis.removeEventListener("blur", cancelDrawing);
-    },
+    this.activePointerId = event.pointerId;
+    const p = this.canvasPoint(event);
+    this.drawing = { x1: p.x, y1: p.y, x2: p.x, y2: p.y };
+    this.attachDragListeners();
   };
 }

@@ -1,75 +1,97 @@
 import { api } from "../../core/api.js";
-import { escapeText } from "../../core/dom.js";
 import { state } from "../../+state/index.js";
 import { renderCaptionStatus } from "../../caption/status.js";
 import { closeModal, modalCancelButton, showModal } from "../../components/modal.js";
-import { createBoxPanel } from "./box_panel.js";
-import { createAnnotationCanvas } from "./canvas.js";
+import { BoxPanel } from "./box_panel.js";
+import { AnnotationCanvas } from "./canvas.js";
+import { annotatorModal } from "./bbox-annotation-utils.js";
 
+// Entry point kept as a function to match its sibling step handlers
+// (showSourceReview, showVaeReview, …) in job/controller.js.
 export function showAnnotator(pending, { onSubmitted }) {
-  const image = pending.payload;
-  const boxes = [];
-  let selected = -1;
-  const img = new Image();
+  new Annotator(pending, onSubmitted).show();
+}
 
-  const modal = annotatorModal(image);
-  const canvas = modal.querySelector("#annotationCanvas");
-  const boxList = modal.querySelector("#boxList");
-  const bboxStatus = modal.querySelector("#bboxStatus");
-  const captionModelStatus = modal.querySelector("#captionModelStatus");
-  const captionBoxButton = modal.querySelector("#captionBox");
-  const renderModalCaptionStatus = (event) => {
-    renderCaptionStatus(captionModelStatus, event.detail?.caption_status);
+// Drives the "Annotate Regions" modal: owns the box list + selection, wires the
+// canvas and side panel together, and submits/cancels the interaction.
+class Annotator {
+  constructor(pending, onSubmitted) {
+    this.pending = pending;
+    this.onSubmitted = onSubmitted;
+    this.image = pending.payload;
+    this.boxes = [];
+    this.selected = -1;
+    this.img = new Image();
+
+    const modal = annotatorModal(this.image);
+    this.modal = modal;
+    this.bboxStatus = modal.querySelector("#bboxStatus");
+    this.captionModelStatus = modal.querySelector("#captionModelStatus");
+    this.captionBoxButton = modal.querySelector("#captionBox");
+
+    globalThis.addEventListener("plk:job-status", this.renderModalCaptionStatus);
+    renderCaptionStatus(this.captionModelStatus, state.job?.caption_status);
+
+    this.canvasController = new AnnotationCanvas({
+      canvas: modal.querySelector("#annotationCanvas"),
+      img: this.img,
+      boxes: this.boxes,
+      getSelected: () => this.selected,
+      setSelected: (index) => {
+        this.selected = index;
+      },
+      onBoxesChanged: this.refresh,
+    });
+
+    this.boxPanel = new BoxPanel({
+      boxList: modal.querySelector("#boxList"),
+      bboxStatus: this.bboxStatus,
+      captionBoxButton: this.captionBoxButton,
+      boxes: this.boxes,
+      img: this.img,
+      getSelected: () => this.selected,
+      setSelected: (index) => {
+        this.selected = index;
+      },
+      onChange: this.refresh,
+      redraw: () => this.canvasController.draw(),
+    });
+
+    this.wireEvents();
+  }
+
+  show() {
+    this.img.onload = this.canvasController.resizeToImage;
+    this.img.src = this.image.uri;
+    showModal(this.modal);
+  }
+
+  refresh = () => {
+    this.boxPanel?.render();
+    this.canvasController?.draw();
   };
-  globalThis.addEventListener("plk:job-status", renderModalCaptionStatus);
-  renderCaptionStatus(captionModelStatus, state.job?.caption_status);
 
-  const getSelected = () => selected;
-  const setSelected = (index) => {
-    selected = index;
+  renderModalCaptionStatus = (event) => {
+    renderCaptionStatus(this.captionModelStatus, event.detail?.caption_status);
   };
-
-  let canvasController;
-  let boxPanel;
-  const refresh = () => {
-    boxPanel?.render();
-    canvasController?.draw();
-  };
-
-  canvasController = createAnnotationCanvas({
-    canvas,
-    img,
-    boxes,
-    getSelected,
-    setSelected,
-    onBoxesChanged: refresh,
-  });
-  boxPanel = createBoxPanel({
-    boxList,
-    bboxStatus,
-    captionBoxButton,
-    boxes,
-    getSelected,
-    setSelected,
-    onChange: refresh,
-  });
 
   // Detach the canvas pointer handlers and the global caption-status listener so
   // they don't leak once the modal is gone — runs whether the user continues or
   // cancels the run.
-  function cleanup() {
-    canvasController.cleanup();
-    globalThis.removeEventListener("plk:job-status", renderModalCaptionStatus);
+  cleanup() {
+    this.canvasController.cleanup();
+    globalThis.removeEventListener("plk:job-status", this.renderModalCaptionStatus);
   }
 
-  async function submitAnnotator(value) {
-    cleanup();
-    await api().submit_interaction(state.jobId, pending.id, value);
+  async submitAnnotator(value) {
+    this.cleanup();
+    await api().submit_interaction(state.jobId, this.pending.id, value);
     closeModal();
-    await onSubmitted();
+    await this.onSubmitted();
   }
 
-  captionBoxButton.addEventListener("click", async () => {
+  async captionSelected() {
+    const { boxes, selected, captionBoxButton } = this;
     if (selected < 0) return alert("Select a box first.");
     captionBoxButton.disabled = true;
     captionBoxButton.textContent = "Captioning...";
@@ -77,95 +99,54 @@ export function showAnnotator(pending, { onSubmitted }) {
     try {
       const result = await api().caption_region(
         state.jobId,
-        image.path,
+        this.image.path,
         boxes[selected],
       );
       boxes[selected].label = result.caption || boxes[selected].label;
       if (result.crop_path) boxes[selected].crop_path = result.crop_path;
       if (result.crop_name) boxes[selected].crop_name = result.crop_name;
-      if (result.sidecar_path)
-        boxes[selected].sidecar_path = result.sidecar_path;
+      if (result.sidecar_path) boxes[selected].sidecar_path = result.sidecar_path;
     } catch (err) {
       errorMessage = err?.message || String(err);
     } finally {
       captionBoxButton.textContent = "Caption selected box";
-      renderCaptionStatus(captionModelStatus, state.job?.caption_status);
-      refresh();
+      renderCaptionStatus(this.captionModelStatus, state.job?.caption_status);
+      this.refresh();
       if (errorMessage) {
-        bboxStatus.textContent = `Caption failed: ${errorMessage}`;
+        this.bboxStatus.textContent = `Caption failed: ${errorMessage}`;
       }
     }
-  });
-  modal.querySelector("#clearBoxes").addEventListener("click", () => {
-    boxes.splice(0, boxes.length);
-    selected = -1;
-    refresh();
-  });
-  modal.querySelector("#doneAnnotate").addEventListener("click", async () => {
-    await submitAnnotator({
-      annotations: boxes.filter((box) => (box.label || "").trim()),
-      skipped: false,
-      skip_all: false,
+  }
+
+  wireEvents() {
+    const { modal } = this;
+    this.captionBoxButton.addEventListener("click", () => this.captionSelected());
+    modal.querySelector("#clearBoxes").addEventListener("click", () => {
+      this.boxes.splice(0, this.boxes.length);
+      this.selected = -1;
+      this.refresh();
     });
-  });
-  modal.querySelector("#skipAnnotate").addEventListener("click", async () => {
-    await submitAnnotator({
-      annotations: [],
-      skipped: true,
-      skip_all: false,
-    });
-  });
-  modal
-    .querySelector("#skipAllAnnotate")
-    .addEventListener("click", async () => {
-      await submitAnnotator({
-        annotations: [],
-        skipped: true,
-        skip_all: true,
+    modal.querySelector("#doneAnnotate").addEventListener("click", () => {
+      this.submitAnnotator({
+        annotations: this.boxes.filter((box) => (box.label || "").trim()),
+        skipped: false,
+        skip_all: false,
       });
     });
+    modal.querySelector("#skipAnnotate").addEventListener("click", () => {
+      this.submitAnnotator({ annotations: [], skipped: true, skip_all: false });
+    });
+    modal.querySelector("#skipAllAnnotate").addEventListener("click", () => {
+      this.submitAnnotator({ annotations: [], skipped: true, skip_all: true });
+    });
 
-  const actions = modal.querySelector(".modal-actions");
-  actions.insertBefore(
-    modalCancelButton(async () => {
-      cleanup();
-      await onSubmitted();
-    }),
-    actions.firstChild,
-  );
-
-  img.onload = canvasController.resizeToImage;
-  img.src = image.uri;
-  showModal(modal);
-}
-
-function annotatorModal(image) {
-  const modal = document.createElement("div");
-  modal.className = "modal";
-  modal.innerHTML = `
-    <div class="modal-header">
-      <div>
-        <h2>Annotate Regions</h2>
-        <p>${escapeText(image.name)} · drag on the image to add a box</p>
-      </div>
-      <div class="modal-actions">
-        <button class="primary" id="doneAnnotate">Done</button>
-      </div>
-    </div>
-    <div class="annotator">
-      <div class="canvas-wrap"><canvas id="annotationCanvas"></canvas></div>
-      <div class="box-panel">
-        <div id="bboxStatus" class="bbox-status">No box selected</div>
-        <div id="captionModelStatus" class="caption-status hidden"></div>
-        <button id="captionBox" class="secondary">Caption selected box</button>
-        <button id="clearBoxes" class="secondary">Clear</button>
-        <div id="boxList"></div>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button id="skipAllAnnotate" class="danger">Skip all remaining</button>
-      <button id="skipAnnotate" class="secondary">Skip image</button>
-    </div>
-  `;
-  return modal;
+    const actions = modal.querySelector(".modal-actions");
+    actions.insertBefore(
+      modalCancelButton(async () => {
+        this.cleanup();
+        await this.onSubmitted();
+      }),
+      actions.firstChild,
+    );
+  }
 }

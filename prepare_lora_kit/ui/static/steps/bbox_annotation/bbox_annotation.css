@@ -19,6 +19,9 @@
   border-radius: var(--radius-md);
   background: #05070f;
   cursor: crosshair;
+  /* Stop the overflow:auto .canvas-wrap from treating a drag as a scroll/pan
+     gesture, which fires pointercancel and aborts the box mid-stroke. */
+  touch-action: none;
 }
 
 .box-panel {
@@ -70,6 +73,29 @@
 
 .box-item input {
   margin-top: 0;
+}
+
+/* Compact 2x2 grid of Left/Top/Right/Bottom pixel inputs so they stay tidy in
+   the 320px side panel. */
+.box-coords {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.coord-field {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--caption);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.coord-field input {
+  width: 100%;
+  min-width: 0;
+  padding: 3px 5px;
 }
 
 .box-item small {

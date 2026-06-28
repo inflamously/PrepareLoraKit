@@ -1,21 +1,103 @@
 import { escapeText } from "../../core/dom.js";
+import {
+  boxToPixelEdges,
+  edgesToNormalizedBox,
+  makeField,
+} from "./box-panel-utils.js";
 
-export function createBoxPanel({
-  boxList,
-  bboxStatus,
-  captionBoxButton,
-  boxes,
-  getSelected,
-  setSelected,
-  onChange,
-}) {
-  function render() {
-    const selected = getSelected();
+// Renders the side list of boxes: per-box label input, Left/Top/Right/Bottom
+// coordinate fields, and Select/Delete actions.
+export class BoxPanel {
+  constructor({
+    boxList,
+    bboxStatus,
+    captionBoxButton,
+    boxes,
+    img,
+    getSelected,
+    setSelected,
+    onChange,
+    redraw,
+  }) {
+    this.boxList = boxList;
+    this.bboxStatus = bboxStatus;
+    this.captionBoxButton = captionBoxButton;
+    this.boxes = boxes;
+    this.img = img;
+    this.getSelected = getSelected;
+    this.setSelected = setSelected;
+    this.onChange = onChange;
+    this.redraw = redraw;
+  }
+
+  // The image's natural pixel size — coordinate fields are shown/edited in
+  // original-image pixels, while boxes are stored normalized (0–1).
+  imgWidth() {
+    return this.img?.naturalWidth || 0;
+  }
+  imgHeight() {
+    return this.img?.naturalHeight || 0;
+  }
+
+  // Build the four Left/Top/Right/Bottom inputs for a box. Editing them updates
+  // the box geometry and repaints the canvas only (via redraw) — never the full
+  // list render — so focus stays put for repeated arrow-key nudges.
+  coordFields(box) {
+    const wrap = document.createElement("div");
+    wrap.className = "box-coords";
+
+    const fields = {
+      x1: makeField("L"),
+      y1: makeField("T"),
+      x2: makeField("R"),
+      y2: makeField("B"),
+    };
+
+    const syncFromBox = () => {
+      const px = boxToPixelEdges(box, this.imgWidth(), this.imgHeight());
+      fields.x1.input.value = px.x1;
+      fields.y1.input.value = px.y1;
+      fields.x2.input.value = px.x2;
+      fields.y2.input.value = px.y2;
+    };
+
+    const applyFromFields = () => {
+      Object.assign(
+        box,
+        edgesToNormalizedBox(
+          {
+            x1: fields.x1.input.value,
+            y1: fields.y1.input.value,
+            x2: fields.x2.input.value,
+            y2: fields.y2.input.value,
+          },
+          this.imgWidth(),
+          this.imgHeight(),
+        ),
+      );
+      syncFromBox();
+      this.redraw?.();
+    };
+
+    for (const [key, field] of Object.entries(fields)) {
+      field.input.max =
+        key === "x1" || key === "x2" ? this.imgWidth() : this.imgHeight();
+      field.input.addEventListener("input", applyFromFields);
+      wrap.appendChild(field.cell);
+    }
+    syncFromBox();
+    return wrap;
+  }
+
+  render() {
+    const { boxList, boxes } = this;
+    const selected = this.getSelected();
     const selectedBox = boxes[selected];
-    bboxStatus.textContent = selectedBox
-      ? `Selected: Region ${selected + 1}${selectedBox.label ? ` - ${selectedBox.label}` : ""}`
+    const selectedBoxLabel = selectedBox?.label ? ` - ${selectedBox.label}` : "";
+    this.bboxStatus.textContent = selectedBox
+      ? `Selected: Region ${selected + 1}${selectedBoxLabel}`
       : "No box selected";
-    captionBoxButton.disabled = selected < 0;
+    this.captionBoxButton.disabled = selected < 0;
     boxList.replaceChildren();
     boxes.forEach((box, index) => {
       const item = document.createElement("div");
@@ -30,20 +112,20 @@ export function createBoxPanel({
       const input = item.querySelector("input");
       input.addEventListener("input", () => {
         box.label = input.value;
-        onChange();
+        this.onChange();
       });
       item.querySelector(".secondary").addEventListener("click", () => {
-        setSelected(index);
-        onChange();
+        this.setSelected(index);
+        this.onChange();
       });
       item.querySelector(".danger").addEventListener("click", () => {
         boxes.splice(index, 1);
-        setSelected(-1);
-        onChange();
+        this.setSelected(-1);
+        this.onChange();
       });
+      // Insert the coordinate fields right after the label input.
+      item.insertBefore(this.coordFields(box), input.nextSibling);
       boxList.appendChild(item);
     });
   }
-
-  return { render };
 }
