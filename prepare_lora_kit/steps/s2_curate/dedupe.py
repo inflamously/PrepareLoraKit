@@ -23,16 +23,21 @@ def _compute_hashes(paths: list[Path], cancel_check: CancelCheck | None = None) 
 
 def _find_duplicates(
     hashes: dict[Path, object],
+    max_distance: int = HASH_DISTANCE,
     cancel_check: CancelCheck | None = None,
 ) -> list[tuple[Path, Path, int]]:
-    """Return list of (path_a, path_b, hamming_distance) for near-duplicate pairs."""
+    """Return list of (path_a, path_b, hamming_distance) for near-duplicate pairs.
+
+    Pairs whose perceptual-hash Hamming distance is ``<= max_distance`` are flagged.
+    Lower ``max_distance`` = stricter (only near-identical images flagged).
+    """
     items = list(hashes.items())
     dupes = []
     for i in range(len(items)):
         check_cancel(cancel_check)
         for j in range(i + 1, len(items)):
             dist = items[i][1] - items[j][1]
-            if dist <= HASH_DISTANCE:
+            if dist <= max_distance:
                 dupes.append((items[i][0], items[j][0], dist))
     return dupes
 

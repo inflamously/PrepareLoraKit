@@ -49,7 +49,7 @@ def _default_pipeline() -> list[dict[str, Any]]:
         },
         {
             "type": "CurateStep",
-            "dedup_hamming_distance": 8,
+            "dedup_hamming_distance": 3,
             "occlusion_threshold": 0.35,
             "pca_umap_switch_threshold": 30,
             "umap_n_neighbors": 15,

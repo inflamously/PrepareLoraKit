@@ -1,7 +1,7 @@
 """
 Step 2 — Curation
 
-1. Perceptual-hash dedupe (phash, Hamming ≤ 8).
+1. Perceptual-hash dedupe (phash, configurable Hamming distance).
 2. Coverage embedding (CLIP/DINOv2/Qwen, VRAM-auto): UMAP (N > 30) or PCA (N ≤ 30) scatter.
 3. Occlusion filter via CLIP zero-shot (text↔image, CLIP only).
 """
@@ -44,6 +44,9 @@ def run(
     cancel_check: CancelCheck | None = None,
     clip_model_id: str | None = None,
     coverage_embedding_model: str | None = None,
+    dedup_hamming_distance: int = 3,
+    occlusion_threshold: float = OCCLUSION_THRESHOLD,
+    pca_umap_switch_threshold: int = 30,
 ) -> dict:
     rpt.step_header(2, "Curation — Dedupe + Coverage")
     enabled = set(enabled_substeps or ["s2_1_dupecheck", "s2_2_clipscan", "s2_3_drop_images"])
@@ -67,7 +70,9 @@ def run(
         rpt.info(f"Found {len(images)} images. Computing perceptual hashes …")
         hashes = _compute_hashes(images, cancel_check=cancel_check)
 
-        pairs = _find_duplicates(hashes, cancel_check=cancel_check)
+        pairs = _find_duplicates(
+            hashes, max_distance=dedup_hamming_distance, cancel_check=cancel_check
+        )
         rpt.info(f"Near-duplicate pairs: {len(pairs)}")
         to_drop = _resolve_duplicates(
             pairs,
@@ -95,7 +100,7 @@ def run(
         try:
             rpt.info(f"Computing coverage embeddings ({coverage_model}) …")
             emb = _coverage_embeddings(kept_images, coverage_model, cancel_check=cancel_check)
-            if len(kept_images) > 30:
+            if len(kept_images) > pca_umap_switch_threshold:
                 coverage_path = artifact_dir / "coverage_umap.png"
                 coverage_metadata = _save_umap(emb, kept_images, coverage_path, coverage_model)
             else:
@@ -116,7 +121,7 @@ def run(
             occ_scores = _occlusion_scores(
                 kept_images, clip_model_id=occlusion_model, cancel_check=cancel_check
             )
-            occluded = [str(p) for p, s in occ_scores.items() if s < OCCLUSION_THRESHOLD]
+            occluded = [str(p) for p, s in occ_scores.items() if s < occlusion_threshold]
             if occluded:
                 rpt.warn(f"{len(occluded)} images flagged as possibly occluded/ambiguous:")
                 for o in occluded:

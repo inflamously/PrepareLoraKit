@@ -74,6 +74,9 @@ def _invoke_CurateStep(working_dir: Path, output_dir: Path, cfg: CurateConfig,
         cancel_check=_kw.get("cancel_check"),
         clip_model_id=cfg.clip_model_id,
         coverage_embedding_model=cfg.coverage_embedding_model,
+        dedup_hamming_distance=cfg.dedup_hamming_distance,
+        occlusion_threshold=cfg.occlusion_threshold,
+        pca_umap_switch_threshold=cfg.pca_umap_switch_threshold,
     )
 
 

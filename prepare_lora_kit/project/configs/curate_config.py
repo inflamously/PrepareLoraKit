@@ -6,7 +6,7 @@ from dataclasses import dataclass
 @dataclass
 class CurateConfig:
     """Config for CurateStep."""
-    dedup_hamming_distance: int = 8
+    dedup_hamming_distance: int = 3
     occlusion_threshold: float = 0.35
     pca_umap_switch_threshold: int = 30
     umap_n_neighbors: int = 15
