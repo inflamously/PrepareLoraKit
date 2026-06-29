@@ -1,9 +1,25 @@
 """CLIP coverage visualisation for Step 2 curation."""
 from __future__ import annotations
+from collections import Counter
 from pathlib import Path
 
 from ...cancellation import CancelCheck, check_cancel
 from ...utils import report as rpt
+
+_LABEL_MAX = 24
+
+
+def _point_labels(paths: list[Path]) -> list[str]:
+    """Per-point scatter labels, prefixing the parent dir only when a bare
+    filename is shared by more than one path so collisions stay distinguishable."""
+    name_counts = Counter(p.name for p in paths)
+    labels = []
+    for p in paths:
+        label = f"{p.parent.name}/{p.name}" if name_counts[p.name] > 1 else p.name
+        if len(label) > _LABEL_MAX:
+            label = "…" + label[-(_LABEL_MAX - 1):]  # keep the distinguishing tail
+        labels.append(label)
+    return labels
 
 
 def _coverage_embeddings(
@@ -55,8 +71,8 @@ def _save_umap(embeddings, paths: list[Path], out_path: Path, model_id: str = ""
 
     fig, ax = plt.subplots(figsize=(10, 8))
     ax.scatter(coords[:, 0], coords[:, 1], alpha=0.7, s=60)
-    for i, p in enumerate(paths):
-        ax.annotate(p.name[:20], (coords[i, 0], coords[i, 1]), fontsize=6, alpha=0.6)
+    for i, label in enumerate(_point_labels(paths)):
+        ax.annotate(label, (coords[i, 0], coords[i, 1]), fontsize=6, alpha=0.6)
     ax.set_title("Dataset Coverage — UMAP")
     plt.tight_layout()
     plt.savefig(out_path, dpi=150)
@@ -78,8 +94,8 @@ def _save_pca(embeddings, paths: list[Path], out_path: Path, model_id: str = "")
 
     fig, ax = plt.subplots(figsize=(8, 6))
     ax.scatter(coords[:, 0], coords[:, 1], alpha=0.8, s=60)
-    for i, p in enumerate(paths):
-        ax.annotate(p.name[:20], (coords[i, 0], coords[i, 1]), fontsize=6, alpha=0.6)
+    for i, label in enumerate(_point_labels(paths)):
+        ax.annotate(label, (coords[i, 0], coords[i, 1]), fontsize=6, alpha=0.6)
     ax.set_title("Dataset Coverage — PCA")
     plt.tight_layout()
     plt.savefig(out_path, dpi=150)

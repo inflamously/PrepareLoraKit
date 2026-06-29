@@ -91,6 +91,9 @@ for `--mock`.
 
 ## Conventions
 
+- Keep files focused and small — aim for ≤500 lines. Before writing a file, check whether its
+  use-case actually bundles multiple distinct sub-use-cases (or concerns); if so, split it into
+  separate, single-responsibility files rather than growing one large file.
 - Name step classes with the `*Step` suffix; keep step code in its numbered `steps/sN_*/` package.
 - Tests mock all ML-heavy work (model loading, captioning, upscaling, VAE) and use
   `tmp_path`/`monkeypatch` — never touch real datasets or model caches. Add/update tests when
