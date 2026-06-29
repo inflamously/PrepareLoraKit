@@ -110,19 +110,21 @@ def _quality_score(scores: dict, thresholds: dict, scorers: list[dict]) -> float
     return round(100 * sum(parts) / len(parts), 1) if parts else 0.0
 
 
-def _score_image(path: Path, thresholds: dict, scorers: list[dict]) -> dict:
+def _score_image(src, thresholds: dict, scorers: list[dict]) -> dict:
+    """Score one image. ``src`` is a Path or a decoded ``ImageData`` (shared across
+    scorers so the image is decoded once)."""
     scores: dict = {}
     reasons: list[str] = []
     borderline_flags: list[bool] = []
 
-    for s in _active_scorers(scorers):
-        name = s["name"]
-        threshold = _resolve_threshold(s, thresholds)
-        fn = _resolve_fn(s)
-        optional = s.get("optional", False)
+    for scorer in _active_scorers(scorers):
+        name = scorer["name"]
+        threshold = _resolve_threshold(scorer, thresholds)
+        fn = _resolve_fn(scorer)
+        optional = scorer.get("optional", False)
 
         try:
-            value = fn(path)
+            value = fn(src)
         except Exception:
             if optional:
                 scores[name] = None
@@ -131,12 +133,12 @@ def _score_image(path: Path, thresholds: dict, scorers: list[dict]) -> dict:
             raise
 
         scores[name] = round(value, 3) if isinstance(value, float) else value
-        op = s["op"]
+        op = scorer["op"]
 
         if (op == "lt" and value < threshold) or (op == "gt" and value > threshold):
             reasons.append(f"{name} {value} {'<' if op == 'lt' else '>'} {threshold}")
 
-        bthresh = _resolve_borderline(s, thresholds)
+        bthresh = _resolve_borderline(scorer, thresholds)
         if bthresh is not None and op == "lt":
             borderline_flags.append(value < bthresh)
         else:

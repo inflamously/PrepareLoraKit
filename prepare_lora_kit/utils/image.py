@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 import io
 import shutil
+import threading
 import cv2
 import numpy as np
 from PIL import Image
@@ -66,19 +67,57 @@ def load_cv2(path: Path) -> np.ndarray:
     return img
 
 
+# ── Decode-once cache ───────────────────────────────────────────────────────────
+# A single image is fed to several scorers (blur/noise/jpeg/watermark/min_side);
+# decoding it once and sharing the BGR / gray / PIL views avoids 4–5× redundant
+# disk decode per image. The metric functions below accept either a Path (decode
+# on demand, used by other steps) or an ImageData (reuse the cached decode).
+
+class ImageData:
+    """Lazily decodes an image once and caches its BGR / gray / PIL views."""
+
+    def __init__(self, path: Path) -> None:
+        self.path = Path(path)
+        self._bgr: np.ndarray | None = None
+        self._gray: np.ndarray | None = None
+        self._pil: Image.Image | None = None
+
+    @property
+    def bgr(self) -> np.ndarray:
+        if self._bgr is None:
+            self._bgr = load_cv2(self.path)
+        return self._bgr
+
+    @property
+    def gray(self) -> np.ndarray:
+        if self._gray is None:
+            self._gray = cv2.cvtColor(self.bgr, cv2.COLOR_BGR2GRAY)
+        return self._gray
+
+    @property
+    def pil(self) -> Image.Image:
+        if self._pil is None:
+            self._pil = Image.open(self.path).convert("RGB")
+        return self._pil
+
+
+def _as_data(src) -> ImageData:
+    return src if isinstance(src, ImageData) else ImageData(src)
+
+
 # ── Blur ──────────────────────────────────────────────────────────────────────
 
-def blur_score(path: Path) -> float:
+def blur_score(src) -> float:
     """Laplacian variance — lower = blurrier. Typical threshold: 100."""
-    gray = cv2.cvtColor(load_cv2(path), cv2.COLOR_BGR2GRAY)
+    gray = _as_data(src).gray
     return float(cv2.Laplacian(gray, cv2.CV_64F).var())
 
 
 # ── Noise ─────────────────────────────────────────────────────────────────────
 
-def noise_score(path: Path) -> float:
+def noise_score(src) -> float:
     """Estimate noise level from the high-frequency residual."""
-    gray = cv2.cvtColor(load_cv2(path), cv2.COLOR_BGR2GRAY).astype(np.float32)
+    gray = _as_data(src).gray.astype(np.float32)
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)
     residual = gray - blurred
     return float(residual.std())
@@ -86,14 +125,14 @@ def noise_score(path: Path) -> float:
 
 # ── JPEG artifacts ────────────────────────────────────────────────────────────
 
-def jpeg_artifact_score(path: Path) -> float:
+def jpeg_artifact_score(src) -> float:
     """
     SSIM between the original and a re-compressed copy at Q=75.
     Returns 1.0 - SSIM so higher = worse artifacts.
     """
     from skimage.metrics import structural_similarity as ssim
 
-    pil = Image.open(path).convert("RGB")
+    pil = _as_data(src).pil
     buf = io.BytesIO()
     pil.save(buf, format="JPEG", quality=75)
     buf.seek(0)
@@ -109,29 +148,39 @@ def jpeg_artifact_score(path: Path) -> float:
 
 _clip_model = None
 _clip_processor = None
+_clip_device = None
+_clip_lock = threading.Lock()  # CLIP forward is not thread-safe; guard it.
 
 
 def _get_clip():
-    global _clip_model, _clip_processor
+    global _clip_model, _clip_processor, _clip_device
+    # Double-checked locking: under the thread pool, several workers hit this at
+    # once on the first image. transformers' lazy module loader is not safe to
+    # initialise concurrently (a racing thread sees a half-built module and fails
+    # with "cannot import name 'CLIPModel'"), so serialise the one-time load.
     if _clip_model is None:
-        from transformers import CLIPModel, CLIPProcessor
-        _clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
-        _clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
-        _clip_model.eval()
-    return _clip_model, _clip_processor
+        with _clip_lock:
+            if _clip_model is None:
+                import torch
+                from transformers import CLIPModel, CLIPProcessor
+                _clip_device = "cuda" if torch.cuda.is_available() else "cpu"
+                model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").eval().to(_clip_device)
+                _clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+                _clip_model = model  # publish last: other threads see a ready model
+    return _clip_model, _clip_processor, _clip_device
 
 
-def watermark_score(path: Path) -> float:
+def watermark_score(src) -> float:
     """
     CLIP zero-shot score for 'photo with visible watermark'.
     Returns probability in [0, 1]; higher = more likely watermarked.
     """
     import torch
-    model, processor = _get_clip()
-    image = Image.open(path).convert("RGB")
+    model, processor, device = _get_clip()
+    image = _as_data(src).pil
     prompts = ["a photo with a visible watermark or logo", "a clean photo without watermarks"]
-    inputs = processor(text=prompts, images=image, return_tensors="pt", padding=True)
-    with torch.no_grad():
+    inputs = processor(text=prompts, images=image, return_tensors="pt", padding=True).to(device)
+    with _clip_lock, torch.no_grad():
         logits = model(**inputs).logits_per_image[0]
         probs = logits.softmax(dim=0)
     return float(probs[0].item())
@@ -139,8 +188,13 @@ def watermark_score(path: Path) -> float:
 
 # ── Size helpers ───────────────────────────────────────────────────────────────
 
-def min_side(path: Path) -> int:
-    with Image.open(path) as img:
+def min_side(src) -> int:
+    # ImageData → reuse the already-decoded array; Path → cheap header-only read
+    # (callers in s3/s6 pass Path purely for dimensions, must not force a decode).
+    if isinstance(src, ImageData):
+        h, w = src.bgr.shape[:2]
+        return int(min(h, w))
+    with Image.open(src) as img:
         return min(img.size)
 
 

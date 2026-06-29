@@ -7,6 +7,8 @@ Phase B: tkinter gallery — all images shown with pass/fail borders, click to
          Falls back to easygui/terminal one-by-one review when tkinter absent.
 """
 from __future__ import annotations
+import os
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from ...cancellation import CancelCheck, check_cancel
@@ -28,15 +30,6 @@ def run(
     enabled_substeps: list[str] | None = None,
     cancel_check: CancelCheck | None = None,
 ) -> dict:
-    """
-    Run Step 1.
-
-    Returns report dict: {path_str: {kept, decision, scores, reasons}}.
-    Writes report to report_path (default output_dir/step1_report.json).
-
-    Pass `scorers` to override SCORER_REGISTRY with custom quality checks.
-    Each scorer: {"name", "fn", "threshold_key", "op", "optional", "borderline_key"}.
-    """
     rpt.step_header(1, "Source Image Quality Gates")
 
     enabled = set(enabled_substeps or ["s1_1_score", "s1_2_decide"])
@@ -56,18 +49,36 @@ def run(
 
     # ── Phase A: score everything ───────────────────────────────────────────
     if "s1_1_score" in enabled:
-        for path in images:
+        def _score_one(path: Path):
+            # Decode each image once; share it across all scorers. cv2/skimage
+            # release the GIL so blur/noise/jpeg run in parallel across workers
+            # (the CLIP watermark forward serializes on its own lock).
+            check_cancel(cancel_check)
+            try:
+                return _score_image(img_utils.ImageData(path), thresholds, scorers)
+            except Exception as exc:
+                return exc
+
+        # Warm-up: score the first image serially so every lazy import (skimage,
+        # transformers) and the one-time CLIP model load happens once on the main
+        # thread. Initialising those concurrently across workers races — a worker
+        # can observe a half-built lazy module ("cannot import name 'CLIPModel'").
+        results = [_score_one(images[0])] if images else []
+        if len(images) > 1:
+            workers = min(8, os.cpu_count() or 4)
+            with ThreadPoolExecutor(max_workers=workers) as ex:
+                results.extend(ex.map(_score_one, images[1:]))
+
+        for path, result in zip(images, results):
             check_cancel(cancel_check)
             key = str(path)
-            try:
-                info = _score_image(path, thresholds, scorers)
-            except Exception as exc:
-                rpt.error(f"{path.name}: scoring failed — {exc}")
-                report[key] = {"kept": False, "decision": "reject", "reason": str(exc),
+            if isinstance(result, Exception):
+                rpt.error(f"{path.name}: scoring failed — {result}")
+                report[key] = {"kept": False, "decision": "reject", "reason": str(result),
                                "scores": {}, "quality": 0.0}
                 rejected += 1
                 continue
-            scored.append((path, info))
+            scored.append((path, result))
     else:
         rpt.warn("Skipping source scoring substep; keeping images unless review changes them.")
         scored = [
