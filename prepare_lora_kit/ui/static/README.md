@@ -2,9 +2,12 @@
 
 This directory contains the pywebview browser UI for PrepareLoraKit.
 
+UI design — the baseline layout, the `nf-*` component kit, and the rules
+components must follow (e.g. the gold-glow transition) — is documented in
+[`docs/ui-design.md`](../../../docs/ui-design.md).
+
 | File | Description |
 | --- | --- |
-| `DESIGN_BASELINE.md` | Documents the project-detail screenshot and app-kit stylesheet as the baseline for future UI pages. |
 | `README.md` | Lists each static UI file and its one-line purpose. |
 | `app.js` | Waits for pywebview readiness and starts the UI bootstrap. |
 | `index.html` | Defines the project-detail desktop shell, controls, workspace columns, statusbar, and modal layer. |
@@ -24,7 +27,7 @@ This directory contains the pywebview browser UI for PrepareLoraKit.
 | `core/dom.js` | Contains small DOM helpers for element lookup, text updates, step labels, status flags, and HTML escaping. |
 | `styles/index.css` | Self-contained barrel for the `nf-*` design kit; imports `tokens.css` then every component, so the whole kit loads (or ports out) via one `@import`. |
 | `styles/tokens.css` | Defines the design-token contract (the `:root` custom properties for color, type, spacing, radii, shadows, motion); override these to reskin the kit. |
-| `styles/*.css` | Provides the reusable `nf-*` desktop app component layer (adapted from `design/project-detail-view.css`), split one file per component (e.g. `styles/button.css`, `styles/panel.css`, `styles/project-card.css`). |
+| `styles/*.css` | Provides the reusable `nf-*` desktop app component layer (adapted from the `design/project-detail-view.png` baseline), split one file per component (e.g. `styles/button.css`, `styles/panel.css`, `styles/project-card.css`). |
 | `core/foundation.css` | Defines base element resets, document defaults, and app-only helper classes (depends on `styles/tokens.css`). |
 | `core/state.js` | Re-exports the shared state object for existing core state import paths. |
 | `job/controller.js` | Builds run requests, starts/cancels jobs, polls job status, opens outputs, and routes pending interactions to modals. |
