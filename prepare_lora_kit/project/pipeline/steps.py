@@ -34,7 +34,7 @@ STEP_PREREQUISITES: dict[str, list[str]] = {
     "CurateStep": ["QualityGateStep"],
     "UpscaleStep": ["CurateStep"],
     "CaptionStep": ["CurateStep"],
-    "VaeGateStep": ["CaptionStep"],
+    "VaeGateStep": [],
     "AuditStep": ["CaptionStep"],
     "ConfigGenStep": ["AuditStep"],
     "BucketDryRunStep": ["ConfigGenStep"],

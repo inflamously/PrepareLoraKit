@@ -24,6 +24,10 @@ class NetworkProfile:
     model_type: str
     noise_scheduler: str
     config_template: dict[str, Any] = field(default_factory=dict)
+    # Optional config source for single-file VAEs (``vae_model_id`` pointing at a bare
+    # checkpoint). Points at a base repo whose ``vae/`` config matches the architecture; only
+    # needed when diffusers cannot infer the config from the checkpoint's state-dict keys.
+    vae_config_id: str | None = None
     # effective_rank = alpha / rank; ratio outside this range triggers a warning
     lr_alpha_rank_ratio_range: tuple[float, float] = (0.5, 2.0)
     requires_diff_guidance: bool = False

@@ -78,7 +78,7 @@ def run(
     rpt.info(f"Loading VAE from {network.vae_model_id} …")
     check_cancel(cancel_check)
     try:
-        vae, device, dtype = _load_vae(network.vae_model_id)
+        vae, device, dtype = _load_vae(network.vae_model_id, network.vae_config_id)
     except Exception as exc:
         rpt.error(f"VAE load failed: {exc}")
         rpt.warn("Skipping VAE gate — install diffusers and a supported model first.")

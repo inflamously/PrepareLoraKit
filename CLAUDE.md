@@ -79,6 +79,13 @@ get it inserted in memory).
   strip and override handling.
 - `networks/` — `NetworkProfile` describes the base model, VAE id, buckets, LR/rank ranges, and
   the ai-toolkit `model`/`network`/`train`/`save`/`sample` template blocks used by ConfigGenStep.
+  `vae_model_id` (consumed by the VAE gate, `steps/s4_vae_gate/vae.py`) accepts three forms: a
+  diffusers repo id or local dir (loaded via `from_pretrained(subfolder="vae")` — only the `vae/`
+  subfolder is fetched, not the full model); a single-file checkpoint path/URL ending in
+  `.safetensors`/`.ckpt`/`.pt`/`.bin` (e.g. ComfyUI `ae.safetensors`, `sdxl_vae.safetensors`,
+  loaded via `from_single_file`); or `repo_id::path/in/repo.safetensors` to grab one file from an
+  HF repo. Optional `vae_config_id` points the single-file loader at a base repo's `vae/` config
+  when diffusers can't infer it from the checkpoint keys.
 
 **Configs on disk:** project presets in `configs/projects/`, network profiles in
 `configs/networks/`, caption prompts in `configs/caption_prompts/`.

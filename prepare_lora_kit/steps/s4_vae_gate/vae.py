@@ -1,16 +1,46 @@
 from pathlib import Path
 import numpy as np
 
+# Bare-checkpoint suffixes routed to ``from_single_file`` instead of a diffusers repo.
+_SINGLE_FILE_SUFFIXES = (".safetensors", ".ckpt", ".pt", ".bin")
+
 
 # ── VAE encode-decode ─────────────────────────────────────────────────────────
 
-def _load_vae(model_id: str):
+def _instantiate_vae(model_id: str, AutoencoderKL, config_id: str | None = None):
+    """Build an ``AutoencoderKL`` from one of three ``vae_model_id`` forms:
+
+    - ``repo_id::path/in/repo.safetensors`` → download just that file, then single-file load.
+    - a path/URL ending in a checkpoint suffix → single-file load.
+    - anything else (a diffusers repo id or local dir) → ``from_pretrained(subfolder="vae")``.
+
+    ``config_id`` (optional) points the single-file loader at a base repo's ``vae/`` config
+    for checkpoints diffusers cannot auto-configure from their state-dict keys.
+    """
+    if "::" in model_id:
+        repo_id, filename = model_id.split("::", 1)
+        from huggingface_hub import hf_hub_download
+
+        local = hf_hub_download(repo_id, filename)
+        return _from_single_file(AutoencoderKL, local, config_id)
+    if model_id.lower().endswith(_SINGLE_FILE_SUFFIXES):
+        return _from_single_file(AutoencoderKL, model_id, config_id)
+    return AutoencoderKL.from_pretrained(model_id, subfolder="vae")
+
+
+def _from_single_file(AutoencoderKL, path: str, config_id: str | None = None):
+    if config_id:
+        return AutoencoderKL.from_single_file(path, config=config_id, subfolder="vae")
+    return AutoencoderKL.from_single_file(path)
+
+
+def _load_vae(model_id: str, config_id: str | None = None):
     import torch
     from diffusers import AutoencoderKL
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     dtype = torch.float16 if device == "cuda" else torch.float32
-    vae = AutoencoderKL.from_pretrained(model_id, subfolder="vae").to(device, dtype=dtype)
+    vae = _instantiate_vae(model_id, AutoencoderKL, config_id).to(device, dtype=dtype)
     vae.eval()
     vae.enable_tiling()   # constant VRAM regardless of image size
     vae.enable_slicing()  # reduces peak VRAM for batch dim
