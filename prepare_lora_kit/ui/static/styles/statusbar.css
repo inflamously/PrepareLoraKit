@@ -1,0 +1,53 @@
+.nf-statusbar {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    padding: var(--space-4) var(--space-7);
+    background: var(--surface-glass-strong);
+    -webkit-backdrop-filter: var(--glass-blur-soft);
+    backdrop-filter: var(--glass-blur-soft);
+    border-top: 1px solid var(--border);
+}
+
+.nf-statusbar__status {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+}
+
+.nf-statusbar__title {
+    font: var(--weight-semibold) var(--text-sm)/1 var(--font-display);
+    color: var(--text-1);
+}
+
+.nf-statusbar__msg {
+    font: var(--type-mono);
+    font-size: var(--text-xs);
+    color: var(--text-3);
+}
+
+.nf-statusbar__actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+}
+
+
+@media (max-width: 720px) {
+    .nf-statusbar {
+        align-items: stretch;
+        flex-direction: column;
+        padding: var(--space-4);
+    }
+
+    .nf-statusbar__actions {
+        flex-wrap: wrap;
+    }
+
+    .nf-statusbar__actions .nf-btn {
+        flex: 1 1 140px;
+    }
+}

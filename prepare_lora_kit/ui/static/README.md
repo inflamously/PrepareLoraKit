@@ -22,8 +22,10 @@ This directory contains the pywebview browser UI for PrepareLoraKit.
 | `core/api.js` | Documents pywebview bridge payloads with JSDoc and returns the Python bridge API. |
 | `core/app.js` | Bootstraps app info, projects, saved launch state, event bindings, and the initial render. |
 | `core/dom.js` | Contains small DOM helpers for element lookup, text updates, step labels, status flags, and HTML escaping. |
-| `core/app-kit.css` | Provides the reusable `nf-*` desktop app component layer adapted from `design/project-detail-view.css`. |
-| `core/foundation.css` | Defines active design tokens, base layout defaults, form controls, buttons, panels, and responsive behavior. |
+| `styles/index.css` | Self-contained barrel for the `nf-*` design kit; imports `tokens.css` then every component, so the whole kit loads (or ports out) via one `@import`. |
+| `styles/tokens.css` | Defines the design-token contract (the `:root` custom properties for color, type, spacing, radii, shadows, motion); override these to reskin the kit. |
+| `styles/*.css` | Provides the reusable `nf-*` desktop app component layer (adapted from `design/project-detail-view.css`), split one file per component (e.g. `styles/button.css`, `styles/panel.css`, `styles/project-card.css`). |
+| `core/foundation.css` | Defines base element resets, document defaults, and app-only helper classes (depends on `styles/tokens.css`). |
 | `core/state.js` | Re-exports the shared state object for existing core state import paths. |
 | `job/controller.js` | Builds run requests, starts/cancels jobs, polls job status, opens outputs, and routes pending interactions to modals. |
 | `job/job.css` | Adds PrepareLoraKit-specific current-step and selectable run-log behavior on top of the app kit console. |

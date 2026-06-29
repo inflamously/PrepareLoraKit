@@ -1,0 +1,134 @@
+.nf-field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.nf-label {
+    font: var(--type-body-sm);
+    font-size: var(--text-xs);
+    color: var(--text-2);
+}
+
+.nf-label .nf-label__hint {
+    color: var(--text-3);
+}
+
+
+.nf-input,
+.nf-select {
+    width: 100%;
+    height: var(--control-h-md);
+    padding: 0 var(--space-3);
+    background: var(--control-bg);
+    color: var(--text-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    font: var(--type-body);
+    font-size: var(--text-sm);
+    outline: none;
+    transition: var(--transition-color), box-shadow var(--dur-fast) var(--ease-out);
+}
+
+.nf-input::placeholder {
+    color: var(--text-3);
+}
+
+.nf-input:hover,
+.nf-select:hover {
+    border-color: var(--border-strong);
+}
+
+
+.nf-input:focus,
+.nf-select:focus {
+    border-color: var(--border-subtle);
+    border-bottom-color: var(--accent);
+    box-shadow: inset 0 -2px 0 -1px var(--accent),
+    0 6px 18px -10px var(--gold-glow);
+}
+
+
+.nf-select {
+    appearance: none;
+    -webkit-appearance: none;
+    padding-right: var(--space-8);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23FFE000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right var(--space-3) center;
+}
+
+.nf-select option {
+    background: var(--night-900);
+    color: var(--text-1);
+}
+
+
+.nf-inputgroup {
+    display: flex;
+    gap: var(--space-2);
+}
+
+.nf-inputgroup .nf-input {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.nf-inputgroup .nf-btn {
+    flex: none;
+}
+
+
+.nf-check {
+    appearance: none;
+    -webkit-appearance: none;
+    flex: none;
+    width: 24px;
+    height: 24px;
+    margin: 0;
+    min-height: 0;
+    background: var(--control-bg);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    transition: var(--transition-color), box-shadow var(--dur-fast) var(--ease-out);
+}
+
+.nf-check:hover {
+    border-color: var(--gold-500);
+    box-shadow: var(--glow-gold);
+}
+
+.nf-check:checked {
+    background: var(--grad-gold);
+    border-color: var(--gold-500);
+    box-shadow: var(--glow-gold);
+}
+
+/*
+ * Brighten the glow on hover, mirroring .nf-btn--primary:hover. Doubled
+ * specificity (.nf-check:checked:hover = 0,3,0) so the gold glow wins over a
+ * host's generic input:focus / input:hover resets.
+ */
+.nf-check:checked:hover {
+    box-shadow: var(--glow-gold-strong);
+}
+
+.nf-check:checked::after {
+    content: "";
+    width: 6px;
+    height: 10px;
+    margin-top: -2px;
+    border: solid var(--accent-ink);
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+    position: relative;
+    left: -2px;
+}
+
+.nf-check:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}

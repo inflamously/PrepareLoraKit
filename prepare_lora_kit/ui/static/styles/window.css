@@ -1,0 +1,107 @@
+.nf-window {
+    --titlebar-h: 38px;
+    --col-left: 320px;
+    --col-right: 1.05fr;
+    --panel-pad: var(--space-6);
+    --col-gap: var(--space-5);
+    --field-gap: var(--space-5);
+    --control-bg: var(--night-950);
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    background: var(--bg-app);
+    color: var(--text-body);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-xl);
+    font: var(--type-body);
+}
+
+
+.nf-titlebar {
+    flex: none;
+    height: var(--titlebar-h);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-left: var(--space-4);
+    background: var(--surface-glass-strong);
+    border-bottom: 1px solid var(--hairline);
+    -webkit-app-region: drag;
+    user-select: none;
+}
+
+.nf-titlebar__app {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font: var(--type-caption);
+    color: var(--text-3);
+}
+
+.nf-titlebar__app .nf-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: var(--radius-xs);
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--gold-glow);
+}
+
+.nf-titlebar__controls {
+    display: flex;
+    align-items: stretch;
+    height: 100%;
+    -webkit-app-region: no-drag;
+}
+
+.nf-winbtn {
+    width: 46px;
+    min-height: 0;
+    padding: 0;
+    display: grid;
+    place-items: center;
+    background: none;
+    border: 0;
+    border-radius: 0;
+    color: var(--text-3);
+    cursor: default;
+    transition: var(--transition-color);
+}
+
+.nf-winbtn:hover {
+    background: var(--surface-hover);
+    color: var(--text-1);
+}
+
+.nf-winbtn--close:hover {
+    background: var(--danger-500);
+    color: var(--white);
+}
+
+.nf-winbtn svg {
+    width: 14px;
+    height: 14px;
+}
+
+
+@media (prefers-reduced-motion: reduce) {
+    .nf-window *, .nf-window *::before, .nf-window *::after {
+        transition: none !important;
+        animation: none !important;
+    }
+}
+
+@media (max-width: 1080px) {
+    .nf-window {
+        --col-left: minmax(280px, 1fr);
+    }
+}
+
+@media (max-width: 720px) {
+    .nf-titlebar {
+        height: 34px;
+    }
+}

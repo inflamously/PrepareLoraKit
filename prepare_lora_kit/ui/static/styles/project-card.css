@@ -1,0 +1,180 @@
+.nf-grid {
+    --card-min: 248px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(var(--card-min), 1fr));
+    gap: var(--space-5);
+    padding: var(--space-6) var(--space-7);
+    overflow-y: auto;
+    align-content: start;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.nf-projcard {
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+    cursor: pointer;
+    padding: 0;
+    color: inherit;
+    font: inherit;
+    transition: var(--transition-color), transform var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+
+.nf-projcard:hover {
+    transform: translateY(-2px);
+    border-color: var(--border-strong);
+    box-shadow: var(--shadow-md);
+}
+
+
+.nf-projcard__cover {
+    position: relative;
+    height: 96px;
+    display: grid;
+    place-items: center;
+    background: radial-gradient(120% 120% at 80% 10%, var(--cover, rgba(45, 64, 224, 0.18)) 0%, rgba(45, 64, 224, 0) 55%),
+    linear-gradient(150deg, var(--night-800) 0%, var(--night-900) 100%);
+    border-bottom: 1px solid var(--hairline);
+}
+
+.nf-projcard__mono {
+    font: var(--weight-bold) var(--text-4xl)/1 var(--font-display);
+    letter-spacing: var(--tracking-tighter);
+    color: rgba(243, 245, 255, 0.10);
+    text-transform: uppercase;
+}
+
+.nf-projcard__badge {
+    position: absolute;
+    top: var(--space-3);
+    right: var(--space-3);
+}
+
+
+.nf-projcard__check {
+    position: absolute;
+    top: var(--space-3);
+    left: var(--space-3);
+    width: 22px;
+    height: 22px;
+    display: grid;
+    place-items: center;
+    border-radius: var(--radius-pill);
+    background: var(--surface-glass-strong);
+    border: 1px solid var(--border-strong);
+    color: transparent;
+    opacity: 0;
+    transition: var(--transition-color), opacity var(--dur-fast) var(--ease-out);
+}
+
+.nf-projcard:hover .nf-projcard__check {
+    opacity: 1;
+}
+
+.nf-projcard__check svg {
+    width: 13px;
+    height: 13px;
+}
+
+.nf-projcard__body {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: var(--space-4) var(--space-4) var(--space-3);
+}
+
+.nf-projcard__name {
+    font: var(--weight-semibold) var(--text-base)/1.2 var(--font-display);
+    color: var(--text-1);
+    letter-spacing: var(--tracking-tight);
+}
+
+.nf-projcard__meta {
+    font: var(--type-mono);
+    font-size: var(--text-2xs);
+    color: var(--text-3);
+}
+
+.nf-projcard__meta .nf-sep {
+    opacity: 0.5;
+    margin: 0 2px;
+}
+
+.nf-projcard__foot {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    margin-top: auto;
+    padding: var(--space-3) var(--space-4);
+    border-top: 1px solid var(--hairline);
+}
+
+.nf-projcard__stat {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font: var(--type-mono);
+    font-size: var(--text-2xs);
+    color: var(--text-3);
+}
+
+.nf-projcard__stat b {
+    color: var(--text-2);
+    font-weight: var(--weight-bold);
+}
+
+.nf-projcard__stat svg {
+    width: 13px;
+    height: 13px;
+    color: var(--text-3);
+}
+
+
+.nf-projcard.is-selected {
+    border-color: var(--gold-500);
+    box-shadow: var(--glow-gold), var(--shadow-md);
+}
+
+.nf-projcard.is-selected .nf-projcard__check {
+    opacity: 1;
+    background: var(--grad-gold);
+    border-color: var(--gold-500);
+    color: var(--accent-ink);
+}
+
+.nf-projcard.is-selected .nf-projcard__cover {
+    background: radial-gradient(120% 130% at 80% 6%, rgba(255, 224, 0, 0.14) 0%, rgba(255, 224, 0, 0) 55%),
+    linear-gradient(150deg, var(--night-750) 0%, var(--night-850) 100%);
+}
+
+
+.nf-projcard--new {
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-3);
+    min-height: 188px;
+    background: transparent;
+    border-style: dashed;
+    color: var(--text-3);
+}
+
+.nf-projcard--new:hover {
+    color: var(--accent);
+    border-color: var(--border-gold);
+    transform: translateY(-2px);
+}
+
+.nf-projcard--new svg {
+    width: 26px;
+    height: 26px;
+}
+
+.nf-projcard--new span {
+    font: var(--weight-medium) var(--text-sm)/1 var(--font-sans);
+}

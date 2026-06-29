@@ -1,0 +1,78 @@
+.nf-console {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    margin: 0;
+    padding: var(--space-5) var(--space-6);
+    background: var(--night-990);
+    border-top: 1px solid var(--hairline);
+    border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+    font: var(--type-mono);
+    font-size: var(--text-xs);
+    line-height: var(--leading-relaxed);
+    color: var(--text-2);
+}
+
+.nf-console__line {
+    display: block;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.nf-console__line.is-head {
+    color: var(--gold-300);
+    font-weight: var(--weight-bold);
+}
+
+.nf-console__line.is-ok {
+    color: var(--success-500);
+}
+
+.nf-console__line.is-info {
+    color: var(--cobalt-300);
+}
+
+.nf-console__line.is-warn {
+    color: var(--amber-400);
+}
+
+.nf-console__line.is-err {
+    color: var(--danger-500);
+}
+
+.nf-console__line.is-dim {
+    color: var(--text-3);
+}
+
+.nf-console__line .tok-ok {
+    color: var(--success-500);
+}
+
+.nf-console__line .tok-info {
+    color: var(--cobalt-300);
+}
+
+.nf-console__line .tok-add {
+    color: var(--gold-300);
+}
+
+
+.nf-progress {
+    display: inline-block;
+    vertical-align: middle;
+    width: 120px;
+    height: 8px;
+    margin: 0 var(--space-2);
+    border-radius: var(--radius-pill);
+    background: var(--night-700);
+    overflow: hidden;
+}
+
+.nf-progress::before {
+    content: "";
+    display: block;
+    height: 100%;
+    width: calc(var(--p, 0) * 100%);
+    background: var(--grad-gold);
+    box-shadow: var(--glow-gold);
+}

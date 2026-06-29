@@ -1,0 +1,121 @@
+.nf-appbar {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    padding: var(--space-5) var(--space-7);
+    border-bottom: 1px solid var(--border);
+    background: radial-gradient(120% 180% at 4% -40%, rgba(255, 224, 0, 0.07) 0%, rgba(255, 224, 0, 0) 50%),
+    var(--bg-base);
+}
+
+.nf-logo {
+    flex: none;
+    width: 48px;
+    height: 48px;
+    display: grid;
+    place-items: center;
+    border-radius: var(--radius-md);
+    background: var(--grad-gold);
+    color: var(--accent-ink);
+    font: var(--weight-bold) var(--text-base)/1 var(--font-mono);
+    letter-spacing: var(--tracking-wide);
+    box-shadow: var(--glow-gold), var(--edge-light-strong);
+}
+
+.nf-appbar__id {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.nf-appbar__id h1,
+.nf-appbar__title {
+    margin: 0;
+    font: var(--type-h3);
+    color: var(--text-heading);
+    letter-spacing: var(--tracking-tight);
+}
+
+.nf-appbar__path {
+    font: var(--type-mono);
+    font-size: var(--text-xs);
+    color: var(--text-3);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.nf-appbar__spacer {
+    flex: 1 1 auto;
+}
+
+
+.nf-runstatus {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+    padding: var(--space-3) var(--space-5);
+    border-radius: var(--radius-lg);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 2px solid var(--status, var(--success-500));
+}
+
+.nf-runstatus__label {
+    font: var(--type-mono);
+    font-size: var(--text-2xs);
+    letter-spacing: var(--tracking-widest);
+    text-transform: uppercase;
+    color: var(--text-3);
+}
+
+.nf-runstatus__value {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font: var(--weight-semibold) var(--text-base)/1 var(--font-display);
+    color: var(--status, var(--success-500));
+    text-transform: lowercase;
+}
+
+.nf-runstatus__value::before {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-radius: var(--radius-pill);
+    background: var(--status, var(--success-500));
+    box-shadow: 0 0 10px var(--status, var(--success-500));
+}
+
+.nf-runstatus--ok {
+    --status: var(--success-500);
+}
+
+.nf-runstatus--busy {
+    --status: var(--gold-500);
+}
+
+.nf-runstatus--idle {
+    --status: var(--night-400);
+}
+
+.nf-runstatus--error {
+    --status: var(--danger-500);
+}
+
+
+@media (max-width: 720px) {
+    .nf-appbar {
+        align-items: stretch;
+        flex-direction: column;
+        padding: var(--space-4);
+    }
+
+    .nf-runstatus {
+        align-items: flex-start;
+    }
+}

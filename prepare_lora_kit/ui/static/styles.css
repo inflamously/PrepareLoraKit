@@ -1,5 +1,9 @@
+/* Design kit: token contract + one file per nf-* component (barrel). */
+@import "./styles/index.css";
+
+/* Base element resets and app-only helper classes (depends on the tokens above). */
 @import "./core/foundation.css";
-@import "./core/app-kit.css";
+
 @import "./library/library.css";
 @import "./shell/shell.css";
 @import "./project/project.css";

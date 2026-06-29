@@ -1,0 +1,86 @@
+.nf-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    height: var(--control-h-md);
+    padding: 0 var(--space-4);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--surface-raised);
+    color: var(--text-1);
+    font: var(--weight-medium) var(--text-sm)/1 var(--font-sans);
+    white-space: nowrap;
+    cursor: pointer;
+    transition: var(--transition-color), transform var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+
+.nf-btn svg {
+    width: 16px;
+    height: 16px;
+}
+
+.nf-btn:hover {
+    background: var(--surface-hover);
+    border-color: var(--border-strong);
+}
+
+.nf-btn:active {
+    transform: translateY(0.5px) scale(0.985);
+}
+
+.nf-btn--secondary {
+}
+
+.nf-btn--primary {
+    background: var(--grad-gold);
+    border-color: transparent;
+    color: var(--accent-ink);
+    font-weight: var(--weight-semibold);
+}
+
+/*
+ * Doubled .nf-btn.nf-btn--primary (specificity 0,3,0) so the gold hover/active
+ * states beat a host's generic `button:hover:not(:disabled)` reset (0,2,1),
+ * which would otherwise repaint the background dark. Both classes are always
+ * present on the element (class="nf-btn nf-btn--primary").
+ */
+.nf-btn.nf-btn--primary:hover {
+    background: var(--gold-400);
+    box-shadow: var(--glow-gold-strong);
+}
+
+.nf-btn.nf-btn--primary:active {
+    background: var(--gold-600);
+}
+
+.nf-btn--ghost {
+    background: transparent;
+    border-color: transparent;
+    color: var(--text-2);
+}
+
+.nf-btn--ghost:hover {
+    background: var(--surface-hover);
+    color: var(--text-1);
+}
+
+.nf-btn--sm {
+    height: var(--control-h-sm);
+    padding: 0 var(--space-3);
+    font-size: var(--text-xs);
+}
+
+.nf-btn--block {
+    width: 100%;
+}
+
+.nf-btn:disabled,
+.nf-btn.is-disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
+    pointer-events: none;
+}

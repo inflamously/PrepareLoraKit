@@ -1,0 +1,25 @@
+/*
+ * nf-* design kit — single entry point.
+ *
+ * Self-contained: imports the token contract first, then every component.
+ * To use the kit in another project, copy this `styles/` folder and add one line:
+ *
+ *     @import "styles/index.css";
+ *
+ * Override any custom property from tokens.css in your own :root to reskin.
+ */
+@import "./tokens.css";
+
+@import "./window.css";
+@import "./appbar.css";
+@import "./workspace.css";
+@import "./panel.css";
+@import "./forms.css";
+@import "./button.css";
+@import "./pill.css";
+@import "./step.css";
+@import "./console.css";
+@import "./statusbar.css";
+@import "./toolbar.css";
+@import "./project-card.css";
+@import "./metric.css";
