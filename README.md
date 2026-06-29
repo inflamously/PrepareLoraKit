@@ -213,21 +213,40 @@ outputs/<dataset-name>/
 
 ## Important Runtime Dependencies
 
-The project depends on image processing, ML, and CLI libraries listed in
-`requirements.txt`, including:
+Install the cross-platform core (the minimum to run the default pipeline):
 
-- Pillow, OpenCV, NumPy, SciPy, scikit-image, scikit-learn, imagehash
+```bash
+python -m pip install -r requirements.txt
+```
+
+The requirements are organized under `requirements/`:
+
+- `requirements/base.txt` — core/minimum, cross-platform. The root
+  `requirements.txt` is a thin shim that pulls this in.
+- `requirements/seedvr2.txt` — optional SeedVR2 upscaling runtime.
+- `requirements/seedvr2-windows.txt` / `requirements/seedvr2-linux.txt` —
+  SeedVR2 plus OS-specific GPU acceleration extras.
+
+The core depends on image processing, ML, and CLI libraries, including:
+
+- Pillow, OpenCV, NumPy, scikit-image, scikit-learn, imagehash
 - PyTorch, torchvision, transformers, accelerate, diffusers
-- umap-learn, matplotlib, lpips
+- open_clip_torch, umap-learn, matplotlib
 - Click, Rich, PyYAML
 - easygui for fallback manual review flows
 - bitsandbytes for optional 4-bit or 8-bit VLM quantization
 
+`torch`/`torchvision` are pinned loosely; install a CUDA-specific build first
+(see `--index-url` on https://pytorch.org) if the default wheel does not match
+your GPU.
+
 SeedVR2 upscaling is optional and uses the pinned submodule at
-`third_party/seedvr2`. Initialize it before using `upscale_model: seedvr2`:
+`third_party/seedvr2`. Before using `upscale_model: seedvr2`, install the
+SeedVR2 extras for your OS and the submodule itself:
 
 ```bash
 git submodule update --init --recursive third_party/seedvr2
+python -m pip install -r requirements/seedvr2-windows.txt   # or seedvr2-linux.txt
 python -m pip install -e third_party/seedvr2
 ```
 

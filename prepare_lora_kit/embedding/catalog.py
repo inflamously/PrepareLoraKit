@@ -74,10 +74,9 @@ DINOV2_MODELS: tuple[EmbeddingModel, ...] = (
                    hf_repo="facebook/dinov2-base"),
 )
 
-# --- Qwen3-VL embedding (transformers) -------------------------------------
-# NOTE: confirm the exact Hugging Face repo ids before relying on these in prod;
-# this catalog is the one place to fix them. allow_custom keeps the UI usable in
-# the meantime.
+# --- Qwen3-VL embedding (sentence-transformers) ----------------------------
+# Causal-LM-based multimodal embedding models, loaded via sentence-transformers
+# (see loaders._embed_qwen). This catalog is the one place to add/fix repo ids.
 QWEN_MODELS: tuple[EmbeddingModel, ...] = (
     EmbeddingModel("Qwen/Qwen3-VL-Embedding-2B", "Qwen3-VL Embedding 2B (2048d)", "qwen", 2048, 24.0,
                    hf_repo="Qwen/Qwen3-VL-Embedding-2B"),

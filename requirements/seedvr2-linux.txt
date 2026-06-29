@@ -1,0 +1,4 @@
+-r seedvr2.txt
+# Optional GPU acceleration (Linux) — may require a manual/build install
+sageattention
+triton

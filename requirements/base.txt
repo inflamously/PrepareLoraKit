@@ -1,0 +1,28 @@
+# Core pipeline (always imported)
+click>=8.1
+numpy>=1.24
+Pillow>=10.0
+pyyaml>=6.0
+rich>=13.7
+opencv-python>=4.8
+
+# ML stack — loaded lazily by caption / vae-gate / curate / embedding steps.
+# torch/torchvision are pinned loosely; install a CUDA-specific build first via
+# --index-url (https://pytorch.org) if the default wheel doesn't match your GPU.
+torch>=2.1
+torchvision>=0.16
+transformers>=4.57          # Qwen3-VL / InternVL3 native Auto-class support
+accelerate>=0.27            # required at runtime by transformers device_map
+diffusers>=0.30
+open_clip_torch>=2.24
+sentence-transformers[image]>=5.4   # Qwen3-VL multimodal coverage embeddings (Curate step)
+scikit-learn>=1.3
+scikit-image>=0.22
+umap-learn>=0.5
+matplotlib>=3.8
+imagehash>=4.3
+easygui>=0.98               # manual-review fallback dialogs
+pywebview>=5.0              # desktop UI
+
+# Optional: 4-bit/8-bit VLM quantization in CaptionStep (graceful fallback if absent)
+bitsandbytes>=0.43

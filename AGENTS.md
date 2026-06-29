@@ -12,7 +12,9 @@ under `configs/`. Tests are in `tests/` and currently use pytest-style functions
 
 ## Build, Test, and Development Commands
 
-- `python -m pip install -r requirements.txt`: installs runtime dependencies.
+- `python -m pip install -r requirements.txt`: installs the core runtime dependencies
+  (a shim for `requirements/base.txt`). Add SeedVR2 with
+  `pip install -r requirements/seedvr2-windows.txt` (or `-linux`).
 - `python -m pip install -e .`: installs the package locally and registers `plk`.
 - `python main.py --help` or `plk --help`: lists available CLI commands.
 - `python main.py run -i /path/to/images -p example -t token`: runs the full
@@ -31,7 +33,8 @@ structured YAML parsing over ad hoc string handling.
 
 Keep `prepare_lora_kit/ui/static/core/api.js` JSDoc in sync with the pywebview
 bridge whenever `prepare_lora_kit/ui/bridge.py`, UI bridge payloads, or frontend
-API call sites change. Update `requirements.txt` whenever adding, removing, or
+API call sites change. Update the files under `requirements/` (core deps in
+`base.txt`, SeedVR2 extras in `seedvr2*.txt`) whenever adding, removing, or
 changing runtime dependencies.
 
 ## Testing Guidelines

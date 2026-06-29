@@ -1,0 +1,4 @@
+-r seedvr2.txt
+# Optional GPU acceleration (Windows)
+sageattention
+triton-windows

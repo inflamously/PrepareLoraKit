@@ -118,27 +118,38 @@ def _embed_dinov2(spec, paths: list[Path], cancel_check):
 
 
 def _embed_qwen(spec, paths: list[Path], cancel_check):
+    """Coverage embeddings via a Qwen3-VL multimodal embedding model.
+
+    Qwen3-VL-Embedding is a causal-LM-based model: its forward pass needs full
+    multimodal inputs (an instruction prompt + the image) and the embedding comes
+    from last-token pooling of the LM hidden states — bare ``pixel_values`` would
+    raise "specify exactly one of input_ids or inputs_embeds". We go through
+    sentence-transformers' ``encode`` (the documented path for these models),
+    which builds those inputs and applies the model's pooling internally. Images
+    are passed as PIL objects (path strings are ambiguous — they can be treated
+    as text) and encoded in batches with cancellation checks between them.
+    """
     import numpy as np
     import torch
     from PIL import Image
-    from transformers import AutoModel, AutoProcessor
 
-    device = _device(torch)
-    processor = AutoProcessor.from_pretrained(spec.hf_repo, trust_remote_code=True)
-    model = AutoModel.from_pretrained(spec.hf_repo, trust_remote_code=True).eval().to(device)
+    try:
+        from sentence_transformers import SentenceTransformer
+    except ImportError as exc:
+        raise RuntimeError(
+            "Qwen coverage embeddings need sentence-transformers; install with: "
+            "pip install 'sentence-transformers[image]'"
+        ) from exc
+
+    model = SentenceTransformer(spec.hf_repo, device=_device(torch), trust_remote_code=True)
     rows = []
-    with torch.no_grad():
-        for p in paths:
-            check_cancel(cancel_check)
-            image = Image.open(p).convert("RGB")
-            inputs = processor(images=image, return_tensors="pt").to(device)
-            outputs = model(**inputs)
-            feat = getattr(outputs, "pooler_output", None)
-            if feat is None:
-                hidden = outputs.last_hidden_state
-                feat = hidden.mean(dim=1)  # mean-pool patch/token embeddings
-            rows.append(feat[0].cpu().numpy().reshape(-1))
-    return np.stack(rows)
+    batch_size = 8
+    for start in range(0, len(paths), batch_size):
+        check_cancel(cancel_check)
+        chunk = [Image.open(p).convert("RGB") for p in paths[start:start + batch_size]]
+        emb = model.encode(chunk, normalize_embeddings=True, convert_to_numpy=True)
+        rows.append(np.asarray(emb))
+    return np.vstack(rows)
 
 
 def embed_images(model_id: str, paths: list[Path], cancel_check: CancelCheck | None = None):
