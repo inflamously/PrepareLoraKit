@@ -8,5 +8,10 @@
     "size": 501324814,
     "mtime": 1782208554.662465,
     "hash": "20678548f420d98d26f11442d3528f8b8c94e57ee046ef93dbb7633da8612ca1"
+  },
+  "seedvr2_ema_7b_fp16.safetensors": {
+    "size": 16479334424,
+    "mtime": 1782863160.4757988,
+    "hash": "7b8241aa957606ab6cfb66edabc96d43234f9819c5392b44d2492d9f0b0bbe4a"
   }
 }

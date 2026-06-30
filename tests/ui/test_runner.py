@@ -2,7 +2,7 @@ import threading
 import time
 from unittest.mock import MagicMock, patch
 from urllib.parse import parse_qs, quote, urlparse
-from urllib.request import urlopen
+from urllib.request import ProxyHandler, build_opener
 
 from PIL import Image
 import pytest
@@ -395,7 +395,10 @@ def test_static_server_serves_local_image_media(tmp_path):
             f"http://{host}:{port}/media?"
             f"path={quote(str(image.resolve()), safe='')}"
         )
-        with urlopen(media_url, timeout=2) as response:
+        # Bypass any system/env proxy so the loopback request isn't routed
+        # through a proxy (which silently times out on some Windows setups).
+        opener = build_opener(ProxyHandler({}))
+        with opener.open(media_url, timeout=2) as response:
             assert response.status == 200
             assert response.headers["Content-Type"] == "image/png"
             assert response.read() == b"png-bytes"

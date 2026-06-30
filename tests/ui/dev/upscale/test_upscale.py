@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 from prepare_lora_kit.steps.s3_upscale import step as upscale_step
 from prepare_lora_kit.ui.e2e import create_mock_ui_fixture
@@ -53,7 +54,7 @@ def test_mock_upscale_review_flags_and_converts_jpeg_to_png(tmp_path, monkeypatc
     report = json.loads(
         (fixture.output_dir / "reports" / "UpscaleStep_report.json").read_text(encoding="utf-8")
     )
-    assert {entry["original"].split("/")[-1] for entry in report["upscaled"]} == {
+    assert {Path(entry["original"]).name for entry in report["upscaled"]} == {
         "mock_square.png",
         "mock_square_duplicate.png",
         "mock_landscape.png",

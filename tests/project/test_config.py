@@ -193,7 +193,7 @@ def test_step_prerequisites_allow_optional_upscale_step():
         "CurateStep": ["QualityGateStep"],
         "UpscaleStep": ["CurateStep"],
         "CaptionStep": ["CurateStep"],
-        "VaeGateStep": ["CaptionStep"],
+        "VaeGateStep": [],
         "AuditStep": ["CaptionStep"],
         "ConfigGenStep": ["AuditStep"],
         "BucketDryRunStep": ["ConfigGenStep"],
