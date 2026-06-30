@@ -22,7 +22,7 @@ export function showStepHelp(stepType) {
         <p class="step-help__empty">No help is available for this step yet.</p>
       </div>
     `;
-    showModal(modal);
+    showModal(modal, { onBackdrop: closeModal });
     wireClose(modal);
     return;
   }
@@ -75,7 +75,7 @@ export function showStepHelp(stepType) {
     <div class="step-help__body">${bodyHtml}</div>
   `;
 
-  showModal(modal);
+  showModal(modal, { onBackdrop: closeModal });
   if (useTabs) wireTabs(modal);
   wireClose(modal);
 }
@@ -110,16 +110,9 @@ function wireTabs(modal) {
   }
 }
 
+// The Close button dismisses the help modal. Backdrop-click dismissal is handled
+// centrally by showModal({ onBackdrop }), so there is no per-modal layer listener
+// to attach (and leak) here.
 function wireClose(modal) {
   modal.querySelector("[data-help-close]").addEventListener("click", closeModal);
-  // Clicking the dimmed backdrop (the modal layer itself, not the dialog) closes.
-  // The listener removes itself so it never lingers on the shared layer element.
-  const layer = modal.parentElement;
-  if (!layer) return;
-  const onBackdrop = (event) => {
-    if (event.target !== layer) return;
-    layer.removeEventListener("click", onBackdrop);
-    closeModal();
-  };
-  layer.addEventListener("click", onBackdrop);
 }
