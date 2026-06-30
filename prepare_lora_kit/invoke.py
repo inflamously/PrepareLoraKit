@@ -454,7 +454,12 @@ def _mock_caption(
 ) -> dict:
     from .utils import image as img_utils
     from .utils import report as rpt
-    from .steps.s5_caption.artifacts import _save_bbox_training_item
+    from .interaction import annotate_dataset_via_images
+    from .steps.s5_caption.artifacts import (
+        _save_bbox_training_item,
+        load_boxes_sidecar,
+        save_boxes_sidecar,
+    )
 
     rpt.step_header(5, "Caption — Mock Runtime")
     enabled = set(enabled_substeps or ["s5_1_annotate", "s5_2_caption", "s5_3_validate"])
@@ -477,36 +482,55 @@ def _mock_caption(
     captions: dict[str, str] = {}
     annotation_log: dict[str, list] = {}
     skipped_annotation: list[str] = []
-    skip_all = False
 
+    # Phase A — gather decisions via the same batch interaction the real step uses
+    # (steps/s5_caption/workflow.py::gather_decisions). Headless/CLI mock has no
+    # provider, so every image captions with no regions.
+    if "s5_2_caption" not in enabled:
+        decisions: dict[str, dict] = {}
+    elif "s5_1_annotate" not in enabled or interaction is None:
+        decisions = {str(p): {"annotations": [], "skipped": False} for p in images}
+    else:
+        descriptors = [
+            {
+                "path": path,
+                "name": path.name,
+                "annotations": load_boxes_sidecar(path),
+                "done": path.with_suffix(".txt").exists() and not force,
+            }
+            for path in images
+        ]
+        annotate = getattr(interaction, "annotate_dataset", None)
+        if annotate is not None:
+            decisions, _skip_all = annotate(descriptors, captioner=mock_region_captioner)
+        else:
+            decisions, _skip_all = annotate_dataset_via_images(
+                interaction, descriptors, captioner=mock_region_captioner,
+            )
+
+    # Phase B — caption each non-skipped image with deterministic mock text.
     for path in images:
         check_cancel(cancel_check)
         txt_path = path.with_suffix(".txt")
-        if txt_path.exists() and not force:
-            captions[str(path)] = txt_path.read_text(encoding="utf-8").strip()
-            rpt.info(f"Skip (exists): {path.name}")
-            continue
+        decision = decisions.get(str(path))
 
         if "s5_2_caption" not in enabled:
             if txt_path.exists():
                 captions[str(path)] = txt_path.read_text(encoding="utf-8").strip()
             continue
 
-        # Drive the same annotation interaction the real workflow does
-        # (steps/s5_caption/workflow.py::_collect_annotations). Without a UI
-        # provider (headless/CLI mock), there is no annotator, so skip cleanly.
-        if "s5_1_annotate" not in enabled or skip_all or interaction is None:
-            annotations, skipped = [], True
-        else:
-            annotations, skipped, skip_all = interaction.annotate_image(
-                path,
-                captioner=mock_region_captioner,
-            )
-
-        annotation_log[str(path)] = annotations
-        check_cancel(cancel_check)
-        if skipped:
+        if decision is None or decision.get("skipped"):
+            if txt_path.exists() and not force:
+                captions[str(path)] = txt_path.read_text(encoding="utf-8").strip()
+                rpt.info(f"Skip (keep existing): {path.name}")
             skipped_annotation.append(str(path))
+            continue
+
+        annotations = decision.get("annotations") or []
+        annotation_log[str(path)] = annotations
+        if not annotations:
+            skipped_annotation.append(str(path))
+        save_boxes_sidecar(path, annotations)
 
         caption = f"{token_prefix}mock caption for {path.stem}".strip()
         txt_path.write_text(caption, encoding="utf-8")

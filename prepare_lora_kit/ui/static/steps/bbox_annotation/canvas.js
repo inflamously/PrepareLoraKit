@@ -21,6 +21,7 @@ export class AnnotationCanvas {
     getBusy,
     getHighlightMissing,
     onBoxesChanged,
+    onEdit,
   }) {
     this.canvas = canvas;
     this.img = img;
@@ -30,6 +31,12 @@ export class AnnotationCanvas {
     this.getBusy = getBusy;
     this.getHighlightMissing = getHighlightMissing;
     this.onBoxesChanged = onBoxesChanged;
+    // Called when the user mutates boxes here (draws a new one) so the workspace
+    // can mark the active image dirty. Not fired by resize/navigation redraws.
+    this.onEdit = onEdit;
+    // When true, the image is shown without any box overlays (and drawing is
+    // suppressed) so the user can inspect the raw picture.
+    this.hideBoxes = false;
 
     this.ctx = canvas.getContext("2d");
     this.drawing = null;
@@ -40,11 +47,24 @@ export class AnnotationCanvas {
     globalThis.addEventListener("blur", this.cancelDrawing);
   }
 
+  // Point the canvas at a different image's boxes (and image element) when the
+  // user navigates the thumbnail strip. The caller redraws afterwards.
+  setActive(img, boxes) {
+    this.img = img;
+    this.boxes = boxes;
+  }
+
+  setHideBoxes(hidden) {
+    this.hideBoxes = hidden;
+  }
+
   draw = () => {
     const { ctx, canvas, img, boxes, drawing } = this;
     if (!img.complete || !canvas.width || !canvas.height) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    // Hide-boxes mode: show the bare image only.
+    if (this.hideBoxes) return;
     const selected = this.getSelected();
     const highlight = this.getHighlightMissing?.();
     boxes.forEach((box, index) =>
@@ -103,6 +123,7 @@ export class AnnotationCanvas {
       label,
     });
     this.setSelected(boxes.length - 1);
+    this.onEdit?.();
     this.onBoxesChanged();
   }
 
@@ -144,6 +165,8 @@ export class AnnotationCanvas {
   onPointerDown = (event) => {
     // Block drawing a new box while a caption request is in flight.
     if (this.getBusy?.()) return;
+    // Don't let the user draw blind while overlays are hidden.
+    if (this.hideBoxes) return;
     if (event.button != null && event.button !== 0) return;
     // Best-effort capture; the window listeners are the real safety net.
     try {

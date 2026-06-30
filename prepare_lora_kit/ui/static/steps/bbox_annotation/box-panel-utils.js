@@ -75,6 +75,31 @@ export function attachShiftStep(input, step) {
   })
 }
 
+// Render a small thumbnail of a single box's region by cropping the already
+// decoded source image onto a tiny canvas — no backend round-trip. Falls back to
+// the element's width/height so the JSDOM test mock (no naturalWidth) still
+// exercises the draw call. No-op until the image is decoded.
+export function drawCropThumb(canvas, img, box, maxSize = 64) {
+  if (!img || !img.complete) return;
+  const sw = img.naturalWidth || img.width || 0;
+  const sh = img.naturalHeight || img.height || 0;
+  if (!sw || !sh) return;
+
+  const sx = clamp01(Math.min(box.x1, box.x2)) * sw;
+  const sy = clamp01(Math.min(box.y1, box.y2)) * sh;
+  const cw = Math.max(1, Math.abs(box.x2 - box.x1) * sw);
+  const ch = Math.max(1, Math.abs(box.y2 - box.y1) * sh);
+
+  const scale = Math.min(maxSize / cw, maxSize / ch, 1);
+  const dw = Math.max(1, Math.round(cw * scale));
+  const dh = Math.max(1, Math.round(ch * scale));
+  canvas.width = dw;
+  canvas.height = dh;
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, dw, dh);
+  ctx.drawImage(img, sx, sy, cw, ch, 0, 0, dw, dh);
+}
+
 // Build a single labelled number input (one box edge).
 export function makeField(label) {
   const cell = document.createElement("label");

@@ -26,8 +26,50 @@ class InteractionProvider(Protocol):
     ) -> tuple[list[dict], bool, bool]:
         """Return annotations, skipped flag, and skip-all flag for one image."""
 
+    def annotate_dataset(
+            self,
+            images: list[dict],
+            *,
+            captioner: RegionCaptioner | None = None,
+    ) -> tuple[dict[str, dict], bool]:
+        """Annotate a whole batch in one interaction.
+
+        ``images`` is a list of descriptors ``{"path", "name", "annotations"
+        (reloaded boxes), "done"}``. Returns ``(decisions, skip_all)`` where
+        ``decisions[str(path)] = {"annotations": [...], "skipped": bool}``;
+        ``skipped`` means "do not caption this image" (keep any existing caption).
+        """
+
     def vae_review(self, items: list[dict]) -> dict[str, str]:
         """Return per-original VAE gate decisions: keep, drop, or replace."""
+
+
+def annotate_dataset_via_images(
+        provider: "InteractionProvider",
+        images: list[dict],
+        *,
+        captioner: RegionCaptioner | None = None,
+) -> tuple[dict[str, dict], bool]:
+    """Batch-annotate by looping a provider's per-image ``annotate_image``.
+
+    The default path for providers (CLI, tests) that only implement the
+    single-image hook. A per-image ``skipped`` from ``annotate_image`` historically
+    meant "no regions, but still caption the full image", so every image maps to
+    ``skipped=False`` here; ``skip_all`` just stops prompting for the rest (they are
+    still captioned with no regions, preserving the prior CLI behavior).
+    """
+    decisions: dict[str, dict] = {}
+    skip_all = False
+    for descriptor in images:
+        path = Path(descriptor["path"])
+        if skip_all:
+            annotations: list[dict] = []
+        else:
+            annotations, _skipped, skip_all = provider.annotate_image(
+                path, captioner=captioner,
+            )
+        decisions[str(path)] = {"annotations": annotations, "skipped": False}
+    return decisions, False
 
 
 class CliInteractionProvider:

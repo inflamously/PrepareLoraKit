@@ -144,4 +144,7 @@ def test_bbox_annotations_reach_caption_image(tmp_path, monkeypatch):
     assert name == "image.png"
     assert annotations == boxes
     assert (tmp_path / "image.txt").exists()
-    assert not list(tmp_path.glob("plk_bbox__*"))
+    # Region-context-only: no per-region crop/training-pair artifacts are produced.
+    # (A plk_bbox__*__boxes.json reload sidecar may exist — that is metadata, not a crop.)
+    assert not list(tmp_path.glob("plk_bbox__*.png"))
+    assert not list(tmp_path.glob("plk_bbox__*__[0-9][0-9].txt"))

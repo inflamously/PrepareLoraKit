@@ -568,7 +568,7 @@ def test_caption_region_normalizes_box_and_crops_active_image(tmp_path):
         return {"caption": " cropped subject "}
 
     provider._captioner = captioner
-    provider._caption_image = image_path
+    provider._batch_paths = {image_path.resolve()}
 
     result = provider.caption_region(
         str(image_path),
@@ -577,4 +577,71 @@ def test_caption_region_normalizes_box_and_crops_active_image(tmp_path):
 
     assert result == {"caption": "cropped subject"}
     assert captured["size"] == (15, 8)
-    assert captured["metadata"]["source_path"] == str(image_path)
+    assert captured["metadata"]["source_path"] == str(image_path.resolve())
+
+
+def test_caption_region_rejects_image_outside_batch(tmp_path):
+    image_path = tmp_path / "active.png"
+    Image.new("RGB", (20, 10), "blue").save(image_path)
+    job = PipelineJob(JobManager(), "test-job")
+    provider = UiInteractionProvider(job)
+    provider._captioner = lambda crop, metadata: {"caption": "x"}
+    provider._batch_paths = {image_path.resolve()}
+
+    with pytest.raises(RuntimeError, match="not in the active annotation batch"):
+        provider.caption_region(
+            str(tmp_path / "other.png"),
+            {"x1": 0.1, "y1": 0.1, "x2": 0.5, "y2": 0.5},
+        )
+
+
+def test_annotate_dataset_sends_batch_and_parses_decisions(tmp_path):
+    a = tmp_path / "a.png"
+    b = tmp_path / "b.png"
+    Image.new("RGB", (8, 8), "blue").save(a)
+    Image.new("RGB", (8, 8), "red").save(b)
+    job = PipelineJob(JobManager(), "batch-job")
+    provider = UiInteractionProvider(job)
+
+    captured = {}
+
+    def fake_request_input(kind, payload):
+        captured["kind"] = kind
+        captured["payload"] = payload
+        # While paused, region captioning is allowed for any batch image.
+        captured["batch_paths"] = set(provider._batch_paths)
+        return {
+            "images": {
+                str(a): {"annotations": [{"x1": 0, "y1": 0, "x2": 1, "y2": 1, "label": "cat"}],
+                         "skipped": False},
+                str(b): {"annotations": [], "skipped": True},
+            },
+            "skip_all": True,
+        }
+
+    job.request_input = fake_request_input  # type: ignore[assignment]
+
+    descriptors = [
+        {"path": a, "name": "a.png", "annotations": [], "done": False},
+        {"path": b, "name": "b.png",
+         "annotations": [{"x1": 0.1, "y1": 0.1, "x2": 0.4, "y2": 0.4, "label": "old"}],
+         "done": True},
+    ]
+    decisions, skip_all = provider.annotate_dataset(descriptors, captioner=lambda *a, **k: {})
+
+    assert captured["kind"] == "bbox_annotation"
+    assert {item["name"] for item in captured["payload"]["images"]} == {"a.png", "b.png"}
+    # Reloaded boxes + done flag travel to the UI.
+    b_item = next(i for i in captured["payload"]["images"] if i["name"] == "b.png")
+    assert b_item["done"] is True
+    assert b_item["annotations"][0]["label"] == "old"
+    assert captured["batch_paths"] == {a.resolve(), b.resolve()}
+    # Cleared again after the interaction.
+    assert provider._batch_paths == set()
+
+    assert skip_all is True
+    assert decisions[str(a)] == {
+        "annotations": [{"x1": 0, "y1": 0, "x2": 1, "y2": 1, "label": "cat"}],
+        "skipped": False,
+    }
+    assert decisions[str(b)] == {"annotations": [], "skipped": True}

@@ -105,15 +105,23 @@ export function sourceReviewPending() {
   };
 }
 
-export function annotationPending(id = "annotation-1") {
+// One image in the workspace batch payload. annotations pre-fill reloaded boxes;
+// done marks an already-captioned image.
+export function annotationImage(name, { annotations = [], done = false } = {}) {
+  return {
+    path: `/images/${name}.png`,
+    name: `${name}.png`,
+    uri: `http://example.invalid/${name}.png`,
+    annotations,
+    done,
+  };
+}
+
+export function annotationPending(id = "annotation-1", images) {
   return {
     id,
     kind: "bbox_annotation",
-    payload: {
-      path: "/images/annotate.png",
-      name: "annotate.png",
-      uri: "http://example.invalid/annotate.png",
-    },
+    payload: { images: images || [annotationImage("annotate")] },
   };
 }
 

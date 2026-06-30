@@ -82,6 +82,23 @@ class _SkippingProvider:
         return [], True, False
 
 
+class _BatchProvider:
+    """Implements the batch ``annotate_dataset`` hook used by the workspace UI."""
+
+    def __init__(self, decide):
+        # decide(descriptor) -> {"annotations": [...], "skipped": bool}
+        self._decide = decide
+        self.seen: list[dict] = []
+        self.skip_all = False
+
+    def annotate_dataset(self, images, *, captioner=None):
+        self.seen = [dict(d) for d in images]
+        decisions = {}
+        for descriptor in images:
+            decisions[str(descriptor["path"])] = self._decide(descriptor)
+        return decisions, self.skip_all
+
+
 def _fake_runtime_class(
     events,
     *,
@@ -175,6 +192,66 @@ def test_caption_step_persists_edited_region_caption_to_sidecar(tmp_path, monkey
 
     sidecar = tmp_path / "plk_bbox__image__01.txt"
     assert sidecar.read_text(encoding="utf-8") == "tok, Green detail with a silver buckle"
+
+
+def test_caption_step_saves_and_reloads_boxes_for_done_images(tmp_path, monkeypatch):
+    # First run: annotate one box; the coords must persist to a reload sidecar.
+    img = _write_image(tmp_path / "image.png")
+    events = []
+    monkeypatch.setattr(caption_step.vlm, "CaptionRuntime", _fake_runtime_class(events))
+
+    box = {"x1": 0.1, "y1": 0.2, "x2": 0.5, "y2": 0.6, "label": "a red car",
+           "crop_name": "plk_bbox__image__01.png"}
+    first = _BatchProvider(lambda d: {"annotations": [dict(box)], "skipped": False})
+    caption_step.run(
+        tmp_path, concept_token="tok", output_dir=tmp_path,
+        caption_model_id="fake/model", interaction=first, spot_check_pct=0,
+    )
+    assert (tmp_path / "plk_bbox__image__boxes.json").exists()
+    assert (tmp_path / "image.txt").exists()
+
+    # Second run: the workspace receives the reloaded box + a done flag, and a
+    # skip keeps the existing caption (no re-caption).
+    events2 = []
+    monkeypatch.setattr(caption_step.vlm, "CaptionRuntime", _fake_runtime_class(events2))
+    second = _BatchProvider(lambda d: {"annotations": d["annotations"], "skipped": True})
+    caption_step.run(
+        tmp_path, concept_token="tok", output_dir=tmp_path,
+        caption_model_id="fake/model", interaction=second, spot_check_pct=0,
+    )
+
+    descriptor = next(d for d in second.seen if Path(d["path"]).name == "image.png")
+    assert descriptor["done"] is True
+    assert descriptor["annotations"][0]["label"] == "a red car"
+    assert descriptor["annotations"][0]["x2"] == 0.5
+    # Skip means the VLM never re-captioned the full image.
+    assert "image" not in _event_names(events2)
+    assert (tmp_path / "image.txt").read_text(encoding="utf-8") == "tok, Whole original caption"
+
+
+def test_caption_step_skip_all_captions_current_image_only(tmp_path, monkeypatch):
+    _write_image(tmp_path / "a.png")
+    _write_image(tmp_path / "b.png")
+    events = []
+    monkeypatch.setattr(caption_step.vlm, "CaptionRuntime", _fake_runtime_class(events))
+
+    # "Skip all remaining" keeps the active image (a) and skips the rest (b).
+    def decide(descriptor):
+        if Path(descriptor["path"]).name == "a.png":
+            return {"annotations": [], "skipped": False}
+        return {"annotations": [], "skipped": True}
+
+    provider = _BatchProvider(decide)
+    provider.skip_all = True
+    caption_step.run(
+        tmp_path, concept_token="tok", output_dir=tmp_path,
+        caption_model_id="fake/model", interaction=provider, spot_check_pct=0,
+    )
+
+    assert (tmp_path / "a.txt").exists()
+    assert not (tmp_path / "b.txt").exists()
+    captioned = [e for e in events if e[0] == "image"]
+    assert [e[1] for e in captioned] == ["a.png"]
 
 
 def test_caption_step_requires_model_when_captioning_enabled(tmp_path):

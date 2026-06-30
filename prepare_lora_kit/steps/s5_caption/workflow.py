@@ -6,11 +6,11 @@ from pathlib import Path
 from typing import Any, Callable
 
 from ...cancellation import CancelCheck, CancelledRun, check_cancel
-from ...interaction import InteractionProvider
+from ...interaction import InteractionProvider, annotate_dataset_via_images
 from ...utils import report as rpt
 
 from . import vlm
-from .artifacts import _update_bbox_caption
+from .artifacts import _update_bbox_caption, load_boxes_sidecar, save_boxes_sidecar
 from .reports import _save_failure_report
 from .validation import clean_caption_for_mode
 
@@ -22,54 +22,82 @@ class CaptionWorkflowResult:
     skip_all: bool = False
 
 
-def _load_existing_caption(
-        path: Path,
-        txt_path: Path,
-        captions: dict[str, str],
-        overwrite: bool,
-) -> bool:
-    if not txt_path.exists() or overwrite:
-        return False
-
-    captions[str(path)] = txt_path.read_text(encoding="utf-8").strip()
-    rpt.info(f"Skip (exists): {path.name}")
-    return True
-
-
-def _preserve_sidecar_when_captioning_disabled(
-        path: Path,
-        txt_path: Path,
-        captions: dict[str, str],
-        enabled: set[str],
-) -> bool:
-    if "s5_2_caption" in enabled:
-        return False
-
-    rpt.info(f"Caption substep disabled for {path.name}; preserving existing sidecar if present.")
-    if txt_path.exists():
-        captions[str(path)] = txt_path.read_text(encoding="utf-8").strip()
-    return True
-
-
-def _collect_annotations(
-        path: Path,
+def gather_decisions(
+        images: list[Path],
         *,
+        txt_paths: dict[Path, Path],
+        overwrite: bool,
         enabled: set[str],
         provider: InteractionProvider | None,
         region_captioner: Callable[[Any, dict[str, Any] | None], dict[str, str]],
         result: CaptionWorkflowResult,
         cancel_check: CancelCheck | None,
-) -> list:
-    if "s5_1_annotate" not in enabled or result.skip_all or not provider:
-        annotations, skipped = [], True
-    else:
-        annotations, skipped, result.skip_all = provider.annotate_image(
-            path,
-            captioner=region_captioner,
-        )
+) -> dict[str, dict]:
+    """Phase A: collect per-image caption decisions in one batch interaction.
 
+    Returns ``{str(path): {"annotations": [...], "skipped": bool}}``. ``skipped``
+    means "do not caption this image" (keep any existing caption). Images absent
+    from the map are treated the same as skipped by :func:`resolve_decision`.
+    """
+    # Captioning disabled → no interaction; sidecars are preserved in phase B.
+    if "s5_2_caption" not in enabled:
+        return {}
+    # Annotation disabled or headless → caption every image with no regions
+    # (mirrors the prior per-image behavior of skipping the annotator only).
+    if "s5_1_annotate" not in enabled or provider is None:
+        return {str(path): {"annotations": [], "skipped": False} for path in images}
+
+    descriptors = [
+        {
+            "path": path,
+            "name": path.name,
+            "annotations": load_boxes_sidecar(path),
+            "done": txt_paths[path].exists() and not overwrite,
+        }
+        for path in images
+    ]
+    annotate = getattr(provider, "annotate_dataset", None)
+    if annotate is not None:
+        decisions, result.skip_all = annotate(descriptors, captioner=region_captioner)
+    else:
+        decisions, result.skip_all = annotate_dataset_via_images(
+            provider, descriptors, captioner=region_captioner,
+        )
     check_cancel(cancel_check)
-    if skipped:
+    return decisions
+
+
+def resolve_decision(
+        path: Path,
+        txt_path: Path,
+        decision: dict | None,
+        *,
+        overwrite: bool,
+        enabled: set[str],
+        result: CaptionWorkflowResult,
+) -> list | None:
+    """Decide phase B's action for one image.
+
+    Returns the annotation list to caption with, or ``None`` to skip captioning
+    (caption substep off, an explicit skip, or no decision) — in which case any
+    existing sidecar caption is kept so reports stay complete.
+    """
+    if "s5_2_caption" not in enabled:
+        rpt.info(f"Caption substep disabled for {path.name}; preserving existing sidecar if present.")
+        if txt_path.exists():
+            result.captions[str(path)] = txt_path.read_text(encoding="utf-8").strip()
+        return None
+
+    if decision is None or decision.get("skipped"):
+        if txt_path.exists() and not overwrite:
+            result.captions[str(path)] = txt_path.read_text(encoding="utf-8").strip()
+            rpt.info(f"Skip (keep existing): {path.name}")
+        result.skipped_annotation.append(str(path))
+        return None
+
+    annotations = decision.get("annotations") or []
+    if not annotations:
+        # Captioned, but no regions were drawn — recorded like a skipped annotation.
         result.skipped_annotation.append(str(path))
     return annotations
 

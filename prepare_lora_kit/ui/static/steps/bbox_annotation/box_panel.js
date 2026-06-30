@@ -3,6 +3,7 @@ import { isUncaptioned } from "./bbox-annotation-utils.js";
 import {
   attachShiftStep,
   boxToPixelEdges,
+  drawCropThumb,
   edgesToNormalizedBox,
   makeField,
 } from "./box-panel-utils.js";
@@ -24,6 +25,7 @@ export class BoxPanel {
     getBusy,
     getHighlightMissing,
     onChange,
+    onEdit,
     redraw,
   }) {
     this.boxList = boxList;
@@ -36,7 +38,16 @@ export class BoxPanel {
     this.getBusy = getBusy;
     this.getHighlightMissing = getHighlightMissing;
     this.onChange = onChange;
+    // Fired when the user edits/deletes a box here so the workspace can mark the
+    // active image dirty (selection-only changes do not call it).
+    this.onEdit = onEdit;
     this.redraw = redraw;
+  }
+
+  // Repoint the panel at a different image's boxes when navigating the strip.
+  setActive(img, boxes) {
+    this.img = img;
+    this.boxes = boxes;
   }
 
   // Toggle every interactive control in the box list (per-box Select/Delete
@@ -95,6 +106,7 @@ export class BoxPanel {
         ),
       );
       syncFromBox();
+      this.onEdit?.();
       this.redraw?.();
     };
 
@@ -135,17 +147,21 @@ export class BoxPanel {
       item.className = `box-item${index === selected ? " selected" : ""}${missing}`;
       item.innerHTML = `
         <strong>Region ${index + 1}</strong>
+        <canvas class="box-thumb" width="64" height="64"></canvas>
         <input value="${escapeText(box.label || "")}" placeholder="Description" />
         ${box.crop_name ? `<small>${escapeText(box.crop_name)}</small>` : ""}
         <button class="secondary">Select</button>
         <button class="danger">Delete</button>
       `;
+      // Show what the region actually crops to, rendered from the active image.
+      drawCropThumb(item.querySelector(".box-thumb"), this.img, box);
       const input = item.querySelector("input");
       // Update the box label in place: repaint the canvas + status only, never
       // re-render the list, otherwise this input would be torn out from under
       // the cursor on every keystroke.
       input.addEventListener("input", () => {
         box.label = input.value;
+        this.onEdit?.();
         // Clear/keep the glow live without re-rendering the list (which would tear
         // out the focused input); the canvas recomputes its own glow on redraw.
         item.classList.toggle(
@@ -162,6 +178,7 @@ export class BoxPanel {
       item.querySelector(".danger").addEventListener("click", () => {
         boxes.splice(index, 1);
         this.setSelected(-1);
+        this.onEdit?.();
         this.onChange();
       });
       // Insert the coordinate fields right after the label input.

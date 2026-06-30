@@ -32,6 +32,7 @@
   border-left: 1px solid var(--hairline);
   background: rgba(11, 16, 36, 0.72);
   padding: 14px;
+  gap: 1rem;
 }
 
 .box-panel button {
@@ -40,7 +41,6 @@
 }
 
 .bbox-status {
-  margin-bottom: 10px;
   border: 1px solid rgba(74, 92, 240, 0.34);
   border-radius: var(--radius-md);
   background: var(--info-bg);
@@ -133,6 +133,95 @@
   color: var(--caption);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Per-region preview cropped from the active image. */
+.box-thumb {
+  width: 64px;
+  height: 64px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  background: #05070f;
+  object-fit: contain;
+}
+
+/* Hide-boxes toggle sits inline with the header actions. */
+.hide-boxes {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--caption);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.modal-footer__actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* Thumbnail strip: horizontal, scrollable footer of every image in the batch. */
+.thumb-strip {
+  display: flex;
+  flex: 1 1 auto;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 2px;
+}
+
+.thumb {
+  position: relative;
+  flex: 0 0 auto;
+  width: 76px;
+  height: 56px;
+  padding: 0;
+  border: 2px solid var(--hairline);
+  border-radius: var(--radius-md);
+  background: #05070f;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.thumb__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.thumb__badge {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.45);
+}
+
+.thumb--current {
+  border-color: var(--accent, #4a5cf0);
+}
+
+.thumb--done .thumb__badge {
+  background: #38d6a0;
+}
+
+.thumb--has-boxes .thumb__badge {
+  background: #4ea1f3;
+}
+
+.thumb--skipped {
+  opacity: 0.55;
+}
+
+.thumb--skipped .thumb__badge {
+  background: var(--caption, #8a93b3);
+}
+
+.thumb--empty .thumb__badge {
+  display: none;
 }
 
 @media (max-width: 980px) {

@@ -19,7 +19,9 @@ class UiInteractionProvider(InteractionProvider):
         self._media_base_url = media_base_url
         self._caption_lock = threading.Lock()
         self._captioner: RegionCaptioner | None = None
-        self._caption_image: Path | None = None
+        # Resolved paths of every image in the active annotation batch; region
+        # captioning is allowed for any of them while the workspace modal is open.
+        self._batch_paths: set[Path] = set()
 
     def step_config(self, step_type: str, current_config: Any, error: str | None = None) -> dict:
         """Pause before a step so the frontend can edit its config tunables.
@@ -57,33 +59,56 @@ class UiInteractionProvider(InteractionProvider):
         decisions = answer.get("decisions", {}) if isinstance(answer, dict) else {}
         return {str(k): str(v) for k, v in decisions.items()}
 
-    def annotate_image(
+    def annotate_dataset(
         self,
-        path: Path,
+        images: list[dict],
         *,
         captioner: RegionCaptioner | None = None,
-    ) -> tuple[list[dict], bool, bool]:
+    ) -> tuple[dict[str, dict], bool]:
+        """Pause the job and hand the whole image batch to the workspace modal.
+
+        Returns ``(decisions, skip_all)`` where ``decisions[str(path)] =
+        {"annotations": [...], "skipped": bool}``. ``skipped`` means the user chose
+        not to caption that image (keep any existing caption).
+        """
+        items = []
+        for descriptor in images:
+            source = Path(descriptor["path"])
+            item = _image_payload(source, self._media_base_url)
+            item["annotations"] = _jsonable(descriptor.get("annotations") or [])
+            item["done"] = bool(descriptor.get("done"))
+            items.append(item)
+
         with self._caption_lock:
             self._captioner = captioner
-            self._caption_image = path
+            self._batch_paths = {Path(item["path"]).resolve() for item in items}
         try:
-            payload = _image_payload(path, self._media_base_url)
-            answer = self._job.request_input("bbox_annotation", payload)
+            answer = self._job.request_input("bbox_annotation", {"images": items})
         finally:
             with self._caption_lock:
                 self._captioner = None
-                self._caption_image = None
+                self._batch_paths = set()
 
+        return self._parse_dataset_answer(answer)
+
+    @staticmethod
+    def _parse_dataset_answer(answer: Any) -> tuple[dict[str, dict], bool]:
         if not isinstance(answer, dict):
-            return [], True, False
-        annotations = answer.get("annotations", [])
-        if not isinstance(annotations, list):
-            annotations = []
-        return (
-            annotations,
-            bool(answer.get("skipped", False)),
-            bool(answer.get("skip_all", False)),
-        )
+            return {}, False
+        raw = answer.get("images")
+        decisions: dict[str, dict] = {}
+        if isinstance(raw, dict):
+            for key, entry in raw.items():
+                if not isinstance(entry, dict):
+                    continue
+                annotations = entry.get("annotations", [])
+                if not isinstance(annotations, list):
+                    annotations = []
+                decisions[str(key)] = {
+                    "annotations": annotations,
+                    "skipped": bool(entry.get("skipped", False)),
+                }
+        return decisions, bool(answer.get("skip_all", False))
 
     def vae_review(self, items: list[dict]) -> dict[str, str]:
         payload_items = []
@@ -138,18 +163,18 @@ class UiInteractionProvider(InteractionProvider):
 
     def caption_region(self, image_path: str, box: dict[str, Any]) -> dict[str, Any]:
         self._job.raise_if_cancelled()
+        requested = Path(image_path).resolve()
         with self._caption_lock:
             captioner = self._captioner
-            active = self._caption_image
-        if captioner is None or active is None:
+            in_batch = requested in self._batch_paths
+        if captioner is None:
             raise RuntimeError("No active caption annotation request")
-        requested = Path(image_path).resolve()
-        if requested != active.resolve():
-            raise RuntimeError("Requested image is not the active annotation image")
+        if not in_batch:
+            raise RuntimeError("Requested image is not in the active annotation batch")
 
         from PIL import Image
 
-        with Image.open(active).convert("RGB") as img:
+        with Image.open(requested).convert("RGB") as img:
             w, h = img.size
             try:
                 x1, x2 = sorted((float(box["x1"]), float(box["x2"])))
@@ -163,7 +188,7 @@ class UiInteractionProvider(InteractionProvider):
             r = max(l + 1, min(w, int(x2 * w)))
             b = max(t + 1, min(h, int(y2 * h)))
             crop = img.crop((l, t, max(l + 1, r), max(t + 1, b)))
-        result = captioner(crop, {"source_path": str(active), "box": box})
+        result = captioner(crop, {"source_path": str(requested), "box": box})
         self._job.raise_if_cancelled()
         if isinstance(result, dict):
             result["caption"] = str(result.get("caption") or "").strip()

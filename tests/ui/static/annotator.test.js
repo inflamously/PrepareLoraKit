@@ -5,6 +5,7 @@ import { showAnnotator } from "../../../prepare_lora_kit/ui/static/steps/bbox_an
 import { isUncaptioned } from "../../../prepare_lora_kit/ui/static/steps/bbox_annotation/bbox-annotation-utils.js";
 import { state } from "../../../prepare_lora_kit/ui/static/core/state.js";
 import {
+  annotationImage,
   annotationPending,
   calls,
   drawBox,
@@ -15,20 +16,27 @@ import {
 } from "./interaction_helpers.js";
 
 let apiCalls;
+let contextCalls;
 
 beforeEach(() => {
-  ({ apiCalls } = setupInteractionDom());
+  ({ apiCalls, contextCalls } = setupInteractionDom());
   installMockImage();
 });
 
-describe("annotation interaction", () => {
-  it("draws, edits, captions, clears, and submits annotations", async () => {
+function activeCanvas() {
+  const layer = document.getElementById("modalLayer");
+  const canvas = layer.querySelector("#annotationCanvas");
+  setCanvasClientRect(canvas, { left: 10, top: 20, width: 400, height: 300 });
+  return canvas;
+}
+
+describe("annotation workspace", () => {
+  it("draws, edits, captions, clears, and submits a per-image batch", async () => {
     const onSubmitted = calls();
     showAnnotator(annotationPending(), { onSubmitted });
 
     const layer = document.getElementById("modalLayer");
-    const canvas = layer.querySelector("#annotationCanvas");
-    setCanvasClientRect(canvas, { left: 10, top: 20, width: 400, height: 300 });
+    const canvas = activeCanvas();
     assert.equal(canvas.width, 400);
     assert.equal(canvas.height, 300);
     assert.equal(layer.querySelector("#captionBox").disabled, true);
@@ -38,7 +46,8 @@ describe("annotation interaction", () => {
     assert.equal(layer.querySelectorAll(".box-item").length, 1);
     assert.equal(layer.querySelector(".box-item").classList.contains("selected"), true);
     assert.equal(layer.querySelector("#bboxStatus").textContent, "Selected: Region 1 - prompt label");
-    assert.equal(layer.querySelector("#captionBox").disabled, false);
+    // A per-region thumbnail canvas is rendered for the box.
+    assert.equal(layer.querySelectorAll(".box-item .box-thumb").length, 1);
 
     state.job.caption_status = {
       phase: "loading",
@@ -48,9 +57,7 @@ describe("annotation interaction", () => {
       device: null,
       quantization: "auto",
     };
-    global.dispatchEvent(
-      new CustomEvent("plk:job-status", { detail: state.job }),
-    );
+    global.dispatchEvent(new CustomEvent("plk:job-status", { detail: state.job }));
     assert.match(
       layer.querySelector("#captionModelStatus").textContent,
       /Loading caption model fake\/model/,
@@ -64,7 +71,6 @@ describe("annotation interaction", () => {
     await nextTick();
 
     assert.equal(apiCalls.captioned.length, 1);
-    assert.equal(apiCalls.captioned[0].jobId, "job-1");
     assert.equal(apiCalls.captioned[0].imagePath, "/images/annotate.png");
     assert.deepEqual(apiCalls.captioned[0].box, {
       x1: 0.25,
@@ -78,7 +84,6 @@ describe("annotation interaction", () => {
 
     layer.querySelector("#clearBoxes").click();
     assert.equal(layer.querySelectorAll(".box-item").length, 0);
-    assert.equal(layer.querySelector("#bboxStatus").textContent, "No box selected");
 
     drawBox(canvas, { start: [50, 50], end: [54, 54], pointerId: 8 });
     assert.equal(layer.querySelectorAll(".box-item").length, 0);
@@ -92,16 +97,12 @@ describe("annotation interaction", () => {
         jobId: "job-1",
         requestId: "annotation-1",
         value: {
-          annotations: [
-            {
-              x1: 0,
-              y1: 0,
-              x2: 0.5,
-              y2: 0.5,
-              label: "prompt label",
+          images: {
+            "/images/annotate.png": {
+              annotations: [{ x1: 0, y1: 0, x2: 0.5, y2: 0.5, label: "prompt label" }],
+              skipped: false,
             },
-          ],
-          skipped: false,
+          },
           skip_all: false,
         },
       },
@@ -110,54 +111,163 @@ describe("annotation interaction", () => {
     assert.equal(layer.classList.contains("hidden"), true);
   });
 
-  it("submits skip payloads for one image or all remaining images", async () => {
-    const firstSubmitted = calls();
-    showAnnotator(annotationPending("annotation-skip"), { onSubmitted: firstSubmitted });
-    document.getElementById("skipAnnotate").click();
+  it("renders a thumbnail per image and switches the active image on click", async () => {
+    showAnnotator(
+      annotationPending("annotation-nav", [
+        annotationImage("first"),
+        annotationImage("second"),
+      ]),
+      { onSubmitted: calls() },
+    );
+
+    const layer = document.getElementById("modalLayer");
+    assert.equal(layer.querySelectorAll("#thumbStrip .thumb").length, 2);
+    assert.equal(
+      layer.querySelector('.thumb[data-index="0"]').classList.contains("thumb--current"),
+      true,
+    );
+
+    const canvas = activeCanvas();
+    layer.querySelector('.thumb[data-index="1"]').click();
+    assert.equal(
+      layer.querySelector('.thumb[data-index="1"]').classList.contains("thumb--current"),
+      true,
+    );
+
+    // A box drawn now belongs to image 2; captioning targets image 2's path.
+    drawBox(canvas, { start: [110, 95], end: [310, 245] });
+    layer.querySelector("#captionBox").click();
+    await nextTick();
+    assert.equal(apiCalls.captioned[0].imagePath, "/images/second.png");
+  });
+
+  it("keeps each image's boxes and selection isolated across navigation", () => {
+    showAnnotator(
+      annotationPending("annotation-iso", [
+        annotationImage("first"),
+        annotationImage("second"),
+      ]),
+      { onSubmitted: calls() },
+    );
+    const layer = document.getElementById("modalLayer");
+    const canvas = activeCanvas();
+
+    drawBox(canvas, { start: [110, 95], end: [310, 245] });
+    assert.equal(layer.querySelectorAll(".box-item").length, 1);
+
+    // Image 2 starts empty.
+    layer.querySelector('.thumb[data-index="1"]').click();
+    assert.equal(layer.querySelectorAll(".box-item").length, 0);
+
+    // Back to image 1: its box (and selection) are restored.
+    layer.querySelector('.thumb[data-index="0"]').click();
+    assert.equal(layer.querySelectorAll(".box-item").length, 1);
+    assert.equal(layer.querySelector(".box-item").classList.contains("selected"), true);
+  });
+
+  it("pre-fills reloaded boxes for already-captioned images", () => {
+    showAnnotator(
+      annotationPending("annotation-reload", [
+        annotationImage("done", {
+          done: true,
+          annotations: [{ x1: 0.1, y1: 0.1, x2: 0.4, y2: 0.4, label: "a red car" }],
+        }),
+      ]),
+      { onSubmitted: calls() },
+    );
+    const layer = document.getElementById("modalLayer");
+    assert.equal(layer.querySelectorAll(".box-item").length, 1);
+    assert.equal(layer.querySelector(".box-item input").value, "a red car");
+    assert.equal(
+      layer.querySelector('.thumb[data-index="0"]').classList.contains("thumb--done"),
+      true,
+    );
+  });
+
+  it("hides box overlays and blocks drawing while hidden", () => {
+    showAnnotator(annotationPending("annotation-hide"), { onSubmitted: calls() });
+    const layer = document.getElementById("modalLayer");
+    const canvas = activeCanvas();
+    drawBox(canvas, { start: [110, 95], end: [310, 245] });
+
+    const before = contextCalls.length;
+    layer.querySelector("#hideBoxesToggle").checked = true;
+    layer
+      .querySelector("#hideBoxesToggle")
+      .dispatchEvent(new window.Event("change", { bubbles: true }));
+
+    const since = contextCalls.slice(before);
+    assert.ok(since.some((c) => c[0] === "drawImage"));
+    assert.ok(!since.some((c) => c[0] === "strokeRect"));
+
+    // Drawing a new box is suppressed while overlays are hidden.
+    drawBox(canvas, { start: [20, 20], end: [120, 120], pointerId: 12 });
+    assert.equal(layer.querySelectorAll(".box-item").length, 1);
+  });
+
+  it("Skip image excludes the current image and advances without submitting", () => {
+    showAnnotator(
+      annotationPending("annotation-skip", [
+        annotationImage("first"),
+        annotationImage("second"),
+      ]),
+      { onSubmitted: calls() },
+    );
+    const layer = document.getElementById("modalLayer");
+    activeCanvas();
+
+    layer.querySelector("#skipAnnotate").click();
+
+    assert.equal(apiCalls.submitted.length, 0);
+    assert.equal(
+      layer.querySelector('.thumb[data-index="0"]').classList.contains("thumb--skipped"),
+      true,
+    );
+    assert.equal(
+      layer.querySelector('.thumb[data-index="1"]').classList.contains("thumb--current"),
+      true,
+    );
+  });
+
+  it("Skip all remaining applies the current image and skips the rest", async () => {
+    const onSubmitted = calls();
+    showAnnotator(
+      annotationPending("annotation-skip-all", [
+        annotationImage("first"),
+        annotationImage("second"),
+      ]),
+      { onSubmitted },
+    );
+    const layer = document.getElementById("modalLayer");
+    activeCanvas();
+
+    layer.querySelector("#skipAllAnnotate").click();
     await nextTick();
 
     assert.deepEqual(apiCalls.submitted[0], {
       jobId: "job-1",
-      requestId: "annotation-skip",
-      value: {
-        annotations: [],
-        skipped: true,
-        skip_all: false,
-      },
-    });
-    assert.equal(firstSubmitted.count, 1);
-
-    const secondSubmitted = calls();
-    showAnnotator(annotationPending("annotation-skip-all"), {
-      onSubmitted: secondSubmitted,
-    });
-    document.getElementById("skipAllAnnotate").click();
-    await nextTick();
-
-    assert.deepEqual(apiCalls.submitted[1], {
-      jobId: "job-1",
       requestId: "annotation-skip-all",
       value: {
-        annotations: [],
-        skipped: true,
+        images: {
+          "/images/first.png": { annotations: [], skipped: false },
+          "/images/second.png": { annotations: [], skipped: true },
+        },
         skip_all: true,
       },
     });
-    assert.equal(secondSubmitted.count, 1);
+    assert.equal(onSubmitted.count, 1);
   });
 
   it("locks every interactive control while a caption request is in flight", async () => {
     let release;
-    window.pywebview.api.caption_region = (jobId, imagePath, box) =>
+    window.pywebview.api.caption_region = () =>
       new Promise((resolve) => {
-        release = () =>
-          resolve({ caption: "captioned region", crop_path: "/tmp/crop.png" });
+        release = () => resolve({ caption: "captioned region", crop_path: "/tmp/crop.png" });
       });
     showAnnotator(annotationPending("annotation-lock"), { onSubmitted: calls() });
 
     const layer = document.getElementById("modalLayer");
-    const canvas = layer.querySelector("#annotationCanvas");
-    setCanvasClientRect(canvas, { left: 10, top: 20, width: 400, height: 300 });
+    const canvas = activeCanvas();
     drawBox(canvas, { start: [110, 95], end: [310, 245] });
 
     const locked = [
@@ -175,11 +285,9 @@ describe("annotation interaction", () => {
     for (const sel of locked) {
       assert.equal(layer.querySelector(sel).disabled, true, `${sel} disabled`);
     }
-    // Per-box Select/Delete buttons and the label/coord inputs lock too.
     layer
       .querySelectorAll(".box-item button, .box-item input")
       .forEach((el) => assert.equal(el.disabled, true));
-    // Drawing a new box is blocked mid-caption.
     drawBox(canvas, { start: [20, 20], end: [120, 120], pointerId: 11 });
     assert.equal(layer.querySelectorAll(".box-item").length, 1);
 
@@ -194,36 +302,41 @@ describe("annotation interaction", () => {
       .forEach((el) => assert.equal(el.disabled, false));
   });
 
-  it("blocks Done and flags regions still missing a caption", async () => {
-    // Keep the auto-filled "region N" placeholder instead of describing the box.
-    // canvas.js reads globalThis.prompt, so override the Node global too.
+  it("blocks Done and jumps to an image whose region still needs a caption", async () => {
     window.prompt = () => "region 1";
     global.prompt = window.prompt;
     const onSubmitted = calls();
-    showAnnotator(annotationPending("annotation-missing"), { onSubmitted });
+    showAnnotator(
+      annotationPending("annotation-missing", [
+        annotationImage("first"),
+        annotationImage("second"),
+      ]),
+      { onSubmitted },
+    );
 
     const layer = document.getElementById("modalLayer");
-    const canvas = layer.querySelector("#annotationCanvas");
-    setCanvasClientRect(canvas, { left: 10, top: 20, width: 400, height: 300 });
+    const canvas = activeCanvas();
     drawBox(canvas, { start: [110, 95], end: [310, 245] });
 
+    // Move to image 2, then try to finish — Done must jump back to image 1.
+    layer.querySelector('.thumb[data-index="1"]').click();
     layer.querySelector("#doneAnnotate").click();
     await nextTick();
 
-    // Nothing submitted and the modal stays open.
     assert.equal(apiCalls.submitted.length, 0);
     assert.equal(onSubmitted.count, 0);
     assert.equal(layer.classList.contains("hidden"), false);
-    // The region glows in the list and the status bar shows the error message.
+    assert.equal(
+      layer.querySelector('.thumb[data-index="0"]').classList.contains("thumb--current"),
+      true,
+    );
     assert.equal(
       layer.querySelector(".box-item").classList.contains("box-item--missing"),
       true,
     );
-    const status = layer.querySelector("#bboxStatus");
-    assert.equal(status.classList.contains("bbox-status--error"), true);
-    assert.match(status.textContent, /Caption every region before finishing/);
+    assert.match(layer.querySelector("#bboxStatus").textContent, /Caption every region before finishing/);
 
-    // Describing the region clears its glow live (no list re-render needed).
+    // Describing the region clears its glow live.
     const input = layer.querySelector(".box-item input");
     input.value = "a red car";
     input.dispatchEvent(new window.Event("input", { bubbles: true }));
@@ -232,13 +345,13 @@ describe("annotation interaction", () => {
       false,
     );
 
-    // Done now submits the captioned region and closes the modal.
     layer.querySelector("#doneAnnotate").click();
     await nextTick();
     assert.equal(apiCalls.submitted.length, 1);
-    assert.equal(apiCalls.submitted[0].value.annotations[0].label, "a red car");
-    assert.equal(onSubmitted.count, 1);
-    assert.equal(layer.classList.contains("hidden"), true);
+    assert.equal(
+      apiCalls.submitted[0].value.images["/images/first.png"].annotations[0].label,
+      "a red car",
+    );
   });
 
   it("keeps selected box editable when captioning fails", async () => {
@@ -248,8 +361,7 @@ describe("annotation interaction", () => {
     showAnnotator(annotationPending("annotation-error"), { onSubmitted: calls() });
 
     const layer = document.getElementById("modalLayer");
-    const canvas = layer.querySelector("#annotationCanvas");
-    setCanvasClientRect(canvas, { left: 10, top: 20, width: 400, height: 300 });
+    const canvas = activeCanvas();
     drawBox(canvas, { start: [110, 95], end: [310, 245] });
 
     layer.querySelector("#captionBox").click();

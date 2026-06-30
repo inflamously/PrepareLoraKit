@@ -23,11 +23,11 @@ from .artifacts import (
     _clean_bbox_artifacts,
     _is_bbox_artifact,
     _save_bbox_training_item,
+    save_boxes_sidecar,
 )
 from .reports import _save_failure_report, build_success_report, save_success_report
 from .validation import render_spot_check, validate_captions
-from .workflow import CaptionWorkflowResult, _load_existing_caption, \
-    _preserve_sidecar_when_captioning_disabled, _collect_annotations, \
+from .workflow import CaptionWorkflowResult, gather_decisions, resolve_decision, \
     _persist_region_caption_edits, _caption_full_image, _write_caption
 
 DEFAULT_SUBSTEPS = ["s5_1_annotate", "s5_2_caption", "s5_3_validate"]
@@ -151,30 +151,47 @@ def _caption_dataset(
         cancel_check=cancel_check,
     )
 
+    txt_paths = {
+        path: (output_dir / path.relative_to(dataset_dir)).with_suffix(".txt")
+        for path in images
+    }
+
+    # Phase A — gather all bbox annotations in one workspace interaction. Reloaded
+    # boxes (from a prior run) are handed to the UI so done images can be re-edited.
+    decisions = gather_decisions(
+        images,
+        txt_paths=txt_paths,
+        overwrite=overwrite,
+        enabled=enabled,
+        provider=interaction,
+        region_captioner=region_captioner,
+        result=result,
+        cancel_check=cancel_check,
+    )
+
+    # Phase B — caption each non-skipped image with the submitted annotations.
     for path in images:
         check_cancel(cancel_check)
-
-        txt_path = (output_dir / path.relative_to(dataset_dir)).with_suffix(".txt")
+        txt_path = txt_paths[path]
         txt_path.parent.mkdir(parents=True, exist_ok=True)
 
-        if _load_existing_caption(path, txt_path, result.captions, overwrite):
-            continue
-        if _preserve_sidecar_when_captioning_disabled(path, txt_path, result.captions, enabled):
+        annotations = resolve_decision(
+            path,
+            txt_path,
+            decisions.get(str(path)),
+            overwrite=overwrite,
+            enabled=enabled,
+            result=result,
+        )
+        if annotations is None:
             continue
 
-        annotations = _collect_annotations(
-            path,
-            enabled=enabled,
-            provider=interaction,
-            region_captioner=region_captioner,
-            result=result,
-            cancel_check=cancel_check,
-        )
         _persist_region_caption_edits(
             annotations,
             result.captions,
             concept_token=concept_token,
         )
+        save_boxes_sidecar(path, annotations)
         caption = _caption_full_image(
             path,
             annotations,
