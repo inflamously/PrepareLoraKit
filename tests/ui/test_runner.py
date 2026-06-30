@@ -419,7 +419,6 @@ def test_ui_interaction_provider_emits_curate_details_payload(tmp_path):
         "duplicate_pairs": [("a.png", "b.png", 4)],
         "dropped_duplicates": ["b.png"],
         "kept_images": ["a.png", "c.png"],
-        "occluded_flagged": ["c.png"],
         "coverage_image": str(coverage),
         "coverage": {
             "method": "umap",
@@ -451,7 +450,6 @@ def test_ui_interaction_provider_emits_curate_details_payload(tmp_path):
         "kept_images": 2,
         "duplicate_pairs": 1,
         "dropped_duplicates": 1,
-        "occluded_flagged": 1,
     }
 
 

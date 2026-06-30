@@ -72,10 +72,8 @@ def _invoke_CurateStep(working_dir: Path, output_dir: Path, cfg: CurateConfig,
         report_path=output_dir / "reports" / "CurateStep_report.json",
         enabled_substeps=_kw.get("enabled_substeps"),
         cancel_check=_kw.get("cancel_check"),
-        clip_model_id=cfg.clip_model_id,
         coverage_embedding_model=cfg.coverage_embedding_model,
         dedup_hamming_distance=cfg.dedup_hamming_distance,
-        occlusion_threshold=cfg.occlusion_threshold,
         pca_umap_switch_threshold=cfg.pca_umap_switch_threshold,
     )
 
@@ -302,7 +300,6 @@ def _mock_curate(
         "duplicate_pairs": [(str(a), str(b), d) for a, b, d in pairs],
         "dropped_duplicates": [str(p) for p in to_drop],
         "kept_images": [str(p) for p in kept_images],
-        "occluded_flagged": [],
         "coverage_image": str(coverage_path) if coverage_path else None,
         "coverage": coverage_metadata,
         "substeps": {substep_id: {"enabled": substep_id in enabled} for substep_id in [

@@ -111,7 +111,6 @@ function curateDetailsPending() {
         kept_images: 12,
         duplicate_pairs: 3,
         dropped_duplicates: 2,
-        occluded_flagged: 1,
       },
     },
   };

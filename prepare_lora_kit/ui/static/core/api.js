@@ -114,7 +114,7 @@
  * @property {ImagePayload | null} coverage_image
  * @property {string | null} coverage_method
  * @property {Record<string, unknown>} coverage
- * @property {{kept_images: number, duplicate_pairs: number, dropped_duplicates: number, occluded_flagged: number}} summary
+ * @property {{kept_images: number, duplicate_pairs: number, dropped_duplicates: number}} summary
  */
 
 /**

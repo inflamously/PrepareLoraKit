@@ -155,7 +155,6 @@ class UiInteractionProvider(InteractionProvider):
                 "kept_images": len(report.get("kept_images") or []),
                 "duplicate_pairs": len(report.get("duplicate_pairs") or []),
                 "dropped_duplicates": len(report.get("dropped_duplicates") or []),
-                "occluded_flagged": len(report.get("occluded_flagged") or []),
             },
         }
         answer = self._job.request_input("curate_details", payload)

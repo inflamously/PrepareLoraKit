@@ -41,28 +41,22 @@ export const STEP_HELP = {
     summary: "Removes duplicates and near-duplicates and checks dataset coverage.",
     detail:
       "Finds and drops repeated or near-identical images, then builds a coverage map so you " +
-      "can see if your dataset is varied or clustered. It can also flag images where the " +
-      "subject is hidden or occluded.",
+      "can see if your dataset is varied or clustered.",
     substeps: [
       { id: "s2_1_dupecheck", label: "Duplicate check",
         desc: "Detects near-identical images using a perceptual hash." },
       { id: "s2_2_clipscan", label: "CLIP scan",
-        desc: "Optional: a CLIP model rates each image against \"subject fully visible\" vs " +
-          "\"subject hidden/occluded\" and flags the ones that score as occluded." },
+        desc: "Optional: builds the coverage map using an AI embedding model." },
       { id: "s2_3_drop_images", label: "Drop images",
-        desc: "Removes the duplicates and flagged images you chose to discard." },
+        desc: "Removes the duplicates you chose to discard." },
     ],
     params: [
       { label: "Dedup hamming distance",
         desc: "How similar two images must be to count as duplicates. Lower = stricter (8 is typical)." },
-      { label: "Occlusion threshold",
-        desc: "How aggressively to flag occluded subjects, from 0 to 1 (higher = flags more)." },
       { label: "Skip CLIP coverage",
-        desc: "Turn off the AI coverage/occlusion scan to save time and VRAM." },
+        desc: "Turn off the AI coverage scan to save time and VRAM." },
       { label: "Coverage embedding model",
         desc: "Which AI model builds the coverage map. \"Auto\" picks one based on your VRAM." },
-      { label: "CLIP model (occlusion)",
-        desc: "Which CLIP model checks for occluded subjects." },
       { label: "PCA→UMAP switch",
         desc: "Dataset size at which the coverage plot switches from PCA to UMAP layout." },
     ],

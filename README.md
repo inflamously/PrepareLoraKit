@@ -115,7 +115,7 @@ example pipeline has nine stages.
 | --- | --- | --- | --- |
 | 0 | `ImportStep` | Copies source images into the working dataset. | Working `dataset/`, `ImportStep_report.json` |
 | 1 | `QualityGateStep` | Scores imported images for size, blur, noise, JPEG artifacts, and watermark likelihood. Supports manual review. | Updated `dataset/`, `QualityGateStep_report.json` |
-| 2 | `CurateStep` | Removes perceptual-hash duplicates, creates CLIP coverage plots, and flags occlusion or ambiguous images. | Updated `dataset/`, coverage image, `CurateStep_report.json` |
+| 2 | `CurateStep` | Removes perceptual-hash duplicates and creates CLIP coverage plots. | Updated `dataset/`, coverage image, `CurateStep_report.json` |
 | 3 | `UpscaleStep` | Upscales images below the target minimum side with the configured algorithm; unavailable algorithms warn and skip. | Updated images, `UpscaleStep_report.json` |
 | 4 | `CaptionStep` | Opens bbox annotation UI, captions with Qwen VL, enforces concept token when supplied, and writes `.txt` sidecars. | Caption sidecars, `CaptionStep_report.json` |
 | 5 | `VaeGateStep` | Reconstructs images through the target VAE and flags high-frequency loss outliers. | Updated `dataset/`, `VaeGateStep_report.json` |

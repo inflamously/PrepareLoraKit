@@ -50,12 +50,10 @@ def _default_pipeline() -> list[dict[str, Any]]:
         {
             "type": "CurateStep",
             "dedup_hamming_distance": 3,
-            "occlusion_threshold": 0.35,
             "pca_umap_switch_threshold": 30,
             "umap_n_neighbors": 15,
             "umap_min_dist": 0.1,
             "pca_n_components": 2,
-            "clip_model_id": "ViT-B-32",
             "coverage_embedding_model": "auto",
             "substeps": _default_substep_data("CurateStep"),
         },

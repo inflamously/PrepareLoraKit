@@ -3,28 +3,14 @@
 All heavy imports (``torch``, ``open_clip``, ``transformers``) are lazy so this
 module — and anything importing the catalog through it — stays cheap to import.
 
-Two entry points:
-  * :func:`embed_images` — coverage embeddings for any catalog family.
-  * :func:`load_clip` — an open_clip model + tokenizer for the occlusion filter,
-    which needs text<->image scoring (CLIP only).
+Entry point: :func:`embed_images` — coverage embeddings for any catalog family.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
 
 from ..cancellation import CancelCheck, check_cancel
 from . import catalog
-
-
-@dataclass
-class LoadedClip:
-    """An open_clip model bundle for zero-shot text<->image scoring."""
-
-    model: object
-    preprocess: object
-    tokenizer: object
-    device: str
 
 
 def _resolve(model_id: str) -> catalog.EmbeddingModel:
@@ -60,19 +46,6 @@ def _load_open_clip(spec: catalog.EmbeddingModel):
     model.eval().to(device)
     tokenizer = open_clip.get_tokenizer(spec.arch)
     return model, preprocess, tokenizer, device
-
-
-def load_clip(model_id: str = catalog.DEFAULT_CLIP_ID) -> LoadedClip:
-    """Load an open_clip model bundle for the occlusion filter.
-
-    Non-CLIP ids are coerced to the default CLIP model, since occlusion needs a
-    text encoder that DINOv2/Qwen-embedding models don't provide.
-    """
-    spec = _resolve(model_id)
-    if spec.family != "clip":
-        spec = _resolve(catalog.DEFAULT_CLIP_ID)
-    model, preprocess, tokenizer, device = _load_open_clip(spec)
-    return LoadedClip(model=model, preprocess=preprocess, tokenizer=tokenizer, device=device)
 
 
 def _embed_clip(spec, paths: list[Path], cancel_check):

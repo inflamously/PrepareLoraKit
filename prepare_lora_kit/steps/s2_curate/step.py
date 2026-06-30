@@ -3,7 +3,6 @@ Step 2 — Curation
 
 1. Perceptual-hash dedupe (phash, configurable Hamming distance).
 2. Coverage embedding (CLIP/DINOv2/Qwen, VRAM-auto): UMAP (N > 30) or PCA (N ≤ 30) scatter.
-3. Occlusion filter via CLIP zero-shot (text↔image, CLIP only).
 """
 from __future__ import annotations
 from pathlib import Path
@@ -14,14 +13,6 @@ from ...utils import report as rpt
 
 from .dedupe import _compute_hashes, _find_duplicates, _resolve_duplicates
 from .coverage import _coverage_embeddings, _save_umap, _save_pca
-from .occlusion import OCCLUSION_THRESHOLD, _occlusion_scores
-
-
-def _resolve_clip_model(clip_model_id: str | None) -> str:
-    """Canonical CLIP id for the occlusion filter (maps legacy HF ids)."""
-    from ...embedding import catalog
-
-    return catalog.normalize_id(clip_model_id)
 
 
 def _resolve_coverage_model(coverage_embedding_model: str | None) -> str:
@@ -42,10 +33,8 @@ def run(
     report_path: Path | None = None,
     enabled_substeps: list[str] | None = None,
     cancel_check: CancelCheck | None = None,
-    clip_model_id: str | None = None,
     coverage_embedding_model: str | None = None,
     dedup_hamming_distance: int = 3,
-    occlusion_threshold: float = OCCLUSION_THRESHOLD,
     pca_umap_switch_threshold: int = 30,
 ) -> dict:
     rpt.step_header(2, "Curation — Dedupe + Coverage")
@@ -89,8 +78,7 @@ def run(
     else:
         rpt.info(f"Drop-images substep disabled; retaining all {len(images)} image(s).")
 
-    # Resolve embedding model selections once for the clipscan substep.
-    occlusion_model = _resolve_clip_model(clip_model_id)
+    # Resolve embedding model selection once for the clipscan substep.
     coverage_model = _resolve_coverage_model(coverage_embedding_model)
 
     # Coverage
@@ -113,24 +101,6 @@ def run(
             coverage_metadata = None
             rpt.warn(f"Coverage visualisation failed: {exc}")
 
-    # Occlusion filter
-    occluded: list[str] = []
-    if not skip_clip and "s2_2_clipscan" in enabled:
-        try:
-            rpt.info(f"Running occlusion filter (CLIP zero-shot, {occlusion_model}) …")
-            occ_scores = _occlusion_scores(
-                kept_images, clip_model_id=occlusion_model, cancel_check=cancel_check
-            )
-            occluded = [str(p) for p, s in occ_scores.items() if s < occlusion_threshold]
-            if occluded:
-                rpt.warn(f"{len(occluded)} images flagged as possibly occluded/ambiguous:")
-                for o in occluded:
-                    rpt.warn(f"  {Path(o).name}")
-        except CancelledRun:
-            raise
-        except Exception as exc:
-            rpt.warn(f"Occlusion filter failed: {exc}")
-
     check_cancel(cancel_check)
     img_utils.materialize(kept_images, dataset_dir, output_dir)
 
@@ -139,7 +109,6 @@ def run(
         "dropped_duplicates": [str(p) for p in to_drop] if apply_drops else [],
         "duplicate_drop_candidates": [str(p) for p in to_drop],
         "kept_images": [str(p) for p in kept_images],
-        "occluded_flagged": occluded,
         "coverage_image": str(coverage_path) if coverage_path else None,
         "coverage": coverage_metadata,
         "substeps": {

@@ -1,4 +1,4 @@
-"""Tests that the configurable dedup/occlusion thresholds are honored end-to-end."""
+"""Tests that the configurable dedup threshold is honored end-to-end."""
 from pathlib import Path
 
 from prepare_lora_kit import invoke
@@ -47,14 +47,12 @@ def test_invoke_curate_forwards_threshold_config(tmp_path, monkeypatch):
     working.mkdir()
     cfg = CurateConfig(
         dedup_hamming_distance=7,
-        occlusion_threshold=0.5,
         pca_umap_switch_threshold=42,
     )
 
     invoke._invoke_CurateStep(working, tmp_path, cfg)
 
     assert captured["dedup_hamming_distance"] == 7
-    assert captured["occlusion_threshold"] == 0.5
     assert captured["pca_umap_switch_threshold"] == 42
 
 

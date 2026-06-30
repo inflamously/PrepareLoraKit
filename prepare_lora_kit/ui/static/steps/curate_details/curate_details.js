@@ -42,7 +42,6 @@ function curateDetailsModal(payload) {
           ${metricMarkup("Kept images", payload.summary?.kept_images)}
           ${metricMarkup("Duplicate pairs", payload.summary?.duplicate_pairs)}
           ${metricMarkup("Dropped duplicates", payload.summary?.dropped_duplicates)}
-          ${metricMarkup("Occlusion flags", payload.summary?.occluded_flagged)}
           ${metricMarkup("PCA components", payload.coverage?.pca_components)}
         </dl>
         <div class="curate-report-path">

@@ -111,7 +111,6 @@ __all__ = [
     "normalize_id",
     "get",
     "coverage_choices",
-    "clip_choices",
     "auto_select",
 ]
 
@@ -131,11 +130,6 @@ def get(model_id: str) -> EmbeddingModel | None:
 def coverage_choices() -> list[tuple[str, str]]:
     """``(value, label)`` pairs for the coverage-embedding dropdown (Auto first)."""
     return [(AUTO, "Auto (match VRAM)")] + [(m.id, m.label) for m in COVERAGE_MODELS]
-
-
-def clip_choices() -> list[tuple[str, str]]:
-    """``(value, label)`` pairs for the occlusion CLIP dropdown (CLIP only)."""
-    return [(m.id, m.label) for m in CLIP_MODELS]
 
 
 def auto_select(total_vram_gb: float) -> str:

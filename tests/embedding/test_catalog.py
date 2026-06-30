@@ -28,13 +28,6 @@ def test_coverage_choices_lists_auto_first_and_all_families():
     assert families == {"clip", "dinov2", "qwen"}
 
 
-def test_clip_choices_are_clip_only():
-    clip_ids = [v for v, _ in catalog.clip_choices()]
-
-    assert clip_ids == [m.id for m in catalog.CLIP_MODELS]
-    assert all(catalog.get(v).family == "clip" for v in clip_ids)
-
-
 def test_normalize_id_maps_legacy_hf_repo_to_open_clip_name():
     assert catalog.normalize_id("openai/clip-vit-base-patch32") == "ViT-B-32"
     assert catalog.normalize_id("openai/clip-vit-large-patch14") == "ViT-L-14"
