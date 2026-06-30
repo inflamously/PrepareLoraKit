@@ -11,6 +11,7 @@ from ...steps.s3_upscale.seedvr2_adapter import SEEDVR2_MODEL_RESIDENCY_MODES
 class UpscaleConfig:
     """Config for UpscaleStep."""
     upscale_target: int = 3072
+    upscale_highlight_threshold: int = 1536
     hallucination_ssim_threshold: float = 0.60
     upscale_model: str = "seedvr2"
     seedvr2_submodule_dir: str | None = None
@@ -60,6 +61,8 @@ class UpscaleConfig:
             )
         if self.upscale_target <= 0:
             raise ValueError("UpscaleStep: upscale_target must be positive")
+        if self.upscale_highlight_threshold <= 0:
+            raise ValueError("UpscaleStep: upscale_highlight_threshold must be positive")
         if not (0.0 <= self.hallucination_ssim_threshold <= 1.0):
             raise ValueError("UpscaleStep: hallucination_ssim_threshold must be in [0, 1]")
         if self.seedvr2_batch_size <= 0:

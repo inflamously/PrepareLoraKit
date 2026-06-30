@@ -61,6 +61,7 @@ def run_request(request: dict[str, Any]) -> dict[str, Any]:
     for item in request.get("items", []):
         source = Path(str(item["source"]))
         output = Path(str(item["output"]))
+        key = str(item.get("key") or source)
         args = _build_args(request, source, output, residency=residency)
         try:
             frames = module.process_single_file(
@@ -75,11 +76,11 @@ def run_request(request: dict[str, Any]) -> dict[str, Any]:
                 raise RuntimeError(f"SeedVR2 produced no output frames for {source.name}")
             if not output.exists():
                 raise RuntimeError(f"SeedVR2 did not write expected output: {output}")
-            processed.append(str(source))
+            processed.append(key)
         except SystemExit as exc:
-            failed[str(source)] = f"SeedVR2 processing exited with code {_format_exit_code(exc)}"
+            failed[key] = f"SeedVR2 processing exited with code {_format_exit_code(exc)}"
         except BaseException as exc:
-            failed[str(source)] = f"SeedVR2 processing failed: {_format_exception(exc)}"
+            failed[key] = f"SeedVR2 processing failed: {_format_exception(exc)}"
 
     return {
         "status": "ok",

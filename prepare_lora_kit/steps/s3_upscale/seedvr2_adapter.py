@@ -71,13 +71,14 @@ class SeedVR2Upscaler:
         self,
         outputs_by_source: Mapping[Path, Path],
         *,
+        sources_by_path: Mapping[Path, Path] | None = None,
         cancel_check=None,
     ) -> dict[str, str]:
         self.prepare()
         if not outputs_by_source:
             return {}
 
-        request = self._build_request(outputs_by_source)
+        request = self._build_request(outputs_by_source, sources_by_path)
         response = self._run_worker(request, cancel_check=cancel_check)
         for warning in response.get("warnings") or []:
             from ...utils import report as rpt
@@ -86,7 +87,12 @@ class SeedVR2Upscaler:
         failed = response.get("failed") or {}
         return {str(path): str(reason) for path, reason in failed.items()}
 
-    def _build_request(self, outputs_by_source: Mapping[Path, Path]) -> dict[str, Any]:
+    def _build_request(
+        self,
+        outputs_by_source: Mapping[Path, Path],
+        sources_by_path: Mapping[Path, Path] | None = None,
+    ) -> dict[str, Any]:
+        sources_by_path = sources_by_path or {}
         return {
             "resolution": self.resolution,
             "submodule_dir": str(self.submodule_dir),
@@ -99,8 +105,12 @@ class SeedVR2Upscaler:
             "model_residency": self.model_residency,
             "debug": self.debug,
             "items": [
-                {"source": str(source), "output": str(output)}
-                for source, output in outputs_by_source.items()
+                {
+                    "key": str(key),
+                    "source": str(sources_by_path.get(key, key)),
+                    "output": str(output),
+                }
+                for key, output in outputs_by_source.items()
             ],
         }
 

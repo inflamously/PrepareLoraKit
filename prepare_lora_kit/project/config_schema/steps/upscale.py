@@ -10,6 +10,7 @@ FIELDS: list[FieldSpec] = [
         ("seedvr2", "SeedVR2"), ("lanczos", "Lanczos"), ("custom", "Custom"),
     ]),
     _number("upscale_target", "Target side (px)", "int", minimum=1, step=64),
+    _number("upscale_highlight_threshold", "Highlight threshold (px)", "int", minimum=1, step=64),
     _number("hallucination_ssim_threshold", "Hallucination SSIM", "float", minimum=0, maximum=1, step=0.05),
     _text("seedvr2_dit_model", "SeedVR2 DiT model", nullable=True,
           placeholder="seedvr2_ema_3b_fp8_e4m3fn.safetensors"),

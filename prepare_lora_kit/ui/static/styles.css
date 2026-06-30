@@ -12,6 +12,7 @@
 @import "./steps/source_review/source_review.css";
 @import "./steps/curate_details/curate_details.css";
 @import "./steps/vae_review/vae_review.css";
+@import "./steps/upscale_review/upscale_review.css";
 @import "./steps/bbox_annotation/bbox_annotation.css";
 @import "./steps/step_config/step_config.css";
 @import "./steps/step_help/step_help.css";

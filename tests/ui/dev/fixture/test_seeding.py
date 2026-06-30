@@ -11,7 +11,7 @@ def test_mock_fixture_generates_dataset_and_prerequisite_state(tmp_path):
     assert fixture.selected_steps == ["AuditStep"]
     assert len(list(fixture.input_dir.glob("*.png"))) == 5
     assert len(list((fixture.output_dir / "dataset").glob("*.png"))) == 4
-    assert len(list((fixture.output_dir / "dataset").glob("*.txt"))) == 4
+    assert len(list((fixture.output_dir / "dataset").glob("*.txt"))) == 5
     assert (fixture.input_dir / "mock_bad_too_small.png").exists()
     assert not (fixture.output_dir / "dataset" / "mock_bad_too_small.png").exists()
 

@@ -5,6 +5,7 @@ import { showAnnotator } from "../steps/bbox_annotation/bbox_annotation.js";
 import { showCurateDetails } from "../steps/curate_details/curate_details.js";
 import { showSourceReview } from "../steps/source_review/source_review.js";
 import { showStepConfig } from "../steps/step_config/step_config.js";
+import { showUpscaleReview } from "../steps/upscale_review/upscale_review.js";
 import { showVaeReview } from "../steps/vae_review/vae_review.js";
 import { loadProject } from "../project/controller.js";
 import { selectedStepArray, selectedSubstepMap } from "../project/selection.js";
@@ -150,6 +151,10 @@ function handlePendingInput(pending) {
 
   if (pending.kind === "vae_review") {
     showVaeReview(pending, { onSubmitted: pollJob });
+  }
+
+  if (pending.kind === "upscale_review") {
+    showUpscaleReview(pending, { onSubmitted: pollJob });
   }
 
   if (pending.kind === "step_config") {

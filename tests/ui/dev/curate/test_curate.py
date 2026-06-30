@@ -4,6 +4,7 @@ import pytest
 
 from prepare_lora_kit.ui.e2e import create_mock_ui_fixture
 from prepare_lora_kit.ui.runner import JobManager, PipelineJob
+from prepare_lora_kit.utils import image as img_utils
 
 
 def test_mock_project_curate_runs_through_job_manager(
@@ -103,7 +104,7 @@ def test_mock_project_curate_auto_uses_umap_above_threshold(
         root=tmp_path / "mock",
         curate_coverage="umap",
     )
-    initial_image_count = len(list((fixture.output_dir / "dataset").glob("*.png")))
+    initial_image_count = len(img_utils.iter_images(fixture.output_dir / "dataset"))
     manager = JobManager(projects={fixture.project.name: fixture.project})
     job = PipelineJob(manager, "mock-job")
     monkeypatch.setattr(runner, "UiInteractionProvider", recording_curate_provider)
@@ -132,7 +133,7 @@ def test_mock_project_curate_auto_uses_umap_above_threshold(
     assert job.snapshot()["status"] == "completed"
     assert report["dropped_duplicates"] == []
     assert len(report["kept_images"]) == initial_image_count
-    assert len(list((fixture.output_dir / "dataset").glob("*.png"))) == initial_image_count
+    assert len(img_utils.iter_images(fixture.output_dir / "dataset")) == initial_image_count
     assert len(report["kept_images"]) > curate_config.pca_umap_switch_threshold
     assert report["coverage"]["method"] == "umap"
     assert report["coverage_image"] == str(coverage_path)

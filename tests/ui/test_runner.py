@@ -159,6 +159,58 @@ def test_project_payload_includes_substeps(tmp_path):
     ]
 
 
+def _project_with_input(input_dir) -> ProjectConfig:
+    project = _project()
+    project.input_dir = str(input_dir)
+    return project
+
+
+def _png(path, size=(4000, 4000)):
+    Image.new("RGB", size, "red").save(path)
+
+
+def test_project_payload_flags_upscale_attention_for_undersized_input(tmp_path):
+    input_dir = tmp_path / "input"
+    input_dir.mkdir()
+    _png(input_dir / "small.png", (1000, 1000))
+
+    payload = project_payload(_project_with_input(input_dir), tmp_path / "out")
+    steps = {step["type"]: step for step in payload["steps"]}
+
+    assert steps["UpscaleStep"]["needs_attention"] is True
+    assert steps["UpscaleStep"]["attention"]["undersized"] == 1
+    # Only the UpscaleStep is data-driven today; others carry no attention flag.
+    assert "needs_attention" not in steps["CurateStep"]
+
+
+def test_project_payload_no_attention_for_clean_dataset(tmp_path):
+    input_dir = tmp_path / "input"
+    input_dir.mkdir()
+    _png(input_dir / "big.png", (4000, 4000))
+
+    payload = project_payload(_project_with_input(input_dir), tmp_path / "out")
+    upscale = next(s for s in payload["steps"] if s["type"] == "UpscaleStep")
+
+    assert upscale["needs_attention"] is False
+
+
+def test_project_payload_prefers_working_dataset_over_input(tmp_path):
+    input_dir = tmp_path / "input"
+    input_dir.mkdir()
+    _png(input_dir / "small.png", (1000, 1000))  # input still has a small image
+
+    out = tmp_path / "out"
+    working = out / "dataset"
+    working.mkdir(parents=True)
+    _png(working / "done.png", (4000, 4000))  # working dataset is already clean
+
+    payload = project_payload(_project_with_input(input_dir), out)
+    upscale = next(s for s in payload["steps"] if s["type"] == "UpscaleStep")
+
+    # The working dataset (post-run) wins, so the glow self-clears.
+    assert upscale["needs_attention"] is False
+
+
 def test_validate_selection_rejects_substep_without_local_prerequisite(tmp_path):
     manager = JobManager()
 

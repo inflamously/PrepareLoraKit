@@ -43,6 +43,9 @@ class InteractionProvider(Protocol):
     def vae_review(self, items: list[dict]) -> dict[str, str]:
         """Return per-original VAE gate decisions: keep, drop, or replace."""
 
+    def upscale_review(self, items: list[dict]) -> dict[str, str]:
+        """Return per-original Step 3 decisions for flagged images: upscale or skip."""
+
 
 def annotate_dataset_via_images(
         provider: "InteractionProvider",
@@ -93,6 +96,11 @@ class CliInteractionProvider:
         from .steps.s4_vae_gate.review import _review_artifact_decisions
 
         return _review_artifact_decisions(items)
+
+    def upscale_review(self, items: list[dict]) -> dict[str, str]:
+        from .steps.s3_upscale.review import _review_flagged_decisions
+
+        return _review_flagged_decisions(items)
 
 
 class CliBboxRegionProvider(CliInteractionProvider):

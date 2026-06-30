@@ -10,6 +10,7 @@ from ...paths import PROJECT_ROOT
 from ...project.base import ProjectConfig
 from ...project.steps import OPTIONAL_STEP_TYPES, STEP_PREREQUISITES, substep_payloads
 from ...utils.state import RunState
+from .recommendations import upscale_attention
 
 
 def _default_output(input_dir: Path) -> Path:
@@ -79,8 +80,19 @@ def project_status(
     return "draft"
 
 
+def _attention_scan_dir(project: ProjectConfig, output_dir: Path | None) -> Path | None:
+    """Prefer the working dataset (reflects remaining need; it shrinks/converts as
+    steps run) and fall back to the untouched input folder before any run."""
+    if output_dir is not None:
+        working = output_dir / "dataset"
+        if working.is_dir() and any(working.iterdir()):
+            return working
+    return Path(project.input_dir) if project.input_dir else None
+
+
 def project_payload(project: ProjectConfig, output_dir: Path | None = None) -> dict[str, Any]:
     state = RunState(output_dir) if output_dir is not None else None
+    scan_dir = _attention_scan_dir(project, output_dir)
     return {
         "name": project.name,
         "network": project.network,
@@ -94,7 +106,21 @@ def project_payload(project: ProjectConfig, output_dir: Path | None = None) -> d
                 "prerequisites": STEP_PREREQUISITES.get(step.type, []),
                 "optional": step.type in OPTIONAL_STEP_TYPES,
                 "substeps": substep_payloads(step.type, step.substeps, state),
+                **_step_attention(step, scan_dir),
             }
             for step in project.pipeline
         ],
+    }
+
+
+def _step_attention(step, scan_dir: Path | None) -> dict[str, Any]:
+    """Soft step-list recommendation. Only the UpscaleStep is data-driven today:
+    it glows when the dataset has undersized images or JPEG artifacts."""
+    if step.type != "UpscaleStep":
+        return {}
+    threshold = int(getattr(step.config, "upscale_highlight_threshold", 1536))
+    attention = upscale_attention(scan_dir, threshold)
+    return {
+        "needs_attention": bool(attention and attention["recommended"]),
+        "attention": attention,
     }

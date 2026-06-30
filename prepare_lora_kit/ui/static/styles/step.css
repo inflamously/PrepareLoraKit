@@ -87,3 +87,22 @@
 .nf-step--disabled .nf-step__title {
     color: var(--text-2);
 }
+
+/* Soft recommendation glow (e.g. UpscaleStep when the dataset has undersized or
+   JPEG images). Doubled specificity + opacity reset so an unselected/optional
+   step still reads clearly through the dimming of .nf-step--disabled. */
+.nf-step.nf-step--attention {
+    opacity: 1;
+    border-color: var(--border-gold);
+    box-shadow: var(--glow-gold);
+    transition: var(--transition-color), box-shadow var(--dur-fast) var(--ease-out);
+}
+
+.nf-step.nf-step--attention .nf-step__title {
+    color: var(--text);
+}
+
+.nf-step__hint {
+    color: var(--accent);
+    opacity: 0.85;
+}

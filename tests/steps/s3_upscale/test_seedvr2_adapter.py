@@ -140,6 +140,58 @@ def test_seedvr2_adapter_batches_outputs_in_one_worker(tmp_path, monkeypatch):
     assert processes[0]["vae_offload_device"] == "cpu"
 
 
+def test_seedvr2_adapter_sources_by_path_overrides_model_input(tmp_path, monkeypatch):
+    submodule = _fake_seedvr2_submodule(tmp_path / "seedvr2")
+    log_path = tmp_path / "seedvr2_calls.jsonl"
+    monkeypatch.setenv("PLK_FAKE_SEEDVR2_LOG", str(log_path))
+    original = tmp_path / "original.png"
+    downscaled = tmp_path / "downscaled.png"
+    output = tmp_path / "out.png"
+    Image.new("RGB", (32, 24), "red").save(original)
+    Image.new("RGB", (16, 12), "red").save(downscaled)
+
+    upscaler = SeedVR2Upscaler(resolution=512, submodule_dir=submodule)
+
+    failures = upscaler.process_many(
+        {original: output},
+        sources_by_path={original: downscaled},
+    )
+
+    assert failures == {}
+    processes = [call for call in _read_log(log_path) if call["kind"] == "process"]
+    assert len(processes) == 1
+    assert processes[0]["input_path"] == str(downscaled)
+    assert processes[0]["output_path"] == str(output)
+
+
+def test_seedvr2_adapter_sources_by_path_keeps_failures_keyed_by_original(tmp_path):
+    submodule = tmp_path / "seedvr2"
+    submodule.mkdir()
+    (submodule / "inference_cli.py").write_text(
+        """
+DEFAULT_VAE = "ema_vae_fp16.safetensors"
+debug = None
+
+def download_weight(dit_model, vae_model, model_dir=None, debug=None):
+    return True
+
+def process_single_file(input_path, args, device_list, output_path=None, format_auto_detected=False, runner_cache=None):
+    raise SystemExit(3)
+""",
+        encoding="utf-8",
+    )
+    original = tmp_path / "original.png"
+    downscaled = tmp_path / "downscaled.png"
+    output = tmp_path / "out.png"
+    Image.new("RGB", (32, 24), "red").save(original)
+    Image.new("RGB", (16, 12), "red").save(downscaled)
+    upscaler = SeedVR2Upscaler(resolution=512, submodule_dir=submodule)
+
+    failures = upscaler.process_many({original: output}, sources_by_path={original: downscaled})
+
+    assert failures == {str(original): "SeedVR2 processing exited with code 3"}
+
+
 def test_seedvr2_adapter_converts_import_system_exit(tmp_path):
     submodule = tmp_path / "seedvr2"
     submodule.mkdir()

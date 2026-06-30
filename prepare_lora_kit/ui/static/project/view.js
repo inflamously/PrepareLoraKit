@@ -44,13 +44,18 @@ function renderStep(step) {
   const availableSubsteps = step.substeps || [];
   const checked = state.selectedSteps.has(step.type) ? "checked" : "";
   const collapsed = state.collapsedSteps.has(step.type);
+  const attention = step.needs_attention ? attentionHint(step.attention) : "";
   row.className = [
     "step",
     "nf-step",
     checked ? "is-checked" : "nf-step--disabled",
     running ? "nf-step--active" : "",
+    step.needs_attention ? "nf-step--attention" : "",
     collapsed ? "collapsed" : "",
   ].filter(Boolean).join(" ");
+  if (attention) {
+    row.title = attention;
+  }
 
   row.innerHTML = `
     <div class="nf-step__lead">
@@ -59,7 +64,9 @@ function renderStep(step) {
     </div>
     <div class="step-content nf-step__body">
       <strong class="nf-step__title">${escapeText(stepLabel(step.type))}</strong>
-      <small class="nf-step__meta">${escapeText(step.type)} <span class="nf-sep">&middot;</span> ${escapeText(prereq)}${optional}</small>
+      <small class="nf-step__meta">${escapeText(step.type)} <span class="nf-sep">&middot;</span> ${escapeText(prereq)}${optional}${
+        attention ? ` <span class="nf-step__hint">&middot; recommended</span>` : ""
+      }</small>
     </div>
     <span class="step-status nf-step__status ${pillClass(status)}">${escapeText(status)}</span>
     <button class="nf-step__help" type="button" title="What does this step do?" aria-label="Step help">?</button>
@@ -148,4 +155,16 @@ function pillClass(status) {
 
 function isActiveJob() {
   return state.runStarting || (state.job && !TERMINAL_STATUSES.has(state.job.status));
+}
+
+// Tooltip text explaining why a step is softly highlighted (e.g. UpscaleStep when
+// the dataset has undersized images or JPEG artifacts).
+function attentionHint(attention) {
+  const undersized = Number(attention?.undersized) || 0;
+  const jpeg = Number(attention?.jpeg) || 0;
+  const parts = [];
+  if (undersized) parts.push(`${undersized} image${undersized === 1 ? "" : "s"} ≤ threshold`);
+  if (jpeg) parts.push(`${jpeg} JPEG${jpeg === 1 ? "" : "s"}`);
+  if (!parts.length) return "Recommended for this dataset";
+  return `Recommended — ${parts.join(", ")} (upscale / clean up before training)`;
 }

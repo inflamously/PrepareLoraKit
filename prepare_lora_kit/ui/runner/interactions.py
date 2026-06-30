@@ -137,6 +137,28 @@ class UiInteractionProvider(InteractionProvider):
         decisions = answer.get("decisions", {}) if isinstance(answer, dict) else {}
         return {str(k): str(v) for k, v in decisions.items()}
 
+    def upscale_review(self, items: list[dict]) -> dict[str, str]:
+        payload_items = []
+        for item in items:
+            original_path = Path(str(item.get("path")))
+            payload = _image_payload(original_path, self._media_base_url)
+            payload.update({
+                "name": str(item.get("name") or original_path.name),
+                "width": item.get("width"),
+                "height": item.get("height"),
+                "min_side": item.get("min_side"),
+                "threshold": item.get("threshold"),
+                "is_jpeg": bool(item.get("is_jpeg")),
+                "planned_action": str(item.get("planned_action") or "upscale"),
+                "flagged": bool(item.get("flagged")),
+                "initial_decision": str(item.get("initial_decision") or "upscale"),
+            })
+            payload_items.append(payload)
+
+        answer = self._job.request_input("upscale_review", {"items": payload_items})
+        decisions = answer.get("decisions", {}) if isinstance(answer, dict) else {}
+        return {str(k): str(v) for k, v in decisions.items()}
+
     def curate_details(self, report: dict[str, Any], report_path: Path) -> bool:
         coverage_path = report.get("coverage_image")
         coverage_image = None

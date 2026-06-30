@@ -175,6 +175,43 @@ export function vaeReviewPending() {
   };
 }
 
+export function upscaleReviewPending() {
+  return {
+    id: "upscale-review-1",
+    kind: "upscale_review",
+    payload: {
+      items: [
+        {
+          path: "/images/first.jpg",
+          name: "first.jpg",
+          uri: "http://example.invalid/first.jpg",
+          width: 1200,
+          height: 1500,
+          min_side: 1200,
+          threshold: 1536,
+          is_jpeg: true,
+          planned_action: "upscale",
+          flagged: true,
+          initial_decision: "upscale",
+        },
+        {
+          path: "/images/second.jpg",
+          name: "second.jpg",
+          uri: "http://example.invalid/second.jpg",
+          width: 4000,
+          height: 3000,
+          min_side: 3000,
+          threshold: 1536,
+          is_jpeg: true,
+          planned_action: "jpeg_cleanup",
+          flagged: true,
+          initial_decision: "upscale",
+        },
+      ],
+    },
+  };
+}
+
 export function installMockImage() {
   class MockImage {
     constructor() {

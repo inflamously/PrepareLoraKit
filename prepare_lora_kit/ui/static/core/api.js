@@ -13,6 +13,12 @@
  */
 
 /**
+ * @typedef {Object} StepAttention
+ * @property {boolean} recommended
+ * @property {number} undersized Images whose short side is <= the step's highlight threshold.
+ * @property {number} jpeg JPEG-encoded images (compression artifacts).
+ * @property {number} scanned How many images were scanned (capped for large folders).
+ *
  * @typedef {Object} StepPayload
  * @property {string} type
  * @property {Record<string, unknown>} config
@@ -20,6 +26,8 @@
  * @property {string[]} prerequisites
  * @property {boolean} optional
  * @property {SubstepPayload[]} substeps
+ * @property {boolean} [needs_attention] Soft step-list recommendation (UpscaleStep only today).
+ * @property {StepAttention | null} [attention] Why the step is recommended.
  */
 
 /**
@@ -109,6 +117,21 @@
  */
 
 /**
+ * @typedef {Object} UpscaleReviewItem
+ * @property {string} path Original working dataset image path.
+ * @property {string} name
+ * @property {string} uri
+ * @property {number | null} width
+ * @property {number | null} height
+ * @property {number | null} min_side
+ * @property {number | null} threshold The configured upscale_highlight_threshold.
+ * @property {boolean} is_jpeg
+ * @property {"upscale" | "jpeg_cleanup" | "pass_through"} planned_action
+ * @property {boolean} flagged
+ * @property {"upscale" | "skip"} initial_decision
+ */
+
+/**
  * @typedef {Object} CurateCoveragePoint
  * @property {string} path
  * @property {string} name
@@ -144,8 +167,8 @@
  *
  * @typedef {Object} PendingInput
  * @property {string} id
- * @property {"source_review" | "bbox_annotation" | "vae_review" | "curate_details" | "step_config"} kind
- * @property {ImagePayload | {items: SourceReviewItem[]} | {items: VaeReviewItem[]} | CurateDetailsPayload | StepConfigPayload} payload
+ * @property {"source_review" | "bbox_annotation" | "vae_review" | "upscale_review" | "curate_details" | "step_config"} kind
+ * @property {ImagePayload | {items: SourceReviewItem[]} | {items: VaeReviewItem[]} | {items: UpscaleReviewItem[]} | CurateDetailsPayload | StepConfigPayload} payload
  */
 
 /**
