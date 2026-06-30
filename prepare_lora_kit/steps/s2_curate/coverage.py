@@ -1,5 +1,7 @@
 """CLIP coverage visualisation for Step 2 curation."""
 from __future__ import annotations
+
+import random
 from collections import Counter
 from pathlib import Path
 
@@ -50,6 +52,23 @@ def _embedding_meta(model_id: str) -> dict:
     }
 
 
+def _scatter_points(fig, ax, coords, paths: list[Path]) -> list[dict]:
+    """Per-point dot positions as dpi-independent figure-fraction percentages.
+
+    Uses transFigure (not raw display pixels) so the percentages line up with
+    the saved PNG regardless of fig.dpi vs the savefig dpi; y is flipped since
+    matplotlib's figure-fraction origin is bottom-left but CSS top% is from
+    the top.
+    """
+    fig.canvas.draw()
+    disp = ax.transData.transform(coords)
+    frac = fig.transFigure.inverted().transform(disp)
+    return [
+        {"path": str(p), "x_pct": round(float(fx) * 100, 2), "y_pct": round((1 - float(fy)) * 100, 2)}
+        for p, (fx, fy) in zip(paths, frac)
+    ]
+
+
 def _save_umap(embeddings, paths: list[Path], out_path: Path, model_id: str = "") -> dict:
     import warnings
 
@@ -58,7 +77,7 @@ def _save_umap(embeddings, paths: list[Path], out_path: Path, model_id: str = ""
     from umap import UMAP
 
     pca_components = min(50, embeddings.shape[0] - 1, embeddings.shape[1])
-    reduced = PCA(n_components=pca_components).fit_transform(embeddings)
+    reduced = PCA(n_components=pca_components, random_state=42).fit_transform(embeddings)
     with warnings.catch_warnings():
         warnings.filterwarnings(
             "ignore",
@@ -75,6 +94,7 @@ def _save_umap(embeddings, paths: list[Path], out_path: Path, model_id: str = ""
         ax.annotate(label, (coords[i, 0], coords[i, 1]), fontsize=6, alpha=0.6)
     ax.set_title("Dataset Coverage — UMAP")
     plt.tight_layout()
+    points = _scatter_points(fig, ax, coords, paths)
     plt.savefig(out_path, dpi=150)
     plt.close()
     rpt.ok(f"Coverage UMAP saved → {out_path}")
@@ -83,6 +103,7 @@ def _save_umap(embeddings, paths: list[Path], out_path: Path, model_id: str = ""
         **_embedding_meta(model_id),
         "preprocess": "pca",
         "pca_components": int(pca_components),
+        "points": points,
     }
 
 
@@ -90,7 +111,7 @@ def _save_pca(embeddings, paths: list[Path], out_path: Path, model_id: str = "")
     import matplotlib.pyplot as plt
     from sklearn.decomposition import PCA
 
-    coords = PCA(n_components=2).fit_transform(embeddings)
+    coords = PCA(n_components=2, random_state=42).fit_transform(embeddings)
 
     fig, ax = plt.subplots(figsize=(8, 6))
     ax.scatter(coords[:, 0], coords[:, 1], alpha=0.8, s=60)
@@ -98,6 +119,7 @@ def _save_pca(embeddings, paths: list[Path], out_path: Path, model_id: str = "")
         ax.annotate(label, (coords[i, 0], coords[i, 1]), fontsize=6, alpha=0.6)
     ax.set_title("Dataset Coverage — PCA")
     plt.tight_layout()
+    points = _scatter_points(fig, ax, coords, paths)
     plt.savefig(out_path, dpi=150)
     plt.close()
     rpt.ok(f"Coverage PCA saved → {out_path}")
@@ -105,4 +127,5 @@ def _save_pca(embeddings, paths: list[Path], out_path: Path, model_id: str = "")
         "method": "pca",
         **_embedding_meta(model_id),
         "pca_components": 2,
+        "points": points,
     }

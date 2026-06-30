@@ -146,6 +146,20 @@ class UiInteractionProvider(InteractionProvider):
                 coverage_image = _image_payload(path, self._media_base_url)
 
         coverage = report.get("coverage") if isinstance(report.get("coverage"), dict) else {}
+        points = coverage.get("points") if isinstance(coverage.get("points"), list) else None
+        if points:
+            coverage = {
+                **coverage,
+                "points": [
+                    {
+                        **_image_payload(Path(str(pt["path"])), self._media_base_url),
+                        "x_pct": pt["x_pct"],
+                        "y_pct": pt["y_pct"],
+                    }
+                    for pt in points
+                    if Path(str(pt.get("path", ""))).is_file()
+                ],
+            }
         payload = {
             "report_path": str(report_path.resolve()),
             "coverage_image": coverage_image,

@@ -453,6 +453,47 @@ def test_ui_interaction_provider_emits_curate_details_payload(tmp_path):
     }
 
 
+def test_ui_interaction_provider_resolves_coverage_points_to_media_uris(tmp_path):
+    coverage = tmp_path / "coverage_pca.png"
+    coverage.write_bytes(b"png")
+    point_a = tmp_path / "a.png"
+    point_a.write_bytes(b"png")
+    missing = tmp_path / "missing.png"
+    report = {
+        "kept_images": ["a.png"],
+        "coverage_image": str(coverage),
+        "coverage": {
+            "method": "pca",
+            "pca_components": 2,
+            "points": [
+                {"path": str(point_a), "x_pct": 12.5, "y_pct": 87.25},
+                {"path": str(missing), "x_pct": 50.0, "y_pct": 50.0},
+            ],
+        },
+    }
+    report_path = tmp_path / "CurateStep_report.json"
+
+    class FakeJob:
+        def request_input(self, kind, payload):
+            self.kind = kind
+            self.payload = payload
+            return {"confirmed": True}
+
+    from prepare_lora_kit.ui.runner import UiInteractionProvider
+
+    job = FakeJob()
+    provider = UiInteractionProvider(job, media_base_url="http://127.0.0.1:9999/media")
+
+    assert provider.curate_details(report, report_path) is True
+
+    points = job.payload["coverage"]["points"]
+    assert len(points) == 1
+    assert points[0]["uri"].startswith("http://127.0.0.1:9999/media")
+    assert points[0]["name"] == "a.png"
+    assert points[0]["x_pct"] == 12.5
+    assert points[0]["y_pct"] == 87.25
+
+
 def test_log_stream_accepts_unicode_output():
     job = PipelineJob(JobManager(), "test-job")
     stream = _LogStream(job)

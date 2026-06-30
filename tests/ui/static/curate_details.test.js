@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
-import { showCurateDetails } from "../../../prepare_lora_kit/ui/static/steps/curate_details/curate_details.js";
+import {
+  containedImageRect,
+  findHoveredPoint,
+  showCurateDetails,
+} from "../../../prepare_lora_kit/ui/static/steps/curate_details/curate_details.js";
 import {
   calls,
   nextTick,
@@ -88,7 +92,110 @@ describe("curate details interaction", () => {
     assert.equal(layer.querySelectorAll("code img").length, 0);
     assert.match(layer.textContent, /<img onerror=alert\(1\)>/);
   });
+
+  it("shows a thumbnail tooltip after hovering a dot for ~1s", (t) => {
+    t.mock.timers.enable({ apis: ["setTimeout"] });
+    showCurateDetails(curateDetailsPendingWithPoints(), { onSubmitted: async () => {} });
+
+    const { img, tooltip } = stubCoverageGeometry();
+    assert.equal(tooltip.classList.contains("hidden"), true);
+
+    dispatchMouseMove(img, { offsetX: 100, offsetY: 75 }); // point "a" sits at 50%,50% of a 200x150 box
+    assert.equal(tooltip.classList.contains("hidden"), true, "not shown before the delay elapses");
+
+    t.mock.timers.tick(999);
+    assert.equal(tooltip.classList.contains("hidden"), true);
+
+    t.mock.timers.tick(1);
+    assert.equal(tooltip.classList.contains("hidden"), false);
+    assert.equal(
+      tooltip.querySelector(".curate-coverage-tooltip-thumb").getAttribute("src"),
+      "http://example.invalid/a.png",
+    );
+    assert.match(tooltip.textContent, /a\.png/);
+
+    dispatchMouseMove(img, { offsetX: 0, offsetY: 0 }); // far from every dot
+    assert.equal(tooltip.classList.contains("hidden"), true);
+  });
+
+  it("cancels the pending tooltip if the cursor moves away before the delay elapses", (t) => {
+    t.mock.timers.enable({ apis: ["setTimeout"] });
+    showCurateDetails(curateDetailsPendingWithPoints(), { onSubmitted: async () => {} });
+
+    const { img, tooltip } = stubCoverageGeometry();
+
+    dispatchMouseMove(img, { offsetX: 100, offsetY: 75 }); // point "a" at 50%,50%
+    t.mock.timers.tick(500);
+    dispatchMouseMove(img, { offsetX: 199, offsetY: 149 }); // far from both "a" and "b" (0%,0%)
+    t.mock.timers.tick(1000);
+
+    assert.equal(tooltip.classList.contains("hidden"), true);
+  });
+
+  it("skips hover wiring entirely when the payload has no points", (t) => {
+    t.mock.timers.enable({ apis: ["setTimeout"] });
+    showCurateDetails(curateDetailsPending(), { onSubmitted: async () => {} });
+
+    const layer = document.getElementById("modalLayer");
+    assert.equal(layer.querySelectorAll(".curate-coverage-tooltip").length, 0);
+  });
 });
+
+describe("coverage hover geometry", () => {
+  it("computes the visible image rect for a letterboxed image", () => {
+    const img = { clientWidth: 200, clientHeight: 100, naturalWidth: 100, naturalHeight: 100 };
+    assert.deepEqual(containedImageRect(img), { left: 50, top: 0, width: 100, height: 100 });
+  });
+
+  it("finds the nearest point within the hit radius, ignoring the letterboxed margin", () => {
+    const points = [
+      { x_pct: 50, y_pct: 50 },
+      { x_pct: 0, y_pct: 0 },
+    ];
+    const rect = { left: 50, top: 0, width: 100, height: 100 };
+
+    assert.equal(findHoveredPoint(points, 100, 50, rect, 10), points[0]);
+    assert.equal(findHoveredPoint(points, 10, 50, rect, 10), null); // outside the rect (letterbox margin)
+    assert.equal(findHoveredPoint(points, 100, 90, rect, 10), null); // inside the rect, too far from any point
+  });
+});
+
+function stubCoverageGeometry() {
+  const layer = document.getElementById("modalLayer");
+  const img = layer.querySelector(".curate-coverage-frame img");
+  for (const prop of ["clientWidth", "clientHeight", "naturalWidth", "naturalHeight"]) {
+    Object.defineProperty(img, prop, { value: prop.includes("Width") ? 200 : 150, configurable: true });
+  }
+  return { img, tooltip: layer.querySelector(".curate-coverage-tooltip") };
+}
+
+function dispatchMouseMove(target, { offsetX, offsetY }) {
+  const event = new window.Event("mousemove", { bubbles: true, cancelable: true });
+  Object.defineProperty(event, "offsetX", { value: offsetX });
+  Object.defineProperty(event, "offsetY", { value: offsetY });
+  target.dispatchEvent(event);
+}
+
+function curateDetailsPendingWithPoints() {
+  const pending = curateDetailsPending();
+  pending.payload.coverage.points = [
+    {
+      path: "/images/a.png",
+      name: "a.png",
+      uri: "http://example.invalid/a.png",
+      x_pct: 50,
+      y_pct: 50,
+    },
+    {
+      path: "/images/b.png",
+      name: "b.png",
+      uri: "http://example.invalid/b.png",
+      x_pct: 0,
+      y_pct: 0,
+    },
+  ];
+  return pending;
+}
 
 function curateDetailsPending() {
   return {

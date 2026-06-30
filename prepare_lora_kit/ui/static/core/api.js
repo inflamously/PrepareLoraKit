@@ -109,11 +109,20 @@
  */
 
 /**
+ * @typedef {Object} CurateCoveragePoint
+ * @property {string} path
+ * @property {string} name
+ * @property {string} uri
+ * @property {number} x_pct Dot center as a percentage of the coverage image width (0-100).
+ * @property {number} y_pct Dot center as a percentage of the coverage image height (0-100).
+ */
+
+/**
  * @typedef {Object} CurateDetailsPayload
  * @property {string} report_path
  * @property {ImagePayload | null} coverage_image
  * @property {string | null} coverage_method
- * @property {Record<string, unknown>} coverage
+ * @property {Record<string, unknown> & {points?: CurateCoveragePoint[]}} coverage
  * @property {{kept_images: number, duplicate_pairs: number, dropped_duplicates: number}} summary
  */
 
