@@ -46,6 +46,14 @@ class InteractionProvider(Protocol):
     def upscale_review(self, items: list[dict]) -> dict[str, str]:
         """Return per-original Step 3 decisions for flagged images: upscale or skip."""
 
+    def export_review(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Preview the ExportStep diff and return ``{confirmed, excluded}``.
+
+        ``payload`` holds the categorized diff (``added``/``modified``/
+        ``orphaned`` plus ``counts`` and ``target_dir``). ``excluded`` lists the
+        target-relative paths the user chose not to write.
+        """
+
 
 def annotate_dataset_via_images(
         provider: "InteractionProvider",
@@ -101,6 +109,11 @@ class CliInteractionProvider:
         from .steps.s3_upscale.review import _review_flagged_decisions
 
         return _review_flagged_decisions(items)
+
+    def export_review(self, payload: dict[str, Any]) -> dict[str, Any]:
+        from .steps.s9_export.review import review_export_cli
+
+        return review_export_cli(payload)
 
 
 class CliBboxRegionProvider(CliInteractionProvider):

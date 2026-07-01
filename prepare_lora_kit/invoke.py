@@ -14,7 +14,7 @@ from .cancellation import check_cancel
 from .project.configs import (
     ImportConfig,
     QualityGateConfig, CurateConfig, UpscaleConfig, VaeGateConfig,
-    CaptionConfig, AuditConfig, ConfigGenConfig, BucketDryRunConfig,
+    CaptionConfig, AuditConfig, ConfigGenConfig, BucketDryRunConfig, ExportConfig,
 )
 
 
@@ -226,6 +226,22 @@ def _invoke_BucketDryRunStep(working_dir: Path, output_dir: Path, cfg: BucketDry
     )
 
 
+def _invoke_ExportStep(working_dir: Path, output_dir: Path, cfg: ExportConfig,
+                       *, original_dir: Path | None = None, **_kw) -> dict:
+    _require_working_dataset(working_dir)
+    from .steps import s9_export
+    return s9_export.run(
+        working_dir,
+        original_dir=original_dir,
+        target_dir=cfg.target_dir,
+        output_dir=output_dir,
+        interaction=_kw.get("interaction"),
+        report_path=output_dir / "reports" / "ExportStep_report.json",
+        enabled_substeps=_kw.get("enabled_substeps"),
+        cancel_check=_kw.get("cancel_check"),
+    )
+
+
 STEP_INVOKE_MAP: dict[str, Callable] = {
     "ImportStep": _invoke_ImportStep,
     "QualityGateStep": _invoke_QualityGateStep,
@@ -236,6 +252,7 @@ STEP_INVOKE_MAP: dict[str, Callable] = {
     "AuditStep": _invoke_AuditStep,
     "ConfigGenStep": _invoke_ConfigGenStep,
     "BucketDryRunStep": _invoke_BucketDryRunStep,
+    "ExportStep": _invoke_ExportStep,
 }
 
 

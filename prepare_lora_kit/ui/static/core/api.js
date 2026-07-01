@@ -158,6 +158,28 @@
  */
 
 /**
+ * @typedef {Object} ExportReviewEntry
+ * @property {string} rel Target-relative image path (posix), e.g. "subject/image_01.png".
+ * @property {string} path Absolute source image path in the working dataset.
+ * @property {string} name
+ * @property {string} [uri]
+ * @property {string} [thumb_uri]
+ * @property {string} [view_uri]
+ * @property {"added" | "modified" | "unchanged"} image_status
+ * @property {"added" | "modified" | "unchanged"} caption_status
+ * @property {boolean} has_caption Whether a .txt sidecar is copied alongside the image.
+ */
+
+/**
+ * @typedef {Object} ExportReviewPayload
+ * @property {string} target_dir
+ * @property {ExportReviewEntry[]} added
+ * @property {ExportReviewEntry[]} modified
+ * @property {string[]} orphaned Target-relative image paths not in the final set (left untouched).
+ * @property {{added: number, modified: number, unchanged: number, orphaned: number}} counts
+ */
+
+/**
  * @typedef {Object} StepConfigField
  * @property {string} name
  * @property {string} label
@@ -175,8 +197,8 @@
  *
  * @typedef {Object} PendingInput
  * @property {string} id
- * @property {"source_review" | "bbox_annotation" | "vae_review" | "upscale_review" | "curate_details" | "step_config"} kind
- * @property {ImagePayload | {items: SourceReviewItem[]} | {items: VaeReviewItem[]} | {items: UpscaleReviewItem[]} | CurateDetailsPayload | StepConfigPayload} payload
+ * @property {"source_review" | "bbox_annotation" | "vae_review" | "upscale_review" | "curate_details" | "export_review" | "step_config"} kind
+ * @property {ImagePayload | {items: SourceReviewItem[]} | {items: VaeReviewItem[]} | {items: UpscaleReviewItem[]} | CurateDetailsPayload | ExportReviewPayload | StepConfigPayload} payload
  */
 
 /**

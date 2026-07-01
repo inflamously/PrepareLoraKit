@@ -159,6 +159,39 @@ class UiInteractionProvider(InteractionProvider):
         decisions = answer.get("decisions", {}) if isinstance(answer, dict) else {}
         return {str(k): str(v) for k, v in decisions.items()}
 
+    def export_review(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Pause the job and show the ExportStep diff for confirmation.
+
+        Returns ``{"confirmed": bool, "excluded": [rel, ...]}``; ``excluded``
+        holds target-relative paths the user unchecked in the review modal.
+        """
+
+        def _entry(entry: dict[str, Any]) -> dict[str, Any]:
+            item = _image_payload(Path(str(entry.get("image"))), self._media_base_url)
+            item.update({
+                "rel": entry.get("rel"),
+                "image_status": entry.get("image_status"),
+                "caption_status": entry.get("caption_status"),
+                "has_caption": bool(entry.get("caption")),
+            })
+            return item
+
+        request = {
+            "target_dir": payload.get("target_dir"),
+            "added": [_entry(e) for e in payload.get("added", [])],
+            "modified": [_entry(e) for e in payload.get("modified", [])],
+            "orphaned": _jsonable(payload.get("orphaned", [])),
+            "counts": _jsonable(payload.get("counts", {})),
+        }
+        answer = self._job.request_input("export_review", request)
+        if not isinstance(answer, dict):
+            return {"confirmed": False, "excluded": []}
+        excluded = answer.get("excluded", [])
+        return {
+            "confirmed": bool(answer.get("confirmed", False)),
+            "excluded": [str(x) for x in excluded] if isinstance(excluded, list) else [],
+        }
+
     def curate_details(self, report: dict[str, Any], report_path: Path) -> bool:
         coverage_path = report.get("coverage_image")
         coverage_image = None

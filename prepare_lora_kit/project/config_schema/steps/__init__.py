@@ -12,6 +12,7 @@ from . import (
     caption,
     config_gen,
     curate,
+    export,
     import_step,
     quality_gate,
     upscale,
@@ -29,4 +30,5 @@ STEP_MODULES = [
     audit,
     config_gen,
     bucket_dry_run,
+    export,
 ]

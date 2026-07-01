@@ -48,6 +48,7 @@ def test_default_project_creation_writes_input_dir_and_pipeline(tmp_path):
         "AuditStep",
         "ConfigGenStep",
         "BucketDryRunStep",
+        "ExportStep",
     ]
     upscale = next(step for step in data["pipeline"] if step["type"] == "UpscaleStep")
     caption = next(step for step in data["pipeline"] if step["type"] == "CaptionStep")
@@ -197,11 +198,12 @@ def test_step_prerequisites_allow_optional_upscale_step():
         "AuditStep": ["CaptionStep"],
         "ConfigGenStep": ["AuditStep"],
         "BucketDryRunStep": ["ConfigGenStep"],
+        "ExportStep": ["CaptionStep"],
     }
 
 
 def test_optional_step_types_marks_upscale_optional():
-    assert OPTIONAL_STEP_TYPES == {"UpscaleStep"}
+    assert OPTIONAL_STEP_TYPES == {"UpscaleStep", "ExportStep"}
 
 
 def test_upscale_config_defaults_to_seedvr2():

@@ -68,6 +68,10 @@ SUBSTEP_REGISTRY: dict[str, tuple[SubstepDefinition, ...]] = {
         SubstepDefinition("s8_2_report_thin_buckets", "Report thin buckets", prerequisites=("s8_1_assign_buckets",)),
         SubstepDefinition("s8_3_cache_info", "Cache info", optional=True, enabled_by_default=False),
     ),
+    "ExportStep": (
+        SubstepDefinition("s9_1_diff", "Preview export diff"),
+        SubstepDefinition("s9_2_export", "Copy to export folder", prerequisites=("s9_1_diff",)),
+    ),
 }
 SUBSTEP_ORDER_INDEX = {
     substep.id: index

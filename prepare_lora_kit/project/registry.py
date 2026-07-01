@@ -110,6 +110,11 @@ def _default_pipeline() -> list[dict[str, Any]]:
             "bucket_overrides": None,
             "substeps": _default_substep_data("BucketDryRunStep"),
         },
+        {
+            "type": "ExportStep",
+            "target_dir": None,  # null → sibling <input>_export folder
+            "substeps": _default_substep_data("ExportStep"),
+        },
     ]
 
 

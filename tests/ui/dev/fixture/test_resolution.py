@@ -13,7 +13,7 @@ def test_resolve_mock_steps_accepts_aliases_and_all():
     assert resolve_mock_steps("2") == ["CurateStep"]
     assert resolve_mock_steps("curatestep") == ["CurateStep"]
     assert resolve_mock_steps("all")[0] == "ImportStep"
-    assert resolve_mock_steps("all")[-1] == "BucketDryRunStep"
+    assert resolve_mock_steps("all")[-1] == "ExportStep"
 
 
 def test_dev_fixture_module_reexports_e2e_fixture_api():

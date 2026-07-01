@@ -62,7 +62,9 @@ only `output_dir/dataset/` is. The UI runs the *same* pipeline through `ui/runne
 only image copy), `s1_source` (QualityGateStep), `s2_curate` (CurateStep — dedupe + CLIP
 coverage), `s3_upscale` (UpscaleStep, optional), `s5_caption` (CaptionStep — bbox UI + Qwen
 VL), `s4_vae_gate` (VaeGateStep), `s6_audit` (AuditStep), `s7_config` (ConfigGenStep — builds
-`run_config.yaml`), `s8_bucket` (BucketDryRunStep). Note the directory number is *not* the
+`run_config.yaml`), `s8_bucket` (BucketDryRunStep), `s9_export` (ExportStep, optional/opt-in —
+copies the finalized image + `.txt` pairs to a sibling `<input>_export/` folder after a diff
+pre-step; never mutates the source or working dataset). Note the directory number is *not* the
 pipeline position (vae_gate `s4` runs *after* caption `s5`); the canonical order lives in
 `STEP_ORDER`.
 

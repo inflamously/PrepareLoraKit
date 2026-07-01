@@ -116,3 +116,9 @@ pipeline:
     thin_threshold: 2
     cache_mode: false            # true = write cache_info.json
     bucket_overrides: null       # [[1024,1024],[896,1152]] or null → network buckets
+
+  - type: ExportStep
+    substeps:
+      - {id: s9_1_diff, enabled: true}
+      - {id: s9_2_export, enabled: true}
+    target_dir: null             # null → sibling <input>_export folder ready for LoRA training

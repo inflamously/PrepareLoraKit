@@ -20,6 +20,7 @@ from .caption_config import CaptionConfig
 from .audit_config import AuditConfig
 from .config_gen_config import ConfigGenConfig
 from .bucket_dry_run_config import BucketDryRunConfig
+from .export_config import ExportConfig
 
 __all__ = [
     "ImportConfig",
@@ -32,4 +33,5 @@ __all__ = [
     "AuditConfig",
     "ConfigGenConfig",
     "BucketDryRunConfig",
+    "ExportConfig",
 ]

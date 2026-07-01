@@ -23,7 +23,7 @@ def test_create_project_writes_defaulted_pipeline(isolated_configs):
     assert cfg.network == "flux-klein-9b"
     assert cfg.input_dir == "/data/in"
     assert cfg.output_dir == "/data/out"
-    assert len(cfg.pipeline) == 9
+    assert len(cfg.pipeline) == 10
 
 
 def test_create_project_rejects_duplicate(isolated_configs):

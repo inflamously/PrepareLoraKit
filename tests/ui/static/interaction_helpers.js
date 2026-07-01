@@ -222,6 +222,29 @@ export function upscaleReviewPending() {
   };
 }
 
+export function exportReviewPending(id = "export-review-1") {
+  const entry = (rel, hasCaption) => ({
+    rel,
+    path: `/out/dataset/${rel}`,
+    name: rel.split("/").pop(),
+    uri: `http://example.invalid/${rel}`,
+    image_status: "added",
+    caption_status: "added",
+    has_caption: hasCaption,
+  });
+  return {
+    id,
+    kind: "export_review",
+    payload: {
+      target_dir: "/data/input_export",
+      added: [entry("subject/image_01.png", true), entry("image_02.png", true)],
+      modified: [{ ...entry("image_03.png", true), image_status: "modified", caption_status: "unchanged" }],
+      orphaned: ["old_reject.png"],
+      counts: { added: 2, modified: 1, unchanged: 0, orphaned: 1 },
+    },
+  };
+}
+
 export function installMockImage() {
   class MockImage {
     constructor() {
