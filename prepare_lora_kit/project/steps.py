@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from .pipeline import (  # noqa: F401
     OPTIONAL_STEP_TYPES,
+    RESUME_AWARE_STEP_TYPES,
     STEP_ORDER,
     STEP_ORDER_INDEX,
     STEP_PREREQUISITES,
@@ -30,6 +31,7 @@ from .pipeline import (  # noqa: F401
 
 __all__ = [
     "OPTIONAL_STEP_TYPES",
+    "RESUME_AWARE_STEP_TYPES",
     "STEP_ORDER",
     "STEP_ORDER_INDEX",
     "STEP_PREREQUISITES",

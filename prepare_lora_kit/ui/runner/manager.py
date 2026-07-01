@@ -17,6 +17,7 @@ from ...project import registry as project_registry
 from ...project.base import ProjectConfig
 from ...project.config_schema import apply_overrides, has_schema
 from ...project.steps import (
+    RESUME_AWARE_STEP_TYPES,
     STEP_PREREQUISITES,
     SUBSTEP_REGISTRY,
     enabled_substep_ids,
@@ -162,6 +163,11 @@ class JobManager:
         self._validate_selection(project, selected_steps, output_dir, selected_substeps)
         network = self._load_network(project)
         state = RunState(output_dir)
+        if force:
+            # --force is a full reset: clear the manifest so every selected step
+            # re-runs. The ImportStep skip below still honors an existing working
+            # dataset, so the hand-drawn bbox sidecars in it are never wiped.
+            state.reset()
         from . import UiInteractionProvider
 
         interaction = UiInteractionProvider(job, self._media_base_url)
@@ -206,16 +212,24 @@ class JobManager:
                 current_step=step.type,
                 current_substep=enabled_substeps[0] if enabled_substeps else None,
             )
-            if (
-                not force
-                and step.type == "ImportStep"
-                and mark_legacy_import_satisfied(state, cfg.resolved_output_dir)
+            # Honor an existing working dataset even under --force, so a forced
+            # re-run never rmtree's it (and the hand-drawn boxes it holds) by
+            # re-importing.
+            if step.type == "ImportStep" and mark_legacy_import_satisfied(
+                state, cfg.resolved_output_dir
             ):
                 job.skipped_steps.append(step.type)
                 job.skipped_substeps[step.type] = enabled_substeps
                 job.add_log("ImportStep satisfied by existing working dataset")
                 continue
-            if not force and state.is_done(step.type):
+            # Resume-aware steps (e.g. CaptionStep) self-determine pending work, so
+            # they are never skipped on is_done — re-running them resumes instead of
+            # redoing everything, without needing --force.
+            if (
+                not force
+                and step.type not in RESUME_AWARE_STEP_TYPES
+                and state.is_done(step.type)
+            ):
                 job.skipped_steps.append(step.type)
                 job.skipped_substeps[step.type] = enabled_substeps
                 job.add_log(f"{step.type} already done; skipping")

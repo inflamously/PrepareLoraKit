@@ -194,12 +194,48 @@ def test_caption_step_persists_edited_region_caption_to_sidecar(tmp_path, monkey
     assert sidecar.read_text(encoding="utf-8") == "tok, Green detail with a silver buckle"
 
 
-def test_caption_step_saves_and_reloads_boxes_for_done_images(tmp_path, monkeypatch):
-    # First run: annotate one box; the coords must persist to a reload sidecar.
-    img = _write_image(tmp_path / "image.png")
+def test_caption_step_resume_skips_done_and_prompts_only_pending(tmp_path, monkeypatch):
+    # First run: caption `done.png` (and its box); leave `new.png` for later.
+    _write_image(tmp_path / "done.png")
     events = []
     monkeypatch.setattr(caption_step.vlm, "CaptionRuntime", _fake_runtime_class(events))
 
+    box = {"x1": 0.1, "y1": 0.2, "x2": 0.5, "y2": 0.6, "label": "a red car",
+           "crop_name": "plk_bbox__done__01.png"}
+    first = _BatchProvider(lambda d: {"annotations": [dict(box)], "skipped": False})
+    caption_step.run(
+        tmp_path, concept_token="tok", output_dir=tmp_path,
+        caption_model_id="fake/model", interaction=first, spot_check_pct=0,
+    )
+    assert (tmp_path / "plk_bbox__done__boxes.json").exists()
+    assert (tmp_path / "done.txt").exists()
+
+    # A new uncaptioned image appears; re-run WITHOUT force.
+    _write_image(tmp_path / "new.png")
+    events2 = []
+    monkeypatch.setattr(caption_step.vlm, "CaptionRuntime", _fake_runtime_class(events2))
+    second = _BatchProvider(lambda d: {"annotations": [], "skipped": False})
+    report = caption_step.run(
+        tmp_path, concept_token="tok", output_dir=tmp_path,
+        caption_model_id="fake/model", interaction=second, spot_check_pct=0,
+    )
+
+    # Resume: only the pending image is handed to the workspace; the done image and
+    # its hand-drawn boxes are left untouched.
+    assert {Path(d["path"]).name for d in second.seen} == {"new.png"}
+    assert (tmp_path / "plk_bbox__done__boxes.json").exists()
+    assert (tmp_path / "done.txt").read_text(encoding="utf-8") == "tok, Whole original caption"
+    captioned = [e[1] for e in events2 if e[0] == "image"]
+    assert captioned == ["new.png"]
+    # The report still covers both images (done caption preserved + new one).
+    assert report["captioned"] >= 2
+
+
+def test_caption_step_force_prefills_boxes_and_never_deletes_them(tmp_path, monkeypatch):
+    # First run captions the image and saves a reload sidecar.
+    _write_image(tmp_path / "image.png")
+    events = []
+    monkeypatch.setattr(caption_step.vlm, "CaptionRuntime", _fake_runtime_class(events))
     box = {"x1": 0.1, "y1": 0.2, "x2": 0.5, "y2": 0.6, "label": "a red car",
            "crop_name": "plk_bbox__image__01.png"}
     first = _BatchProvider(lambda d: {"annotations": [dict(box)], "skipped": False})
@@ -208,25 +244,53 @@ def test_caption_step_saves_and_reloads_boxes_for_done_images(tmp_path, monkeypa
         caption_model_id="fake/model", interaction=first, spot_check_pct=0,
     )
     assert (tmp_path / "plk_bbox__image__boxes.json").exists()
-    assert (tmp_path / "image.txt").exists()
 
-    # Second run: the workspace receives the reloaded box + a done flag, and a
-    # skip keeps the existing caption (no re-caption).
+    # Force re-run: the image is re-presented with its boxes prefilled, and the
+    # reload sidecar is never deleted.
     events2 = []
     monkeypatch.setattr(caption_step.vlm, "CaptionRuntime", _fake_runtime_class(events2))
-    second = _BatchProvider(lambda d: {"annotations": d["annotations"], "skipped": True})
+    second = _BatchProvider(lambda d: {"annotations": d["annotations"], "skipped": False})
     caption_step.run(
         tmp_path, concept_token="tok", output_dir=tmp_path,
         caption_model_id="fake/model", interaction=second, spot_check_pct=0,
+        overwrite=True,
     )
-
     descriptor = next(d for d in second.seen if Path(d["path"]).name == "image.png")
-    assert descriptor["done"] is True
     assert descriptor["annotations"][0]["label"] == "a red car"
     assert descriptor["annotations"][0]["x2"] == 0.5
-    # Skip means the VLM never re-captioned the full image.
+    assert (tmp_path / "plk_bbox__image__boxes.json").exists()
+    assert "image" in _event_names(events2)
+
+
+def test_caption_step_resume_with_no_pending_skips_model_load(tmp_path, monkeypatch):
+    # Caption everything once.
+    _write_image(tmp_path / "image.png")
+    events = []
+    monkeypatch.setattr(caption_step.vlm, "CaptionRuntime", _fake_runtime_class(events))
+    caption_step.run(
+        tmp_path, concept_token="tok", output_dir=tmp_path,
+        caption_model_id="fake/model",
+        interaction=_BatchProvider(lambda d: {"annotations": [], "skipped": False}),
+        spot_check_pct=0,
+    )
+    assert (tmp_path / "image.txt").exists()
+
+    # Re-run with nothing pending: the VLM is never loaded and no modal is opened,
+    # but a valid report is still produced from the existing caption. FakeRuntime
+    # emits a status only on load(), so an empty status log proves load() was skipped.
+    events2 = []
+    monkeypatch.setattr(caption_step.vlm, "CaptionRuntime", _fake_runtime_class(events2))
+    provider = _BatchProvider(lambda d: {"annotations": [], "skipped": False})
+    statuses = []
+    report = caption_step.run(
+        tmp_path, concept_token="tok", output_dir=tmp_path,
+        caption_model_id="fake/model", interaction=provider, spot_check_pct=0,
+        caption_status_callback=statuses.append,
+    )
+    assert provider.seen == []              # no empty annotation modal
+    assert statuses == []                   # load() never fired (no status emitted)
     assert "image" not in _event_names(events2)
-    assert (tmp_path / "image.txt").read_text(encoding="utf-8") == "tok, Whole original caption"
+    assert report["captioned"] >= 1
 
 
 def test_caption_step_skip_all_captions_current_image_only(tmp_path, monkeypatch):

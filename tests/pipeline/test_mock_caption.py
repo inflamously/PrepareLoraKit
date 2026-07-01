@@ -45,7 +45,7 @@ def test_mock_caption_captions_and_skips_per_decision(tmp_path):
     assert all("done" in d and "annotations" in d for d in provider.seen)
 
 
-def test_mock_caption_persists_boxes_sidecar_for_reload(tmp_path):
+def test_mock_caption_persists_boxes_sidecar_and_reloads_on_force(tmp_path):
     img = _write_image(tmp_path / "image.png")
     box = {"x1": 0.1, "y1": 0.2, "x2": 0.5, "y2": 0.6, "label": "a red car"}
     provider = _BatchProvider(lambda d: {"annotations": [dict(box)], "skipped": False})
@@ -55,11 +55,35 @@ def test_mock_caption_persists_boxes_sidecar_for_reload(tmp_path):
     )
     assert (tmp_path / "plk_bbox__image__boxes.json").exists()
 
-    # A second run reloads the saved box into the descriptor handed to the UI.
-    second = _BatchProvider(lambda d: {"annotations": d["annotations"], "skipped": True})
+    # A forced re-run reloads the saved box into the descriptor handed to the UI and
+    # never deletes the reload sidecar.
+    second = _BatchProvider(lambda d: {"annotations": d["annotations"], "skipped": False})
+    invoke._mock_caption(
+        tmp_path, tmp_path, concept_token="tok", force=True, interaction=second,
+    )
+    descriptor = next(d for d in second.seen if Path(d["path"]).name == "image.png")
+    assert descriptor["annotations"][0]["label"] == "a red car"
+    assert (tmp_path / "plk_bbox__image__boxes.json").exists()
+
+
+def test_mock_caption_resume_skips_done_and_prompts_only_pending(tmp_path):
+    _write_image(tmp_path / "done.png")
+    box = {"x1": 0.1, "y1": 0.2, "x2": 0.5, "y2": 0.6, "label": "a red car"}
+    invoke._mock_caption(
+        tmp_path, tmp_path, concept_token="tok", force=False,
+        interaction=_BatchProvider(lambda d: {"annotations": [dict(box)], "skipped": False}),
+    )
+    assert (tmp_path / "done.txt").exists()
+    done_caption = (tmp_path / "done.txt").read_text(encoding="utf-8")
+
+    # A new uncaptioned image appears; resume without force prompts only for it and
+    # leaves the done image (and its boxes) untouched.
+    _write_image(tmp_path / "new.png")
+    second = _BatchProvider(lambda d: {"annotations": [], "skipped": False})
     invoke._mock_caption(
         tmp_path, tmp_path, concept_token="tok", force=False, interaction=second,
     )
-    descriptor = next(d for d in second.seen if Path(d["path"]).name == "image.png")
-    assert descriptor["done"] is True
-    assert descriptor["annotations"][0]["label"] == "a red car"
+    assert {Path(d["path"]).name for d in second.seen} == {"new.png"}
+    assert (tmp_path / "new.txt").exists()
+    assert (tmp_path / "plk_bbox__done__boxes.json").exists()
+    assert (tmp_path / "done.txt").read_text(encoding="utf-8") == done_caption

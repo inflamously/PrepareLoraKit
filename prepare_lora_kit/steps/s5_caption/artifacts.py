@@ -31,8 +31,10 @@ def _bbox_stem(source: Path, index: int) -> str:
 def _boxes_sidecar_path(source: Path) -> Path:
     """Where a source image's reloadable bbox coordinates are stored.
 
-    Uses the ``plk_bbox__`` prefix so ``_clean_bbox_artifacts`` removes it on
-    ``--force`` and ``_is_bbox_artifact`` keeps it out of the caption source list.
+    Uses the ``plk_bbox__`` prefix so ``_is_bbox_artifact`` keeps it out of the
+    caption source list. These reload sidecars are hand-drawn-box state and are
+    deliberately preserved across re-runs (including --force); only an explicit
+    ``_clean_bbox_artifacts`` call removes them.
     """
     return source.parent / f"{BBOX_PREFIX}{source.stem}__boxes.json"
 

@@ -29,6 +29,11 @@ STEP_TYPE_MAP: dict[str, type] = {
 # Defines the order steps are ran in the pipeline down
 STEP_ORDER = tuple(STEP_TYPE_MAP)
 OPTIONAL_STEP_TYPES = {"UpscaleStep"}
+# Steps that manage their own per-image resume/idempotency and therefore must not
+# be skipped by ``state.is_done`` on a re-run. They always re-enter ``run()`` and
+# self-determine pending work (e.g. CaptionStep only re-prompts uncaptioned images),
+# so re-running them without ``--force`` resumes instead of redoing everything.
+RESUME_AWARE_STEP_TYPES = {"CaptionStep"}
 STEP_PREREQUISITES: dict[str, list[str]] = {
     "QualityGateStep": ["ImportStep"],
     "CurateStep": ["QualityGateStep"],
@@ -71,6 +76,7 @@ def step_aliases() -> dict[str, str]:
 
 __all__ = [
     "OPTIONAL_STEP_TYPES",
+    "RESUME_AWARE_STEP_TYPES",
     "STEP_ORDER",
     "STEP_ORDER_INDEX",
     "STEP_PREREQUISITES",

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from .steps import (
     OPTIONAL_STEP_TYPES,
+    RESUME_AWARE_STEP_TYPES,
     STEP_ORDER,
     STEP_ORDER_INDEX,
     STEP_PREREQUISITES,
@@ -27,6 +28,7 @@ from .substeps import (
 
 __all__ = [
     "OPTIONAL_STEP_TYPES",
+    "RESUME_AWARE_STEP_TYPES",
     "STEP_ORDER",
     "STEP_ORDER_INDEX",
     "STEP_PREREQUISITES",

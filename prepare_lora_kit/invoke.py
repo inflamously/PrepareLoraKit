@@ -455,6 +455,7 @@ def _mock_caption(
     from .utils import report as rpt
     from .interaction import annotate_dataset_via_images
     from .steps.s5_caption.artifacts import (
+        _is_bbox_artifact,
         _save_bbox_training_item,
         load_boxes_sidecar,
         save_boxes_sidecar,
@@ -463,8 +464,14 @@ def _mock_caption(
     rpt.step_header(5, "Caption — Mock Runtime")
     enabled = set(enabled_substeps or ["s5_1_annotate", "s5_2_caption", "s5_3_validate"])
     working_dir.mkdir(parents=True, exist_ok=True)
-    images = img_utils.iter_images(working_dir)
+    images = [p for p in img_utils.iter_images(working_dir) if not _is_bbox_artifact(p)]
     token_prefix = f"{concept_token}, " if concept_token else ""
+
+    # Resume: only images that still lack a caption need work (``force`` recaptions
+    # everything). Already-captioned images and their hand-drawn boxes are left
+    # untouched, mirroring steps/s5_caption/step.py.
+    pending = [p for p in images if force or not p.with_suffix(".txt").exists()]
+    pending_set = set(pending)
 
     # Mirror steps/s5_caption/regions.py::make_region_captioner but caption the
     # cropped region with deterministic mock text instead of a VLM, so the UI
@@ -482,13 +489,22 @@ def _mock_caption(
     annotation_log: dict[str, list] = {}
     skipped_annotation: list[str] = []
 
+    # Preserve already-captioned images so the report stays complete on a resume.
+    for path in images:
+        if path in pending_set:
+            continue
+        txt_path = path.with_suffix(".txt")
+        if txt_path.exists():
+            captions[str(path)] = txt_path.read_text(encoding="utf-8").strip()
+
     # Phase A — gather decisions via the same batch interaction the real step uses
-    # (steps/s5_caption/workflow.py::gather_decisions). Headless/CLI mock has no
-    # provider, so every image captions with no regions.
-    if "s5_2_caption" not in enabled:
+    # (steps/s5_caption/workflow.py::gather_decisions), for the pending images only.
+    # Headless/CLI mock has no provider, so every pending image captions with no
+    # regions; a resume with nothing pending never pops an empty modal.
+    if not pending or "s5_2_caption" not in enabled:
         decisions: dict[str, dict] = {}
     elif "s5_1_annotate" not in enabled or interaction is None:
-        decisions = {str(p): {"annotations": [], "skipped": False} for p in images}
+        decisions = {str(p): {"annotations": [], "skipped": False} for p in pending}
     else:
         descriptors = [
             {
@@ -497,7 +513,7 @@ def _mock_caption(
                 "annotations": load_boxes_sidecar(path),
                 "done": path.with_suffix(".txt").exists() and not force,
             }
-            for path in images
+            for path in pending
         ]
         annotate = getattr(interaction, "annotate_dataset", None)
         if annotate is not None:
@@ -507,8 +523,8 @@ def _mock_caption(
                 interaction, descriptors, captioner=mock_region_captioner,
             )
 
-    # Phase B — caption each non-skipped image with deterministic mock text.
-    for path in images:
+    # Phase B — caption each pending, non-skipped image with deterministic mock text.
+    for path in pending:
         check_cancel(cancel_check)
         txt_path = path.with_suffix(".txt")
         decision = decisions.get(str(path))

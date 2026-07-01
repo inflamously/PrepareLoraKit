@@ -10,7 +10,11 @@ from .cancellation import CancelCheck, check_cancel
 from .invoke import STEP_INVOKE_MAP
 from .paths import PROJECT_ROOT
 from .project.base import ProjectConfig
-from .project.steps import enabled_substep_ids, mark_legacy_import_satisfied
+from .project.steps import (
+    RESUME_AWARE_STEP_TYPES,
+    enabled_substep_ids,
+    mark_legacy_import_satisfied,
+)
 from .utils import report as rpt
 from .utils.state import RunState
 
@@ -45,13 +49,24 @@ def run_all(cfg: RunConfig) -> None:
     working_dir = output_dir / "dataset"
     force = cfg.force
     state = RunState(output_dir)
+    if force:
+        # --force is a full reset: clear the manifest so every step re-runs. The
+        # ImportStep check below still short-circuits re-import when a working
+        # dataset already exists, so the hand-drawn bbox sidecars it holds survive.
+        state.reset()
 
     def _skip(key: str) -> bool:
-        if force:
-            return False
+        # Honor an existing working dataset even under --force, so a forced re-run
+        # never rmtree's the dataset (and the hand-drawn boxes in it) via ImportStep.
         if key == "ImportStep" and mark_legacy_import_satisfied(state, output_dir):
             rpt.info("ImportStep satisfied by existing working dataset.")
             return True
+        if force:
+            return False
+        # Resume-aware steps self-determine pending work each run, so they are never
+        # skipped on is_done — that is what lets CaptionStep resume without --force.
+        if key in RESUME_AWARE_STEP_TYPES:
+            return False
         if state.is_done(key):
             rpt.info(f"{key} already done — skipping (use --force to re-run).")
             return True

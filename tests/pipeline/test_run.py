@@ -186,6 +186,108 @@ def test_pipeline_skips_import_for_existing_legacy_working_dataset(tmp_path):
     invoke_map["ImportStep"].assert_not_called()
 
 
+def test_pipeline_force_resets_state_but_keeps_working_dataset(tmp_path):
+    calls = []
+    output_dir = tmp_path / "out"
+    working = output_dir / "dataset"
+    working.mkdir(parents=True)
+    # A hand-drawn bbox sidecar in the working dataset must survive a forced re-run.
+    boxes = working / "plk_bbox__image__boxes.json"
+    boxes.write_text("[]", encoding="utf-8")
+
+    all_steps = [
+        "ImportStep",
+        "QualityGateStep",
+        "CurateStep",
+        "UpscaleStep",
+        "CaptionStep",
+        "VaeGateStep",
+        "AuditStep",
+        "ConfigGenStep",
+        "BucketDryRunStep",
+    ]
+    state = RunState(output_dir)
+    for step_type in all_steps:
+        state.mark_done(step_type)
+
+    def invoke_for(step_type):
+        fn = MagicMock(name=step_type)
+        fn.side_effect = lambda *args, **kwargs: calls.append(step_type) or (
+            {"pass": True} if step_type == "AuditStep" else None
+        )
+        return fn
+
+    invoke_map = {step_type: invoke_for(step_type) for step_type in all_steps}
+
+    cfg = RunConfig(
+        dataset_dir=tmp_path / "dataset",
+        project=_project(),
+        concept_token="sks",
+        output_dir=output_dir,
+        force=True,
+    )
+
+    with patch("prepare_lora_kit.networks.registry.load", return_value=MagicMock()), \
+            patch.dict("prepare_lora_kit.pipeline.STEP_INVOKE_MAP", invoke_map, clear=True):
+        run_all(cfg)
+
+    # --force reset the manifest so every previously-done step re-runs, EXCEPT
+    # ImportStep — it is satisfied by the existing working dataset and never
+    # re-invoked, so it can't rmtree the hand-drawn boxes it holds.
+    assert calls == [
+        "QualityGateStep",
+        "CurateStep",
+        "UpscaleStep",
+        "CaptionStep",
+        "VaeGateStep",
+        "AuditStep",
+        "ConfigGenStep",
+        "BucketDryRunStep",
+    ]
+    invoke_map["ImportStep"].assert_not_called()
+    assert boxes.exists()
+
+
+def test_pipeline_reruns_resume_aware_caption_without_force(tmp_path):
+    # CaptionStep is resume-aware: even when marked done, a plain re-run re-enters it
+    # (it self-determines pending work) instead of being skipped like other steps.
+    calls = []
+    output_dir = tmp_path / "out"
+    (output_dir / "dataset").mkdir(parents=True)
+    state = RunState(output_dir)
+    for step_type in ["ImportStep", "QualityGateStep", "CurateStep", "UpscaleStep",
+                      "CaptionStep", "VaeGateStep", "AuditStep", "ConfigGenStep",
+                      "BucketDryRunStep"]:
+        state.mark_done(step_type)
+
+    def invoke_for(step_type):
+        fn = MagicMock(name=step_type)
+        fn.side_effect = lambda *args, **kwargs: calls.append(step_type) or (
+            {"pass": True} if step_type == "AuditStep" else None
+        )
+        return fn
+
+    invoke_map = {step_type: invoke_for(step_type) for step_type in [
+        "ImportStep", "QualityGateStep", "CurateStep", "UpscaleStep", "CaptionStep",
+        "VaeGateStep", "AuditStep", "ConfigGenStep", "BucketDryRunStep",
+    ]}
+
+    cfg = RunConfig(
+        dataset_dir=tmp_path / "dataset",
+        project=_project(),
+        concept_token="sks",
+        output_dir=output_dir,
+    )
+
+    with patch("prepare_lora_kit.networks.registry.load", return_value=MagicMock()), \
+            patch.dict("prepare_lora_kit.pipeline.STEP_INVOKE_MAP", invoke_map, clear=True):
+        run_all(cfg)
+
+    # Only the resume-aware CaptionStep re-runs; the other done steps stay skipped.
+    assert calls == ["CaptionStep"]
+    invoke_map["CaptionStep"].assert_called_once()
+
+
 def test_pipeline_does_not_mark_cancelled_step_done(tmp_path):
     cfg = RunConfig(
         dataset_dir=tmp_path / "dataset",

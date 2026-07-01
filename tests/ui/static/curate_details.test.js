@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
 import {
+  HOVER_DELAY_MS,
   containedImageRect,
   findHoveredPoint,
   showCurateDetails,
@@ -103,7 +104,7 @@ describe("curate details interaction", () => {
     dispatchMouseMove(img, { offsetX: 100, offsetY: 75 }); // point "a" sits at 50%,50% of a 200x150 box
     assert.equal(tooltip.classList.contains("hidden"), true, "not shown before the delay elapses");
 
-    t.mock.timers.tick(999);
+    t.mock.timers.tick(HOVER_DELAY_MS - 1);
     assert.equal(tooltip.classList.contains("hidden"), true);
 
     t.mock.timers.tick(1);

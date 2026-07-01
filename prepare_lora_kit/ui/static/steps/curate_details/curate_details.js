@@ -3,7 +3,7 @@ import { escapeText } from "../../core/dom.js";
 import { state } from "../../+state/index.js";
 import { closeModal, modalCancelButton, showModal } from "../../components/modal.js";
 
-const HOVER_DELAY_MS = 500;
+export const HOVER_DELAY_MS = 500;
 const HOVER_HIT_RADIUS_PX = 12;
 
 export function showCurateDetails(pending, { onSubmitted }) {
