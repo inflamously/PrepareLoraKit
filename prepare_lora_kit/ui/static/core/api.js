@@ -79,7 +79,9 @@
  * @typedef {Object} ImagePayload
  * @property {string} path
  * @property {string} name
- * @property {string} uri
+ * @property {string} uri Full-resolution media URL (fallback / originals).
+ * @property {string} [thumb_uri] Downscaled variant for grids and the caption thumbnail strip.
+ * @property {string} [view_uri] Viewport-sized variant for detail panes and the annotation canvas.
  */
 
 /**
@@ -87,6 +89,8 @@
  * @property {string} path
  * @property {string} name
  * @property {string} uri
+ * @property {string} [thumb_uri] Downscaled grid variant.
+ * @property {string} [view_uri] Viewport-sized detail variant.
  * @property {Record<string, unknown>} scores
  * @property {number | null} quality
  * @property {boolean} auto_reject
@@ -121,6 +125,8 @@
  * @property {string} path Original working dataset image path.
  * @property {string} name
  * @property {string} uri
+ * @property {string} [thumb_uri] Downscaled grid variant.
+ * @property {string} [view_uri] Viewport-sized detail variant.
  * @property {number | null} width
  * @property {number | null} height
  * @property {number | null} min_side
@@ -136,6 +142,8 @@
  * @property {string} path
  * @property {string} name
  * @property {string} uri
+ * @property {string} [thumb_uri] Downscaled hover-tooltip variant.
+ * @property {string} [view_uri] Viewport-sized variant.
  * @property {number} x_pct Dot center as a percentage of the coverage image width (0-100).
  * @property {number} y_pct Dot center as a percentage of the coverage image height (0-100).
  */

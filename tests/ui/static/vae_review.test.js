@@ -40,7 +40,7 @@ describe("vae review interaction", () => {
       .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
     assert.equal(
       layer.querySelector(".vae-detail-preview img").getAttribute("src"),
-      "http://example.invalid/first-hard.png",
+      "http://example.invalid/first-hard.png?w=2048",
     );
 
     layer

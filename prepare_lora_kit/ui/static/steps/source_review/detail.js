@@ -20,7 +20,7 @@ export function renderSourceReviewDetail(detail, item, decision) {
 
   detail.innerHTML = `
     <div class="source-review-preview">
-      <img src="${escapeText(item.uri)}" alt="${escapeText(item.name)}" />
+      <img src="${escapeText(item.view_uri || item.uri)}" alt="${escapeText(item.name)}" />
     </div>
     <div class="source-review-detail-body">
       <div class="source-review-detail-header">

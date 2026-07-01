@@ -25,7 +25,7 @@ export class ThumbnailStrip {
       thumb.title = state.name || "";
       thumb.innerHTML = `
         <img class="thumb__img" loading="lazy" alt="${escapeText(state.name || "")}"
-             src="${escapeText(state.uri || "")}" />
+             src="${escapeText(state.thumbUri || state.uri || "")}" />
         <span class="thumb__badge"></span>
       `;
       this.container.appendChild(thumb);

@@ -12,6 +12,10 @@ export function createImageStates(payload) {
     path: image.path,
     name: image.name,
     uri: image.uri,
+    // Downscaled variants served by the media endpoint: a small thumb for the strip and a
+    // viewport-sized view for the canvas. Fall back to the full uri (e.g. file:// fixtures).
+    thumbUri: image.thumb_uri || image.uri,
+    viewUri: image.view_uri || image.uri,
     boxes: Array.isArray(image.annotations)
       ? image.annotations.map((box) => ({ ...box }))
       : [],

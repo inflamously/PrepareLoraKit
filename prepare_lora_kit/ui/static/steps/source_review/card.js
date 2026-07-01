@@ -22,7 +22,8 @@ export function sourceReviewCard(
 function renderSourceReviewCardBody(item) {
   return `
     <img
-      src="${escapeText(item.uri)}"
+      loading="lazy"
+      src="${escapeText(item.thumb_uri || item.uri)}"
       alt="${escapeText(item.name)}"
       title="Left-click to show details; right-click to cycle decision"
     />

@@ -38,7 +38,7 @@ function renderUpscaleReviewCardBody(item) {
   }
   return `
     <figure class="upscale-thumb">
-      <img src="${escapeText(item.uri)}" alt="${escapeText(item.name)}" />
+      <img loading="lazy" src="${escapeText(item.thumb_uri || item.uri)}" alt="${escapeText(item.name)}" />
       <figcaption>${escapeText(item.name)}${item.is_jpeg ? " · JPEG" : ""}</figcaption>
     </figure>
   `;

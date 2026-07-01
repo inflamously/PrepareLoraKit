@@ -84,6 +84,8 @@ export function sourceReviewPending() {
           path: "/images/first.png",
           name: "first.png",
           uri: "http://example.invalid/first.png",
+          thumb_uri: "http://example.invalid/first.png?w=384",
+          view_uri: "http://example.invalid/first.png?w=2048",
           scores: { blur: 0.12345, nested: { value: 2 } },
           quality: 91,
           auto_reject: false,
@@ -108,10 +110,13 @@ export function sourceReviewPending() {
 // One image in the workspace batch payload. annotations pre-fill reloaded boxes;
 // done marks an already-captioned image.
 export function annotationImage(name, { annotations = [], done = false } = {}) {
+  const uri = `http://example.invalid/${name}.png`;
   return {
     path: `/images/${name}.png`,
     name: `${name}.png`,
-    uri: `http://example.invalid/${name}.png`,
+    uri,
+    thumb_uri: `${uri}?w=384`,
+    view_uri: `${uri}?w=2048`,
     annotations,
     done,
   };
@@ -126,11 +131,16 @@ export function annotationPending(id = "annotation-1", images) {
 }
 
 export function vaeReviewPending() {
-  const imagePayload = (name) => ({
-    path: `/review/${name}.png`,
-    name: `${name}.png`,
-    uri: `http://example.invalid/${name}.png`,
-  });
+  const imagePayload = (name) => {
+    const uri = `http://example.invalid/${name}.png`;
+    return {
+      path: `/review/${name}.png`,
+      name: `${name}.png`,
+      uri,
+      thumb_uri: `${uri}?w=384`,
+      view_uri: `${uri}?w=2048`,
+    };
+  };
   return {
     id: "vae-review-1",
     kind: "vae_review",

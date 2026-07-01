@@ -40,6 +40,27 @@ describe("createImageStates", () => {
     assert.deepEqual(createImageStates(undefined), []);
     assert.deepEqual(createImageStates({ images: null }), []);
   });
+
+  it("carries downscaled thumb/view variants, falling back to uri", () => {
+    const [withVariants, plain] = createImageStates({
+      images: [
+        {
+          path: "/a.png",
+          name: "a.png",
+          uri: "u/a",
+          thumb_uri: "u/a&w=384",
+          view_uri: "u/a&w=2048",
+          annotations: [],
+        },
+        { path: "/b.png", name: "b.png", uri: "u/b", annotations: [] },
+      ],
+    });
+    assert.equal(withVariants.thumbUri, "u/a&w=384");
+    assert.equal(withVariants.viewUri, "u/a&w=2048");
+    // No variants provided → both fall back to the full uri.
+    assert.equal(plain.thumbUri, "u/b");
+    assert.equal(plain.viewUri, "u/b");
+  });
 });
 
 describe("effectiveSkipped", () => {

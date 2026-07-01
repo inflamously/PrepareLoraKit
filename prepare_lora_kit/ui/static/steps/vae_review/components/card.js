@@ -48,7 +48,7 @@ function renderVaeThumb(item, view) {
   }
   return `
     <figure class="vae-thumb">
-      <img src="${escapeText(payload.uri)}" alt="${escapeText(`${item.name} ${view.label}`)}" />
+      <img loading="lazy" src="${escapeText(payload.thumb_uri || payload.uri)}" alt="${escapeText(`${item.name} ${view.label}`)}" />
       <figcaption>${escapeText(view.label)}</figcaption>
     </figure>
   `;

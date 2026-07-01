@@ -110,7 +110,7 @@ describe("curate details interaction", () => {
     assert.equal(tooltip.classList.contains("hidden"), false);
     assert.equal(
       tooltip.querySelector(".curate-coverage-tooltip-thumb").getAttribute("src"),
-      "http://example.invalid/a.png",
+      "http://example.invalid/a.png?w=384",
     );
     assert.match(tooltip.textContent, /a\.png/);
 
@@ -183,6 +183,7 @@ function curateDetailsPendingWithPoints() {
       path: "/images/a.png",
       name: "a.png",
       uri: "http://example.invalid/a.png",
+      thumb_uri: "http://example.invalid/a.png?w=384",
       x_pct: 50,
       y_pct: 50,
     },

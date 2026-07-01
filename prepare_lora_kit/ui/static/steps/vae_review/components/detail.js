@@ -27,7 +27,7 @@ export function renderVaeDetail(detail, item, decisions, selectedView, onChange)
   detail.innerHTML = `
     <div class="vae-detail-preview">
       ${viewPayload?.uri
-        ? `<img src="${escapeText(viewPayload.uri)}" alt="${escapeText(`${item.name} ${view}`)}" />`
+        ? `<img src="${escapeText(viewPayload.view_uri || viewPayload.uri)}" alt="${escapeText(`${item.name} ${view}`)}" />`
         : `<div class="vae-detail-missing">No ${escapeText(view)} image available</div>`}
     </div>
     <div class="vae-detail-body">

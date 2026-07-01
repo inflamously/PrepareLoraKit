@@ -380,6 +380,26 @@ def test_image_payload_uses_media_endpoint_when_available(tmp_path):
     assert parsed.netloc == "127.0.0.1:1234"
     assert parsed.path == "/media"
     assert parse_qs(parsed.query)["path"] == [str(image.resolve())]
+    # The thumb/view variants reuse the same endpoint plus a width param.
+    for key in ("thumb_uri", "view_uri"):
+        variant = urlparse(payload[key])
+        query = parse_qs(variant.query)
+        assert query["path"] == [str(image.resolve())]
+        assert query["w"] and int(query["w"][0]) > 0
+    assert parse_qs(urlparse(payload["thumb_uri"]).query)["w"][0] != (
+        parse_qs(urlparse(payload["view_uri"]).query)["w"][0]
+    )
+
+
+def test_image_payload_falls_back_to_file_uri_without_media_server(tmp_path):
+    image = tmp_path / "source image.png"
+
+    payload = _image_payload(image, None)
+
+    # No media server means nothing can resize; all three URLs point at the original.
+    assert payload["uri"].startswith("file://")
+    assert payload["thumb_uri"] == payload["uri"]
+    assert payload["view_uri"] == payload["uri"]
 
 
 def test_static_server_serves_local_image_media(tmp_path):
@@ -405,6 +425,51 @@ def test_static_server_serves_local_image_media(tmp_path):
     finally:
         server.shutdown()
         server.server_close()
+
+
+def test_static_server_serves_downscaled_variant_with_caching(tmp_path):
+    from io import BytesIO
+    from urllib.error import HTTPError
+    from urllib.request import Request
+
+    from prepare_lora_kit.ui import media
+
+    media.clear_cache()
+    static_dir = tmp_path / "static"
+    static_dir.mkdir()
+    image = tmp_path / "big.png"
+    Image.new("RGB", (2000, 1200), "red").save(image)
+    server = _static_server(static_dir)
+
+    try:
+        host, port = server.server_address
+        media_url = (
+            f"http://{host}:{port}/media?"
+            f"path={quote(str(image.resolve()), safe='')}&w=64"
+        )
+        opener = build_opener(ProxyHandler({}))
+        with opener.open(media_url, timeout=5) as response:
+            assert response.status == 200
+            assert response.headers["Content-Type"] in ("image/webp", "image/jpeg")
+            assert response.headers["Cache-Control"] == "private, max-age=86400"
+            etag = response.headers["ETag"]
+            body = response.read()
+
+        # The served variant decodes back to a small image (longest side <= requested width).
+        with Image.open(BytesIO(body)) as decoded:
+            assert max(decoded.size) <= 64
+
+        # Re-requesting with the ETag yields a 304 (browser cache hit).
+        cached = Request(media_url, headers={"If-None-Match": etag})
+        try:
+            opener.open(cached, timeout=5)
+            raise AssertionError("expected HTTP 304")
+        except HTTPError as exc:
+            assert exc.code == 304
+    finally:
+        server.shutdown()
+        server.server_close()
+        media.clear_cache()
 
 
 def test_static_server_uses_fast_shutdown_thread_settings(tmp_path):

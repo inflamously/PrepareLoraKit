@@ -23,7 +23,7 @@ export function renderUpscaleDetail(detail, item, decisions, onChange) {
   detail.innerHTML = `
     <div class="upscale-detail-preview">
       ${item.uri
-        ? `<img src="${escapeText(item.uri)}" alt="${escapeText(item.name)}" />`
+        ? `<img src="${escapeText(item.view_uri || item.uri)}" alt="${escapeText(item.name)}" />`
         : `<div class="upscale-detail-missing">No preview available</div>`}
     </div>
     <div class="upscale-detail-body">

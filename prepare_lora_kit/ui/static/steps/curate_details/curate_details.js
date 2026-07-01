@@ -170,7 +170,7 @@ function wireCoverageHover(modal, payload) {
     armedPoint = point;
     const { offsetX, offsetY } = event;
     timer = setTimeout(() => {
-      tooltipImg.src = point.uri;
+      tooltipImg.src = point.thumb_uri || point.uri;
       tooltipLabel.textContent = point.name;
       tooltip.classList.remove("hidden");
       positionTooltip(offsetX, offsetY);

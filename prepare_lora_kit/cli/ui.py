@@ -52,6 +52,11 @@ class _StaticHandler(SimpleHTTPRequestHandler):
             self.send_error(404, "Media file not found")
             return
 
+        width = self._parse_width(params.get("w", [""])[0])
+        if width:
+            self._serve_variant(path, width, include_body=include_body)
+            return
+
         content_type = guess_type(str(path))[0] or "application/octet-stream"
         self.send_response(200)
         self.send_header("Content-Type", content_type)
@@ -61,6 +66,43 @@ class _StaticHandler(SimpleHTTPRequestHandler):
         if include_body:
             with path.open("rb") as fh:
                 shutil.copyfileobj(fh, self.wfile)
+
+    @staticmethod
+    def _parse_width(raw: str) -> int | None:
+        try:
+            width = int(raw)
+        except (TypeError, ValueError):
+            return None
+        return width if width > 0 else None
+
+    def _serve_variant(self, path: Path, width: int, *, include_body: bool) -> None:
+        # Variants are deterministic per (path, mtime, width), so a strong ETag lets the browser
+        # cache them across navigation instead of re-fetching full bytes every time.
+        stat = path.stat()
+        etag = f'"{stat.st_mtime_ns}-{stat.st_size}-{width}"'
+        if self.headers.get("If-None-Match") == etag:
+            self.send_response(304)
+            self.send_header("ETag", etag)
+            self.send_header("Cache-Control", "private, max-age=86400")
+            self.end_headers()
+            return
+
+        from ..ui import media
+
+        try:
+            body, content_type = media.render_variant(path, width)
+        except Exception:
+            self.send_error(500, "Could not render media variant")
+            return
+
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("ETag", etag)
+        self.send_header("Cache-Control", "private, max-age=86400")
+        self.end_headers()
+        if include_body:
+            self.wfile.write(body)
 
 
 def _static_server(static_dir):

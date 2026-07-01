@@ -104,7 +104,9 @@ class Annotator {
     this.boxPanel.setActive(this.img, s.boxes);
     this.strip.setActive(index);
     this.img.onload = this.onActiveImageLoaded;
-    this.img.src = s.uri;
+    // Use the downscaled view variant for the canvas: boxes are normalized and crops are taken
+    // server-side from the original, so display resolution never affects caption quality.
+    this.img.src = s.viewUri || s.uri;
     // Cached/synchronous loads may not fire onload — paint immediately.
     if (this.img.complete) this.onActiveImageLoaded();
   }

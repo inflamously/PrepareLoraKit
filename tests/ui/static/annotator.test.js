@@ -126,6 +126,11 @@ describe("annotation workspace", () => {
       layer.querySelector('.thumb[data-index="0"]').classList.contains("thumb--current"),
       true,
     );
+    // The strip loads the small thumb variant, not the full-resolution uri.
+    assert.match(
+      layer.querySelector('.thumb[data-index="0"] .thumb__img').getAttribute("src"),
+      /w=384$/,
+    );
 
     const canvas = activeCanvas();
     layer.querySelector('.thumb[data-index="1"]').click();

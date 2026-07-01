@@ -29,17 +29,31 @@ def _jsonable(value: Any) -> Any:
     return value
 
 
+# Longest-side caps for the downscaled display variants served by the UI media endpoint.
+# THUMB feeds grids / the caption thumbnail strip; VIEW feeds detail panes and the annotation
+# canvas (which is viewport-bounded anyway). The full-resolution `uri` stays available as a
+# fallback and for anything that genuinely needs the original.
+THUMB_WIDTH = 384
+VIEW_WIDTH = 2048
+
+
 def _image_payload(path: Path, media_base_url: str | None = None) -> dict[str, str]:
     resolved = path.resolve()
-    uri = (
-        f"{media_base_url}?path={quote(str(resolved), safe='')}"
-        if media_base_url
-        else resolved.as_uri()
-    )
+    if media_base_url:
+        base = f"{media_base_url}?path={quote(str(resolved), safe='')}"
+        uri = base
+        thumb_uri = f"{base}&w={THUMB_WIDTH}"
+        view_uri = f"{base}&w={VIEW_WIDTH}"
+    else:
+        # No media server (e.g. file:// fixtures) — there is nothing to resize against, so all
+        # three URLs point at the original.
+        uri = thumb_uri = view_uri = resolved.as_uri()
     return {
         "path": str(resolved),
         "name": resolved.name,
         "uri": uri,
+        "thumb_uri": thumb_uri,
+        "view_uri": view_uri,
     }
 
 
