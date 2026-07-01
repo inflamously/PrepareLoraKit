@@ -3,16 +3,18 @@
 }
 
 .export-review-body {
-  display: grid;
-  gap: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
-  padding: 16px;
+  padding: 16px 4px 4px;
 }
 
 .export-section {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 8px;
 }
 
@@ -49,18 +51,17 @@
   list-style: none;
   margin: 0;
   padding: 0;
-  display: grid;
-  gap: 2px;
+  display: flex;
+  flex-direction: column;
   border: 1px solid var(--hairline);
   border-radius: var(--radius-md);
   background: rgba(5, 7, 15, 0.55);
-  max-height: 220px;
-  overflow: auto;
+  overflow: hidden;
 }
 
 .export-row {
-  padding: 6px 10px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .export-row:last-child {
@@ -70,23 +71,43 @@
 .export-row label {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  width: 100%;
   cursor: pointer;
 }
 
+/* .nf-check is the shared 24x24 design-system checkbox; keep it from stretching. */
+.export-row .nf-check {
+  flex: none;
+}
+
+/* Filename fills the row and truncates with an ellipsis on the left-most part
+   it can drop — never break mid-extension (".png" must stay intact). */
 .export-rel {
+  flex: 1 1 auto;
+  min-width: 0;
   font-family: var(--mono, ui-monospace, monospace);
-  font-size: 0.8rem;
-  overflow-wrap: anywhere;
+  font-size: 0.82rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .export-cap {
-  margin-left: auto;
+  flex: none;
   font-size: 0.72rem;
   color: var(--text-dim);
+  white-space: nowrap;
+}
+
+/* Orphaned rows have no checkbox; indent so their filename column lines up with
+   the checked rows (checkbox 24px + 10px gap + 12px row padding). */
+.export-orphaned .export-row {
+  padding-left: 46px;
 }
 
 .export-orphaned .export-rel {
+  display: block;
   color: var(--text-dim);
 }
 

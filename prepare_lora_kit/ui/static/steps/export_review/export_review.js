@@ -98,8 +98,8 @@ function rowMarkup(entry) {
   return `
     <li class="export-row">
       <label>
-        <input type="checkbox" data-rel="${escapeText(rel)}" checked />
-        <span class="export-rel">${escapeText(rel)}</span>
+        <input type="checkbox" class="nf-check" data-rel="${escapeText(rel)}" checked />
+        <span class="export-rel" title="${escapeText(rel)}">${escapeText(rel)}</span>
         ${caption}
       </label>
     </li>
