@@ -40,4 +40,4 @@ OPTIONAL_STEP_TYPES = {"UpscaleStep", "ExportStep"}
 # be skipped by ``state.is_done`` on a re-run. They always re-enter ``run()`` and
 # self-determine pending work (e.g. CaptionStep only re-prompts uncaptioned images),
 # so re-running them without ``--force`` resumes instead of redoing everything.
-RESUME_AWARE_STEP_TYPES = {"CaptionStep"}
+RESUME_AWARE_STEP_TYPES = {"VaeGateStep", "CaptionStep"}
