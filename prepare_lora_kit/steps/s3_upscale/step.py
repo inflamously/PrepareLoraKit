@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Callable
 
 from ...cancellation import CancelCheck, CancelledRun, check_cancel
-from ...interaction import InteractionProvider
+from ...providers.interaction import InteractionProvider
 from ...utils import image as img_utils
 from ...utils import report as rpt
 from .hallucination import HALLUCINATION_SSIM_THRESHOLD, _hallucination_check

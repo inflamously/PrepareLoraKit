@@ -5,8 +5,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
 
+from ...interaction import annotate_dataset_via_images
+from ...providers.interaction import InteractionProvider
 from ...cancellation import CancelCheck, CancelledRun, check_cancel
-from ...interaction import InteractionProvider, annotate_dataset_via_images
 from ...utils import report as rpt
 
 from . import vlm

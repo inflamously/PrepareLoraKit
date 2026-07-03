@@ -12,7 +12,8 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from ...cancellation import CancelCheck, check_cancel
-from ...interaction import CliInteractionProvider, InteractionProvider
+from ...interaction import CliInteractionProvider
+from ...providers.interaction import InteractionProvider
 from ...utils import image as img_utils
 from ...utils import report as rpt
 from .scoring import DEFAULTS, SCORER_REGISTRY, _score_image

@@ -11,7 +11,7 @@ import shutil
 import numpy as np
 
 from ...cancellation import CancelCheck, CancelledRun, check_cancel
-from ...interaction import InteractionProvider
+from ...providers.interaction import InteractionProvider
 from ...networks.base import NetworkProfile
 from ...utils import image as img_utils
 from ...utils import report as rpt

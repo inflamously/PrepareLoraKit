@@ -5,7 +5,8 @@ import threading
 from pathlib import Path
 from typing import Any
 
-from ...interaction import InteractionProvider, RegionCaptioner
+from ...providers.interaction import InteractionProvider
+from ...interaction import RegionCaptioner
 from ...project.config_schema import schema_payload
 from .job import PipelineJob
 from .payloads import _image_payload, _jsonable
@@ -60,10 +61,10 @@ class UiInteractionProvider(InteractionProvider):
         return {str(k): str(v) for k, v in decisions.items()}
 
     def annotate_dataset(
-        self,
-        images: list[dict],
-        *,
-        captioner: RegionCaptioner | None = None,
+            self,
+            images: list[dict],
+            *,
+            captioner: RegionCaptioner | None = None,
     ) -> tuple[dict[str, dict], bool]:
         """Pause the job and hand the whole image batch to the workspace modal.
 
