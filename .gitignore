@@ -7,3 +7,4 @@ outputs
 node_modules
 configs/projects/*.yaml
 !configs/projects/example.yaml
+models
