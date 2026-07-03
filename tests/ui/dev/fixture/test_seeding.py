@@ -1,6 +1,6 @@
 import pytest
 
-from prepare_lora_kit.ui.e2e import MOCK_PROJECT_NAME, create_mock_ui_fixture
+from prepare_lora_kit_ui.e2e import MOCK_PROJECT_NAME, create_mock_ui_fixture
 from prepare_lora_kit.utils.state import RunState
 
 

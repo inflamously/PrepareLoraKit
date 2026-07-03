@@ -11,7 +11,7 @@ import importlib
 from pathlib import Path
 from typing import Callable, Generic, TypeVar
 
-from ..paths import CONFIGS_DIR
+from prepare_lora_kit.paths import CONFIGS_DIR
 
 T = TypeVar("T")
 
@@ -20,19 +20,19 @@ class ConfigRegistry(Generic[T]):
     """Loads named configs of type ``T`` from built-ins or ``configs/<subdir>/``."""
 
     def __init__(
-        self,
-        *,
-        kind: str,
-        subdir: str,
-        loader: Callable[[Path], T],
-        builtin_package: str,
-        builtins: dict[str, str] | None = None,
-        skip_example: bool = False,
+            self,
+            *,
+            kind: str,
+            subdir: str,
+            loader: Callable[[Path], T],
+            builtin_package: str,
+            builtins: dict[str, str] | None = None,
+            skip_example: bool = False,
     ) -> None:
-        self.kind = kind                        # noun used in error messages
-        self.loader = loader                    # e.g. NetworkProfile.from_yaml
-        self.builtin_package = builtin_package   # dotted package of built-in modules
-        self.builtins = builtins or {}           # name → module name within package
+        self.kind = kind  # noun used in error messages
+        self.loader = loader  # e.g. NetworkProfile.from_yaml
+        self.builtin_package = builtin_package  # dotted package of built-in modules
+        self.builtins = builtins or {}  # name → module name within package
         self.skip_example = skip_example
         self.configs_dir = CONFIGS_DIR / subdir
 

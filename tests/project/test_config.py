@@ -8,10 +8,10 @@ from prepare_lora_kit.steps.s3_upscale.seedvr2_catalog import (
     list_seedvr2_dit_models,
 )
 from prepare_lora_kit.project.base import ProjectConfig
-from prepare_lora_kit.project.steps import OPTIONAL_STEP_TYPES, STEP_PREREQUISITES
-from prepare_lora_kit.project import registry as project_registry
-from prepare_lora_kit.project.configs import UpscaleConfig
-from prepare_lora_kit.ui.runner import project_payload
+from prepare_lora_kit_pipeline.configuration import OPTIONAL_STEP_TYPES, STEP_PREREQUISITES
+from prepare_lora_kit.project import project_registry
+from prepare_lora_kit_pipeline.configs import UpscaleConfig
+from prepare_lora_kit_ui.runner import project_payload
 
 
 def test_project_config_from_yaml_parses_input_dir(tmp_path):

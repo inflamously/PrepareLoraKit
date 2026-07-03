@@ -5,9 +5,9 @@ import threading
 from pathlib import Path
 from typing import Any
 
-from ...providers.interaction import InteractionProvider
-from ...interaction import RegionCaptioner
-from ...project.config_schema import schema_payload
+from prepare_lora_kit.interaction import RegionCaptioner
+from prepare_lora_kit.project.config_schema import schema_payload
+from prepare_lora_kit.providers.interaction import InteractionProvider
 from .job import PipelineJob
 from .payloads import _image_payload, _jsonable
 

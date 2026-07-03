@@ -7,12 +7,12 @@ from prepare_lora_kit.project.config_schema import (
     has_schema,
     schema_payload,
 )
-from prepare_lora_kit.project.configs import (
+from prepare_lora_kit_pipeline.configs import (
     AuditConfig,
     CaptionConfig,
     VaeGateConfig,
 )
-from prepare_lora_kit.project.steps import STEP_TYPE_MAP
+from prepare_lora_kit_pipeline.configuration import STEP_TYPE_MAP
 
 
 def test_schema_payload_is_json_able_for_every_step():

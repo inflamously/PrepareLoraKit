@@ -1,5 +1,5 @@
+from prepare_lora_kit.utils.registry import ConfigRegistry
 from .base import NetworkProfile
-from ..utils.registry import ConfigRegistry
 
 _registry: ConfigRegistry[NetworkProfile] = ConfigRegistry(
     kind="network",

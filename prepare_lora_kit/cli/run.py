@@ -4,9 +4,9 @@ from pathlib import Path
 
 import click
 
+from prepare_lora_kit.project import project_registry
 from ._shared import cli, _default_output
 from ..pipeline import RunConfig
-from ..project import registry as project_registry
 
 
 def _load_or_create_project(input_dir: Path, project_name: str | None):

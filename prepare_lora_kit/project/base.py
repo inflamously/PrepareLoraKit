@@ -17,19 +17,12 @@ from pathlib import Path
 from typing import Any, Optional
 import yaml
 
-from .configs import ScorerEntry
+from prepare_lora_kit_pipeline.configuration import STEP_TYPE_MAP, STEP_ORDER_INDEX, STEP_PREREQUISITES
+from prepare_lora_kit_pipeline.configs import ScorerEntry
 from .steps import (
-    STEP_ORDER_INDEX,
-    STEP_PREREQUISITES,
-    STEP_TYPE_MAP,
     PipelineSubstep,
     normalize_substeps,
 )
-
-
-# ── Step Type Registry ────────────────────────────────────────────────────────
-# STEP_TYPE_MAP and STEP_PREREQUISITES are re-exported from project.steps for
-# callers that still import them from project.base.
 
 
 # ── PipelineStep ──────────────────────────────────────────────────────────────
@@ -46,7 +39,7 @@ class PipelineStep:
 @dataclass
 class ProjectConfig:
     name: str
-    network: str                         # references a NetworkProfile by name
+    network: str  # references a NetworkProfile by name
     # Optional per-run adapter-network type override (lora|lokr|dora). When set,
     # it wins over the profile's config_template.network.type in step 7.
     network_type: Optional[str] = None

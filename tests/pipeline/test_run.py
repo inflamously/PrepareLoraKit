@@ -5,7 +5,7 @@ import pytest
 from prepare_lora_kit.cancellation import CancelledRun
 from prepare_lora_kit.pipeline import RunConfig, run_all
 from prepare_lora_kit.project.base import ProjectConfig, PipelineStep
-from prepare_lora_kit.project.configs import (
+from prepare_lora_kit_pipeline.configs import (
     AuditConfig,
     BucketDryRunConfig,
     CaptionConfig,
@@ -69,7 +69,7 @@ def test_pipeline_runs_project_steps_in_order(tmp_path):
         output_dir=tmp_path / "out",
     )
 
-    with patch("prepare_lora_kit.networks.registry.load", return_value=MagicMock()), \
+    with patch("prepare_lora_kit.networks.network_registry.load", return_value=MagicMock()), \
             patch.dict("prepare_lora_kit.pipeline.STEP_INVOKE_MAP", invoke_map, clear=True):
         run_all(cfg)
 
@@ -114,7 +114,7 @@ def test_pipeline_resumes_from_first_pending_step_in_order(tmp_path):
         output_dir=output_dir,
     )
 
-    with patch("prepare_lora_kit.networks.registry.load", return_value=MagicMock()), \
+    with patch("prepare_lora_kit.networks.network_registry.load", return_value=MagicMock()), \
             patch.dict("prepare_lora_kit.pipeline.STEP_INVOKE_MAP", invoke_map, clear=True):
         run_all(cfg)
 
@@ -169,7 +169,7 @@ def test_pipeline_skips_import_for_existing_legacy_working_dataset(tmp_path):
         output_dir=output_dir,
     )
 
-    with patch("prepare_lora_kit.networks.registry.load", return_value=MagicMock()), \
+    with patch("prepare_lora_kit.networks.network_registry.load", return_value=MagicMock()), \
             patch.dict("prepare_lora_kit.pipeline.STEP_INVOKE_MAP", invoke_map, clear=True):
         run_all(cfg)
 
@@ -227,7 +227,7 @@ def test_pipeline_force_resets_state_but_keeps_working_dataset(tmp_path):
         force=True,
     )
 
-    with patch("prepare_lora_kit.networks.registry.load", return_value=MagicMock()), \
+    with patch("prepare_lora_kit.networks.network_registry.load", return_value=MagicMock()), \
             patch.dict("prepare_lora_kit.pipeline.STEP_INVOKE_MAP", invoke_map, clear=True):
         run_all(cfg)
 
@@ -279,7 +279,7 @@ def test_pipeline_reruns_resume_aware_caption_without_force(tmp_path):
         output_dir=output_dir,
     )
 
-    with patch("prepare_lora_kit.networks.registry.load", return_value=MagicMock()), \
+    with patch("prepare_lora_kit.networks.network_registry.load", return_value=MagicMock()), \
             patch.dict("prepare_lora_kit.pipeline.STEP_INVOKE_MAP", invoke_map, clear=True):
         run_all(cfg)
 
@@ -309,7 +309,7 @@ def test_pipeline_does_not_mark_cancelled_step_done(tmp_path):
     cfg.cancel_check = cancel_after_invoke
     invoke = MagicMock(return_value=None)
 
-    with patch("prepare_lora_kit.networks.registry.load", return_value=MagicMock()), \
+    with patch("prepare_lora_kit.networks.network_registry.load", return_value=MagicMock()), \
             patch.dict("prepare_lora_kit.pipeline.STEP_INVOKE_MAP", {"ImportStep": invoke}, clear=True), \
             pytest.raises(CancelledRun):
         run_all(cfg)

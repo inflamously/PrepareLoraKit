@@ -1,7 +1,7 @@
 """`projects` command — list available project configs."""
 from __future__ import annotations
 
-from ..project import registry as project_registry
+from prepare_lora_kit.project import project_registry
 from ._shared import cli
 
 

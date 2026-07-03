@@ -7,10 +7,9 @@ from __future__ import annotations
 
 import click
 
-from ...project import registry as project_registry
+from prepare_lora_kit.project import project_registry
 from ...project.base import STEP_TYPE_MAP
 from ...project.steps import step_aliases
-
 
 # Short aliases (sN / bare index) → canonical step type, preserving s1..s8.
 _STEP_ALIASES = step_aliases()

@@ -10,22 +10,20 @@ from typing import Any
 
 from rich.console import Console
 
+from prepare_lora_kit.cancellation import CancelledRun
+from prepare_lora_kit.invoke import STEP_INVOKE_MAP
+from prepare_lora_kit.networks import network_registry
+from prepare_lora_kit.pipeline import RunConfig
+from prepare_lora_kit_pipeline.configuration import RESUME_AWARE_STEP_TYPES, STEP_PREREQUISITES
+from prepare_lora_kit.project import project_registry
+from prepare_lora_kit.project.base import ProjectConfig
+from prepare_lora_kit.project.config_schema import has_schema, apply_overrides
+from prepare_lora_kit.project.pipeline import enabled_substep_ids, mark_legacy_import_satisfied, SUBSTEP_REGISTRY, normalize_substeps, \
+    is_step_satisfied
+from prepare_lora_kit.utils import report
+from prepare_lora_kit.utils.state import RunState
 from . import UiInteractionProvider
-from ...cancellation import CancelledRun
-from ...pipeline import RunConfig
-from ...project import registry as project_registry
-from ...project.base import ProjectConfig
-from ...project.config_schema import apply_overrides, has_schema
-from ...project.steps import (
-    RESUME_AWARE_STEP_TYPES,
-    STEP_PREREQUISITES,
-    SUBSTEP_REGISTRY,
-    enabled_substep_ids,
-    is_step_satisfied,
-    mark_legacy_import_satisfied,
-    normalize_substeps,
-)
-from ...utils.state import RunState
+
 from .constants import TERMINAL_STATUSES
 from .job import PipelineJob
 from .logging import _LogStream
@@ -36,9 +34,9 @@ class JobManager:
     """Starts and tracks one pipeline job at a time."""
 
     def __init__(
-        self,
-        media_base_url: str | None = None,
-        projects: dict[str, ProjectConfig] | None = None,
+            self,
+            media_base_url: str | None = None,
+            projects: dict[str, ProjectConfig] | None = None,
     ) -> None:
         self._jobs: dict[str, PipelineJob] = {}
         self._job_projects: dict[str, str] = {}
@@ -116,11 +114,9 @@ class JobManager:
 
     def _run_job(self, job: PipelineJob, request: dict[str, Any]) -> None:
         stream = _LogStream(job)
-        from ...utils import report as rpt
-
-        old_console = rpt.console
+        old_console = report.console
         try:
-            rpt.console = Console(
+            report.console = Console(
                 file=stream,
                 force_terminal=False,
                 no_color=True,
@@ -139,7 +135,7 @@ class JobManager:
             job.set_status("cancelled" if job.cancel_requested else "failed")
         finally:
             stream.flush()
-            rpt.console = old_console
+            report.console = old_console
 
     def _execute(self, job: PipelineJob, request: dict[str, Any]) -> None:
         job.set_status("running")
@@ -216,7 +212,7 @@ class JobManager:
             # re-run never rmtree's it (and the hand-drawn boxes it holds) by
             # re-importing.
             if step.type == "ImportStep" and mark_legacy_import_satisfied(
-                state, cfg.resolved_output_dir
+                    state, cfg.resolved_output_dir
             ):
                 job.skipped_steps.append(step.type)
                 job.skipped_substeps[step.type] = enabled_substeps
@@ -226,9 +222,9 @@ class JobManager:
             # they are never skipped on is_done — re-running them resumes instead of
             # redoing everything, without needing --force.
             if (
-                not force
-                and step.type not in RESUME_AWARE_STEP_TYPES
-                and state.is_done(step.type)
+                    not force
+                    and step.type not in RESUME_AWARE_STEP_TYPES
+                    and state.is_done(step.type)
             ):
                 job.skipped_steps.append(step.type)
                 job.skipped_substeps[step.type] = enabled_substeps
@@ -238,8 +234,6 @@ class JobManager:
             effective_config = step.config
             if pause_for_config and has_schema(step.type):
                 effective_config = self._resolve_step_config(job, interaction, step)
-
-            from . import STEP_INVOKE_MAP
 
             invoke = STEP_INVOKE_MAP[step.type]
             result = invoke(
@@ -288,10 +282,10 @@ class JobManager:
                 job.add_log(f"{step.type} config rejected: {exc}")
 
     def _resolve_selected_substeps(
-        self,
-        project: ProjectConfig,
-        selected_steps: list[str],
-        requested_substeps: dict[str, list[str]],
+            self,
+            project: ProjectConfig,
+            selected_steps: list[str],
+            requested_substeps: dict[str, list[str]],
     ) -> dict[str, list[str]]:
         selected = set(selected_steps)
         resolved: dict[str, list[str]] = {}
@@ -318,11 +312,11 @@ class JobManager:
         return resolved
 
     def _validate_selection(
-        self,
-        project: ProjectConfig,
-        selected_steps: list[str],
-        output_dir: Path,
-        selected_substeps: dict[str, list[str]] | None = None,
+            self,
+            project: ProjectConfig,
+            selected_steps: list[str],
+            output_dir: Path,
+            selected_substeps: dict[str, list[str]] | None = None,
     ) -> None:
         known = [s.type for s in project.pipeline]
         unknown = [s for s in selected_steps if s not in known]
@@ -362,9 +356,7 @@ class JobManager:
 
     @staticmethod
     def _load_network(project: ProjectConfig):
-        from ...networks import registry as net_registry
-
-        return net_registry.load(project.network)
+        return network_registry.load(project.network)
 
     def _load_project(self, name: str) -> ProjectConfig:
         if name in self._projects:

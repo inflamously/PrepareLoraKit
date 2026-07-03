@@ -1,9 +1,8 @@
 """Step selection helpers for UI end-to-end mock fixtures."""
 from __future__ import annotations
 
-from ...project.base import STEP_TYPE_MAP
-from ...project.steps import step_aliases
-
+from prepare_lora_kit_pipeline.configuration import STEP_TYPE_MAP
+from prepare_lora_kit.project.pipeline import step_aliases
 
 _STEP_ALIASES = step_aliases()
 

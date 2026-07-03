@@ -2,12 +2,12 @@ import json
 from pathlib import Path
 
 from prepare_lora_kit.steps.s3_upscale import step as upscale_step
-from prepare_lora_kit.ui.e2e import create_mock_ui_fixture
-from prepare_lora_kit.ui.runner import JobManager, PipelineJob
+from prepare_lora_kit_ui.e2e import create_mock_ui_fixture
+from prepare_lora_kit_ui.runner import JobManager, PipelineJob
 
 
 def test_mock_upscale_review_flags_and_converts_jpeg_to_png(tmp_path, monkeypatch):
-    import prepare_lora_kit.ui.runner as runner
+    import prepare_lora_kit_ui.runner as runner
 
     captured = {}
 

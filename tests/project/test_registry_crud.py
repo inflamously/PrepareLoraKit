@@ -1,6 +1,6 @@
 import pytest
 
-from prepare_lora_kit.project import registry as project_registry
+from prepare_lora_kit.project import project_registry
 
 
 @pytest.fixture()

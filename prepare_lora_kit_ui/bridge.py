@@ -7,11 +7,11 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from ..paths import PROJECT_ROOT
-from ..project.base import ProjectConfig
-from ..project import registry as project_registry
-from ..networks import registry as network_registry
-from ..caption_prompts import registry as caption_prompts
+from prepare_lora_kit import caption_prompts
+from prepare_lora_kit.networks import network_registry
+from prepare_lora_kit_ui.paths import PROJECT_ROOT
+from prepare_lora_kit.project import project_registry
+from prepare_lora_kit.project.base import ProjectConfig
 from .runner import JobManager, _default_output, project_payload, project_status
 
 

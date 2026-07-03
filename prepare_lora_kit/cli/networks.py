@@ -1,7 +1,7 @@
 """`networks` / `network-types` commands — inspect network profiles and adapter types."""
 from __future__ import annotations
 
-from ..networks import registry
+from prepare_lora_kit.networks import network_registry
 from ._shared import cli
 
 
@@ -12,13 +12,13 @@ def networks():
     from rich.table import Table
     from rich import box
 
-    names = registry.list_networks()
+    names = network_registry.list_networks()
     t = Table(title="Available Network Profiles", box=box.SIMPLE)
     t.add_column("Name", style="cyan")
     t.add_column("Adapter type", style="magenta")
     for n in names:
         try:
-            prof = registry.load(n)
+            prof = network_registry.load(n)
             ntype = (prof.config_template.get("network") or {}).get("type", "lora")
         except Exception:
             ntype = "?"

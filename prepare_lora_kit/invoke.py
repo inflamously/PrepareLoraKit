@@ -10,8 +10,8 @@ import shutil
 from pathlib import Path
 from typing import Callable, Optional
 
-from .cancellation import check_cancel
-from .project.configs import (
+from prepare_lora_kit.cancellation import check_cancel
+from prepare_lora_kit_pipeline.configs import (
     ImportConfig,
     QualityGateConfig, CurateConfig, UpscaleConfig, VaeGateConfig,
     CaptionConfig, AuditConfig, ConfigGenConfig, BucketDryRunConfig, ExportConfig,

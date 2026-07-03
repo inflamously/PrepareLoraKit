@@ -2,9 +2,9 @@ from pathlib import Path
 
 import yaml
 
-from prepare_lora_kit.project import registry as project_registry
-from prepare_lora_kit.ui.bridge import UiBridge
-from prepare_lora_kit.ui.runner import PipelineJob
+from prepare_lora_kit.project import project_registry
+from prepare_lora_kit_ui.bridge import UiBridge
+from prepare_lora_kit_ui.runner import PipelineJob
 
 
 def test_bridge_folder_first_creates_missing_project(tmp_path, monkeypatch):

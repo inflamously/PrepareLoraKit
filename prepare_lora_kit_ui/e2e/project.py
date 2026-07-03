@@ -3,19 +3,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ...project.base import PipelineStep, ProjectConfig
-from ...project.configs import (
-    AuditConfig,
-    BucketDryRunConfig,
-    CaptionConfig,
-    ConfigGenConfig,
-    CurateConfig,
-    ImportConfig,
-    QualityGateConfig,
-    ScorerEntry,
-    UpscaleConfig,
-    VaeGateConfig,
-)
+from prepare_lora_kit_pipeline.configs import QualityGateConfig, ImportConfig, ScorerEntry, UpscaleConfig, CurateConfig, \
+    CaptionConfig, VaeGateConfig, AuditConfig, ConfigGenConfig, BucketDryRunConfig
+from prepare_lora_kit.project.base import ProjectConfig, PipelineStep
 from .constants import MOCK_PROJECT_NAME, QUALITY_GATE_MIN_SIDE
 
 

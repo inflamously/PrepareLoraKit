@@ -2,15 +2,15 @@ import json
 
 import pytest
 
-from prepare_lora_kit.ui.e2e import create_mock_ui_fixture
-from prepare_lora_kit.ui.runner import JobManager, PipelineJob
+from prepare_lora_kit_ui.e2e import create_mock_ui_fixture
+from prepare_lora_kit_ui.runner import JobManager, PipelineJob
 from prepare_lora_kit.utils import image as img_utils
 
 
 def test_mock_project_curate_runs_through_job_manager(
     tmp_path, monkeypatch, recording_curate_provider
 ):
-    import prepare_lora_kit.ui.runner as runner
+    import prepare_lora_kit_ui.runner as runner
 
     fixture = create_mock_ui_fixture("CurateStep", root=tmp_path / "mock")
     manager = JobManager(projects={fixture.project.name: fixture.project})
@@ -58,7 +58,7 @@ def test_mock_project_curate_writes_requested_coverage_plot(
     coverage_mode,
     expected_method,
 ):
-    import prepare_lora_kit.ui.runner as runner
+    import prepare_lora_kit_ui.runner as runner
 
     fixture = create_mock_ui_fixture(
         "CurateStep",
@@ -97,7 +97,7 @@ def test_mock_project_curate_writes_requested_coverage_plot(
 def test_mock_project_curate_auto_uses_umap_above_threshold(
     tmp_path, monkeypatch, recording_curate_provider
 ):
-    import prepare_lora_kit.ui.runner as runner
+    import prepare_lora_kit_ui.runner as runner
 
     fixture = create_mock_ui_fixture(
         "CurateStep",

@@ -1,6 +1,6 @@
 from PIL import Image
 
-from prepare_lora_kit.ui.runner.recommendations import upscale_attention
+from prepare_lora_kit_ui.runner.recommendations import upscale_attention
 
 
 def _img(path, size):

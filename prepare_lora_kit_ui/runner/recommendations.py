@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ...utils import image as img_utils
+from prepare_lora_kit.utils import image
 
 _JPEG_SUFFIXES = {".jpg", ".jpeg"}
 
@@ -30,14 +30,14 @@ def upscale_attention(dataset_dir: Path | None, threshold: int, cap: int = 5000)
     undersized = 0
     jpeg = 0
     scanned = 0
-    for path in img_utils.iter_images(dataset_dir):
+    for path in image.iter_images(dataset_dir):
         if scanned >= cap:
             break
         scanned += 1
         if path.suffix.lower() in _JPEG_SUFFIXES:
             jpeg += 1
         try:
-            if img_utils.min_side(path) <= threshold:
+            if image.min_side(path) <= threshold:
                 undersized += 1
         except Exception:
             # A file that can't be read for size shouldn't break project load.

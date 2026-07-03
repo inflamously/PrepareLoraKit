@@ -3,9 +3,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ...paths import PROJECT_ROOT
-from ...project.base import STEP_TYPE_MAP
-from ...utils.state import RunState
+from prepare_lora_kit_pipeline.configuration import STEP_TYPE_MAP
+from prepare_lora_kit.utils.state import RunState
+from ..paths import PROJECT_ROOT
 from .assets import (
     prepare_root,
     reset_dir,
@@ -19,9 +19,9 @@ from .steps import resolve_mock_steps
 
 
 def create_mock_ui_fixture(
-    raw_step: str,
-    root: Path | None = None,
-    curate_coverage: str = "auto",
+        raw_step: str,
+        root: Path | None = None,
+        curate_coverage: str = "auto",
 ) -> MockUiFixture:
     selected_steps = resolve_mock_steps(raw_step)
     curate_coverage = curate_coverage.lower().strip()

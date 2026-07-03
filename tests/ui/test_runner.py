@@ -10,7 +10,7 @@ import pytest
 from prepare_lora_kit.cancellation import CancelledRun
 from prepare_lora_kit.cli.ui import _static_server
 from prepare_lora_kit.project.base import ProjectConfig, PipelineStep
-from prepare_lora_kit.project.configs import (
+from prepare_lora_kit_pipeline.configs import (
     AuditConfig,
     CaptionConfig,
     ConfigGenConfig,
@@ -20,7 +20,7 @@ from prepare_lora_kit.project.configs import (
     UpscaleConfig,
     VaeGateConfig,
 )
-from prepare_lora_kit.ui.runner import (
+from prepare_lora_kit_ui.runner import (
     JobManager,
     PipelineJob,
     UiInteractionProvider,
@@ -245,8 +245,8 @@ def test_ui_run_starts_at_first_pending_active_step(tmp_path):
     manager = JobManager(projects={"test": _project()})
     job = PipelineJob(manager, "test-job")
 
-    with patch("prepare_lora_kit.networks.registry.load", return_value=MagicMock()), \
-            patch.dict("prepare_lora_kit.ui.runner.STEP_INVOKE_MAP", invoke_map, clear=True):
+    with patch("prepare_lora_kit.networks.network_registry.load", return_value=MagicMock()), \
+            patch.dict("prepare_lora_kit_ui.runner.STEP_INVOKE_MAP", invoke_map, clear=True):
         manager._execute(job, _run_request(tmp_path, out))
 
     assert calls == ["CurateStep", "CaptionStep", "VaeGateStep", "AuditStep", "ConfigGenStep"]
@@ -264,8 +264,8 @@ def test_ui_force_run_starts_active_pipeline_from_beginning(tmp_path):
     manager = JobManager(projects={"test": _project()})
     job = PipelineJob(manager, "test-job")
 
-    with patch("prepare_lora_kit.networks.registry.load", return_value=MagicMock()), \
-            patch.dict("prepare_lora_kit.ui.runner.STEP_INVOKE_MAP", invoke_map, clear=True):
+    with patch("prepare_lora_kit.networks.network_registry.load", return_value=MagicMock()), \
+            patch.dict("prepare_lora_kit_ui.runner.STEP_INVOKE_MAP", invoke_map, clear=True):
         manager._execute(job, _run_request(tmp_path, out, force=True))
 
     assert calls == _active_step_types()
@@ -310,8 +310,8 @@ def test_ui_run_pauses_for_step_config_and_applies_overrides(tmp_path):
 
     def run():
         try:
-            with patch("prepare_lora_kit.networks.registry.load", return_value=MagicMock()), \
-                    patch.dict("prepare_lora_kit.ui.runner.STEP_INVOKE_MAP", invoke_map, clear=True):
+            with patch("prepare_lora_kit.networks.network_registry.load", return_value=MagicMock()), \
+                    patch.dict("prepare_lora_kit_ui.runner.STEP_INVOKE_MAP", invoke_map, clear=True):
                 manager._execute(job, request)
         except Exception as exc:  # pragma: no cover - surfaced via assertion
             errors.append(exc)
@@ -358,8 +358,8 @@ def test_ui_run_failure_stops_before_downstream_steps(tmp_path):
     request = _run_request(tmp_path, out)
     request["steps"] = ["ImportStep", "QualityGateStep", "CurateStep"]
 
-    with patch("prepare_lora_kit.networks.registry.load", return_value=MagicMock()), \
-            patch.dict("prepare_lora_kit.ui.runner.STEP_INVOKE_MAP", invoke_map, clear=True), \
+    with patch("prepare_lora_kit.networks.network_registry.load", return_value=MagicMock()), \
+            patch.dict("prepare_lora_kit_ui.runner.STEP_INVOKE_MAP", invoke_map, clear=True), \
             pytest.raises(RuntimeError, match="quality failed"):
         manager._execute(job, request)
 
@@ -432,7 +432,7 @@ def test_static_server_serves_downscaled_variant_with_caching(tmp_path):
     from urllib.error import HTTPError
     from urllib.request import Request
 
-    from prepare_lora_kit.ui import media
+    from prepare_lora_kit_ui import media
 
     media.clear_cache()
     static_dir = tmp_path / "static"
@@ -499,7 +499,7 @@ def test_ui_interaction_provider_emits_vae_review_payload(tmp_path):
             self.payload = payload
             return {"decisions": {payload["items"][0]["path"]: "drop"}}
 
-    from prepare_lora_kit.ui.runner import UiInteractionProvider
+    from prepare_lora_kit_ui.runner import UiInteractionProvider
 
     job = FakeJob()
     provider = UiInteractionProvider(job, media_base_url="http://127.0.0.1:9999/media")
@@ -554,7 +554,7 @@ def test_ui_interaction_provider_emits_curate_details_payload(tmp_path):
             self.payload = payload
             return {"confirmed": True}
 
-    from prepare_lora_kit.ui.runner import UiInteractionProvider
+    from prepare_lora_kit_ui.runner import UiInteractionProvider
 
     job = FakeJob()
     provider = UiInteractionProvider(job, media_base_url="http://127.0.0.1:9999/media")
@@ -599,7 +599,7 @@ def test_ui_interaction_provider_resolves_coverage_points_to_media_uris(tmp_path
             self.payload = payload
             return {"confirmed": True}
 
-    from prepare_lora_kit.ui.runner import UiInteractionProvider
+    from prepare_lora_kit_ui.runner import UiInteractionProvider
 
     job = FakeJob()
     provider = UiInteractionProvider(job, media_base_url="http://127.0.0.1:9999/media")

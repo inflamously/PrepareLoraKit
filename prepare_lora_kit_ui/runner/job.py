@@ -5,7 +5,7 @@ import threading
 import uuid
 from typing import Any
 
-from ...cancellation import CancelledRun
+from prepare_lora_kit.cancellation import CancelledRun
 from .constants import TERMINAL_STATUSES
 
 
@@ -50,11 +50,11 @@ class PipelineJob:
             self._condition.notify_all()
 
     def set_status(
-        self,
-        status: str,
-        *,
-        current_step: str | None = None,
-        current_substep: str | None = None,
+            self,
+            status: str,
+            *,
+            current_step: str | None = None,
+            current_substep: str | None = None,
     ) -> None:
         with self._condition:
             self.status = status

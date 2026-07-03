@@ -6,10 +6,11 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
-from ...paths import PROJECT_ROOT
-from ...project.base import ProjectConfig
-from ...project.steps import OPTIONAL_STEP_TYPES, STEP_PREREQUISITES, substep_payloads
-from ...utils.state import RunState
+from prepare_lora_kit_ui.paths import PROJECT_ROOT
+from prepare_lora_kit_pipeline.configuration import OPTIONAL_STEP_TYPES, STEP_PREREQUISITES
+from prepare_lora_kit.project.base import ProjectConfig
+from prepare_lora_kit.project.pipeline import substep_payloads
+from prepare_lora_kit.utils.state import RunState
 from .recommendations import upscale_attention
 
 
@@ -61,9 +62,9 @@ _RUNNING_JOB_STATUSES = {"queued", "running", "waiting_input", "starting"}
 
 
 def project_status(
-    project: ProjectConfig,
-    output_dir: Path | None = None,
-    live_status: str | None = None,
+        project: ProjectConfig,
+        output_dir: Path | None = None,
+        live_status: str | None = None,
 ) -> str:
     """Derive a coarse library badge status for a project.
 
@@ -88,7 +89,7 @@ def project_status(
         step.type for step in project.pipeline if step.type not in OPTIONAL_STEP_TYPES
     ]
     if required and all(
-        state.get(step_type).get("status") == "done" for step_type in required
+            state.get(step_type).get("status") == "done" for step_type in required
     ):
         return "completed"
     return "draft"

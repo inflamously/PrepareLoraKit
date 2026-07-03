@@ -3,7 +3,7 @@ from io import BytesIO
 
 from PIL import Image
 
-from prepare_lora_kit.ui import media
+from prepare_lora_kit_ui import media
 
 
 def _write_image(path, size, color="red", mode="RGB"):

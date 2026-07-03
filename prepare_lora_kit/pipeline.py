@@ -6,17 +6,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from .cancellation import CancelCheck, check_cancel
-from .invoke import STEP_INVOKE_MAP
-from .paths import PROJECT_ROOT
-from .project.base import ProjectConfig
-from .project.steps import (
-    RESUME_AWARE_STEP_TYPES,
-    enabled_substep_ids,
-    mark_legacy_import_satisfied,
-)
-from .utils import report as rpt
-from .utils.state import RunState
+from prepare_lora_kit.cancellation import CancelCheck, check_cancel
+from prepare_lora_kit.invoke import STEP_INVOKE_MAP
+from prepare_lora_kit.networks import network_registry
+from prepare_lora_kit.paths import PROJECT_ROOT
+from prepare_lora_kit_pipeline.configuration import RESUME_AWARE_STEP_TYPES
+from prepare_lora_kit.project.base import ProjectConfig
+from prepare_lora_kit.project.pipeline import mark_legacy_import_satisfied, enabled_substep_ids
+from prepare_lora_kit.utils import report
+from prepare_lora_kit.utils.state import RunState
 
 
 @dataclass
@@ -41,8 +39,7 @@ def run_all(cfg: RunConfig) -> None:
     makes. Subsequent steps mutate that working dir in place. Every step's JSON
     report lands in output_dir/reports/. Re-run from original any time with --force.
     """
-    from .networks import registry as net_registry
-    network = net_registry.load(cfg.project.network)
+    network = network_registry.load(cfg.project.network)
 
     original_dir = cfg.dataset_dir
     output_dir = cfg.resolved_output_dir
@@ -59,7 +56,7 @@ def run_all(cfg: RunConfig) -> None:
         # Honor an existing working dataset even under --force, so a forced re-run
         # never rmtree's the dataset (and the hand-drawn boxes in it) via ImportStep.
         if key == "ImportStep" and mark_legacy_import_satisfied(state, output_dir):
-            rpt.info("ImportStep satisfied by existing working dataset.")
+            report.info("ImportStep satisfied by existing working dataset.")
             return True
         if force:
             return False
@@ -68,7 +65,7 @@ def run_all(cfg: RunConfig) -> None:
         if key in RESUME_AWARE_STEP_TYPES:
             return False
         if state.is_done(key):
-            rpt.info(f"{key} already done — skipping (use --force to re-run).")
+            report.info(f"{key} already done — skipping (use --force to re-run).")
             return True
         return False
 
@@ -96,9 +93,9 @@ def run_all(cfg: RunConfig) -> None:
         )
         check_cancel(cfg.cancel_check)
         if step.type == "AuditStep" and isinstance(result, dict) and not result.get("pass"):
-            rpt.warn("Integrity audit found issues — review reports/AuditStep_report.json before training.")
+            report.warn("Integrity audit found issues — review reports/AuditStep_report.json before training.")
         for substep_id in enabled_substeps:
             state.mark_substep_done(step.type, substep_id)
         state.mark_done(step.type, {"enabled_substeps": enabled_substeps})
 
-    rpt.ok("Pipeline complete. Review reports and run_config.yaml before training.")
+    report.ok("Pipeline complete. Review reports and run_config.yaml before training.")

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from ...paths import PROJECT_ROOT
+from prepare_lora_kit.paths import PROJECT_ROOT
 
 
 @dataclass

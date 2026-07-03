@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from ...project.base import ProjectConfig
+from prepare_lora_kit.project.base import ProjectConfig
 from .constants import MOCK_TOKEN
 
 

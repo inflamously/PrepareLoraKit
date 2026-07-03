@@ -1,5 +1,5 @@
-from prepare_lora_kit.ui.bridge import UiBridge
-from prepare_lora_kit.ui.e2e import create_mock_ui_fixture
+from prepare_lora_kit_ui.bridge import UiBridge
+from prepare_lora_kit_ui.e2e import create_mock_ui_fixture
 
 
 def test_bridge_exposes_in_memory_mock_project(tmp_path):

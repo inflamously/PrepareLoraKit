@@ -11,8 +11,9 @@ from urllib.parse import parse_qs, urlparse
 
 import click
 
+from prepare_lora_kit.paths import PROJECT_ROOT
+from prepare_lora_kit_ui import media
 from ._shared import cli
-
 
 _IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tiff", ".tif"}
 
@@ -87,8 +88,6 @@ class _StaticHandler(SimpleHTTPRequestHandler):
             self.end_headers()
             return
 
-        from ..ui import media
-
         try:
             body, content_type = media.render_variant(path, width)
         except Exception:
@@ -135,10 +134,10 @@ def _static_server(static_dir):
     help="Coverage branch to exercise for --mock CurateStep runs.",
 )
 def ui(
-    debug: bool,
-    mock_step: str | None,
-    mock_output: Path | None,
-    mock_curate_coverage: str,
+        debug: bool,
+        mock_step: str | None,
+        mock_output: Path | None,
+        mock_curate_coverage: str,
 ) -> None:
     """Launch the PrepareLoraKit desktop UI."""
     try:
@@ -148,9 +147,8 @@ def ui(
             "pywebview is not installed. Install requirements or run: pip install pywebview"
         ) from exc
 
-    from ..paths import PACKAGE_ROOT
-    from ..ui.dev_fixture import create_mock_ui_fixture
-    from ..ui.bridge import UiBridge
+    from prepare_lora_kit_ui.dev_fixture import create_mock_ui_fixture
+    from prepare_lora_kit_ui.bridge import UiBridge
 
     projects = None
     bootstrap = None
@@ -166,7 +164,7 @@ def ui(
         projects = {fixture.project.name: fixture.project}
         bootstrap = fixture.bootstrap_payload()
 
-    index = PACKAGE_ROOT / "ui" / "static" / "index.html"
+    index = PROJECT_ROOT / "prepare_lora_kit_ui" / "static" / "index.html"
     if not index.exists():
         raise click.ClickException(f"UI asset is missing: {index}")
 
@@ -186,6 +184,7 @@ def ui(
         height=860,
         min_size=(1040, 680),
     )
+
     def _shutdown_on_close(*_args) -> None:
         bridge.shutdown()
 

@@ -6,7 +6,7 @@ import shutil
 
 from PIL import Image, ImageDraw
 
-from ...project.base import STEP_TYPE_MAP
+from prepare_lora_kit_pipeline.configuration import STEP_TYPE_MAP
 from .constants import (
     FIXTURE_MARKER,
     MOCK_DUPLICATE_NAME,
@@ -16,7 +16,6 @@ from .constants import (
     MOCK_SOURCE_SPECS,
     MOCK_TOKEN,
 )
-
 
 _IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tiff", ".tif"}
 
@@ -38,14 +37,14 @@ def reset_dir(path: Path) -> None:
 
 
 def write_source_images(
-    input_dir: Path,
-    *,
-    include_pca_set: bool = False,
-    include_umap_set: bool = False,
+        input_dir: Path,
+        *,
+        include_pca_set: bool = False,
+        include_umap_set: bool = False,
 ) -> None:
     for index, (name, size, color, _survives_quality) in enumerate(
-        MOCK_SOURCE_SPECS,
-        start=1,
+            MOCK_SOURCE_SPECS,
+            start=1,
     ):
         image = mock_image(size, color, f"PLK {index}")
         image.save(input_dir / name)
@@ -66,9 +65,9 @@ def write_source_images(
 
 
 def mock_image(
-    size: tuple[int, int],
-    color: tuple[int, int, int],
-    label: str,
+        size: tuple[int, int],
+        color: tuple[int, int, int],
+        label: str,
 ) -> Image.Image:
     image = Image.new("RGB", size, color)
     draw = ImageDraw.Draw(image)
@@ -117,9 +116,9 @@ def mock_dense_image(index: int, *, prefix: str) -> Image.Image:
 
 
 def seed_working_dataset(
-    input_dir: Path,
-    working_dir: Path,
-    selected_steps: list[str],
+        input_dir: Path,
+        working_dir: Path,
+        selected_steps: list[str],
 ) -> None:
     if "ImportStep" in selected_steps:
         return

@@ -3,8 +3,8 @@ from typing import Any
 
 import yaml
 
+from prepare_lora_kit.utils.registry import ConfigRegistry
 from .base import ProjectConfig
-from ..utils.registry import ConfigRegistry
 
 _registry: ConfigRegistry[ProjectConfig] = ConfigRegistry(
     kind="project",

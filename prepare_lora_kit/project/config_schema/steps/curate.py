@@ -1,7 +1,7 @@
 """Editable config fields for CurateStep."""
 from __future__ import annotations
 
-from ....embedding import catalog
+from prepare_lora_kit.embedding import catalog
 from ..fields import FieldSpec, _check, _number, _select
 
 STEP_TYPE = "CurateStep"

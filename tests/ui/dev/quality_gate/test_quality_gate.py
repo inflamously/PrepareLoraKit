@@ -1,11 +1,11 @@
 import json
 
-from prepare_lora_kit.ui.e2e import create_mock_ui_fixture
-from prepare_lora_kit.ui.runner import JobManager, PipelineJob
+from prepare_lora_kit_ui.e2e import create_mock_ui_fixture
+from prepare_lora_kit_ui.runner import JobManager, PipelineJob
 
 
 def test_mock_project_quality_gate_runs_with_good_and_bad_images(tmp_path, monkeypatch):
-    import prepare_lora_kit.ui.runner as runner
+    import prepare_lora_kit_ui.runner as runner
 
     class FakeInteractionProvider:
         def __init__(self, job, media_base_url=None):

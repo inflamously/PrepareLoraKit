@@ -1,7 +1,7 @@
 """Background runner package for the webview app."""
 from __future__ import annotations
 
-from ...invoke import STEP_INVOKE_MAP
+from prepare_lora_kit.invoke import STEP_INVOKE_MAP
 from .constants import TERMINAL_STATUSES
 from .interactions import UiInteractionProvider
 from .job import PipelineJob

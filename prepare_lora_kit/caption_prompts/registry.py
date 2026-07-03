@@ -1,7 +1,7 @@
 """Global caption prompt library: list/load/save/delete named prompts.
 
 Prompts are stored as one YAML file per entry under ``configs/caption_prompts/``,
-mirroring the project/network registries (see :mod:`..project.registry`). The
+mirroring the project/network registries (see :mod:`..project.project_registry`). The
 library is *global* — shared across every project — so a prompt saved once can be
 reused for any run.
 
@@ -22,7 +22,7 @@ from pathlib import Path
 
 import yaml
 
-from ..paths import CONFIGS_DIR
+from prepare_lora_kit.paths import CONFIGS_DIR
 
 KINDS = ("full_image", "region")
 _PROMPTS_DIR = CONFIGS_DIR / "caption_prompts"
