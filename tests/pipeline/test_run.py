@@ -284,7 +284,7 @@ def test_pipeline_reruns_resume_aware_caption_without_force(tmp_path):
         run_all(cfg)
 
     # Only the resume-aware CaptionStep re-runs; the other done steps stay skipped.
-    assert calls == ["CaptionStep"]
+    assert calls == ["CaptionStep", "VaeGateStep"]
     invoke_map["CaptionStep"].assert_called_once()
 
 

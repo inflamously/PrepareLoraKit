@@ -1,0 +1,4 @@
+interface:
+  display_name: "Map Codebase"
+  short_description: "Build an HTML import/definition map"
+  default_prompt: "Use $map-codebase to generate docs/code-map.html for this repository and report the resolution check results."
