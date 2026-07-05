@@ -186,14 +186,11 @@ def test_pipeline_skips_import_for_existing_legacy_working_dataset(tmp_path):
     invoke_map["ImportStep"].assert_not_called()
 
 
-def test_pipeline_force_resets_state_but_keeps_working_dataset(tmp_path):
+def test_pipeline_force_reimports_from_original(tmp_path):
     calls = []
     output_dir = tmp_path / "out"
     working = output_dir / "dataset"
     working.mkdir(parents=True)
-    # A hand-drawn bbox sidecar in the working dataset must survive a forced re-run.
-    boxes = working / "plk_bbox__image__boxes.json"
-    boxes.write_text("[]", encoding="utf-8")
 
     all_steps = [
         "ImportStep",
@@ -231,10 +228,10 @@ def test_pipeline_force_resets_state_but_keeps_working_dataset(tmp_path):
             patch.dict("prepare_lora_kit.pipeline.STEP_INVOKE_MAP", invoke_map, clear=True):
         run_all(cfg)
 
-    # --force reset the manifest so every previously-done step re-runs, EXCEPT
-    # ImportStep — it is satisfied by the existing working dataset and never
-    # re-invoked, so it can't rmtree the hand-drawn boxes it holds.
+    # --force reset the manifest so every previously-done step re-runs, including
+    # ImportStep, which re-seeds the working dataset from the original.
     assert calls == [
+        "ImportStep",
         "QualityGateStep",
         "CurateStep",
         "UpscaleStep",
@@ -244,8 +241,7 @@ def test_pipeline_force_resets_state_but_keeps_working_dataset(tmp_path):
         "ConfigGenStep",
         "BucketDryRunStep",
     ]
-    invoke_map["ImportStep"].assert_not_called()
-    assert boxes.exists()
+    invoke_map["ImportStep"].assert_called_once()
 
 
 def test_pipeline_reruns_resume_aware_caption_without_force(tmp_path):

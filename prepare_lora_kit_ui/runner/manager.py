@@ -161,8 +161,8 @@ class JobManager:
         state = RunState(output_dir)
         if force:
             # --force is a full reset: clear the manifest so every selected step
-            # re-runs. The ImportStep skip below still honors an existing working
-            # dataset, so the hand-drawn bbox sidecars in it are never wiped.
+            # re-runs, including ImportStep, which re-seeds the working dataset
+            # from the original (discarding any prior working dataset).
             state.reset()
         from . import UiInteractionProvider
 
@@ -208,10 +208,10 @@ class JobManager:
                 current_step=step.type,
                 current_substep=enabled_substeps[0] if enabled_substeps else None,
             )
-            # Honor an existing working dataset even under --force, so a forced
-            # re-run never rmtree's it (and the hand-drawn boxes it holds) by
-            # re-importing.
-            if step.type == "ImportStep" and mark_legacy_import_satisfied(
+            # Without --force, honor an existing working dataset that predates the
+            # ImportStep so a plain re-run never rmtree's it (and the hand-drawn
+            # boxes it holds) by re-importing. --force re-imports.
+            if not force and step.type == "ImportStep" and mark_legacy_import_satisfied(
                     state, cfg.resolved_output_dir
             ):
                 job.skipped_steps.append(step.type)

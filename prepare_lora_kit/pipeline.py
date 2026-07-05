@@ -47,19 +47,20 @@ def run_all(cfg: RunConfig) -> None:
     force = cfg.force
     state = RunState(output_dir)
     if force:
-        # --force is a full reset: clear the manifest so every step re-runs. The
-        # ImportStep check below still short-circuits re-import when a working
-        # dataset already exists, so the hand-drawn bbox sidecars it holds survive.
+        # --force is a full reset: clear the manifest so every step re-runs,
+        # including ImportStep, which re-seeds the working dataset from the
+        # original (discarding any prior working dataset and its bbox sidecars).
         state.reset()
 
     def _skip(key: str) -> bool:
-        # Honor an existing working dataset even under --force, so a forced re-run
-        # never rmtree's the dataset (and the hand-drawn boxes in it) via ImportStep.
+        if force:
+            return False
+        # Without --force, honor an existing working dataset that predates the
+        # ImportStep so a plain re-run never rmtree's the dataset (and the
+        # hand-drawn boxes in it) by re-importing.
         if key == "ImportStep" and mark_legacy_import_satisfied(state, output_dir):
             report.info("ImportStep satisfied by existing working dataset.")
             return True
-        if force:
-            return False
         # Resume-aware steps self-determine pending work each run, so they are never
         # skipped on is_done — that is what lets CaptionStep resume without --force.
         if key in RESUME_AWARE_STEP_TYPES:

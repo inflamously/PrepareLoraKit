@@ -272,6 +272,26 @@ def test_ui_force_run_starts_active_pipeline_from_beginning(tmp_path):
     assert job.snapshot()["skipped_steps"] == []
 
 
+def test_ui_force_run_reimports_existing_working_dataset(tmp_path):
+    out = tmp_path / "out"
+    (out / "dataset").mkdir(parents=True)
+    state = RunState(out)
+    for step_type in _active_step_types():
+        state.mark_done(step_type)
+    calls: list[str] = []
+    invoke_map = _invoke_map(calls)
+    manager = JobManager(projects={"test": _project()})
+    job = PipelineJob(manager, "test-job")
+
+    with patch("prepare_lora_kit.networks.network_registry.load", return_value=MagicMock()), \
+            patch.dict("prepare_lora_kit_ui.runner.STEP_INVOKE_MAP", invoke_map, clear=True):
+        manager._execute(job, _run_request(tmp_path, out, force=True))
+
+    # --force re-imports even when a working dataset already exists.
+    assert calls == _active_step_types()
+    assert job.snapshot()["skipped_steps"] == []
+
+
 def _wait_for_pending(job, kind, timeout=5.0):
     deadline = time.time() + timeout
     while time.time() < deadline:
