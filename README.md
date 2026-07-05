@@ -319,7 +319,7 @@ Add a new pipeline step:
 1. Add a step config dataclass under `prepare_lora_kit/project/configs/`.
 2. Register it in `STEP_TYPE_MAP` in `prepare_lora_kit/project/steps.py`.
 3. Implement the step module under `prepare_lora_kit/steps/`.
-4. Add an invoke adapter in `prepare_lora_kit/invoke.py`.
+4. Add an invoke adapter module in `prepare_lora_kit/invoke/`.
 5. Add any ordering rules to `STEP_PREREQUISITES`.
 
 ## Development Notes

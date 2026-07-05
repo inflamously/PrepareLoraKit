@@ -53,7 +53,7 @@ not a single switch.
 **Flow:** `cli/` (Click commands) → loads `ProjectConfig` (`project/registry.py`) and a
 `NetworkProfile` (`networks/registry.py`) → `pipeline.run_all(RunConfig)` iterates
 `project.pipeline`, skipping done steps via `utils/state.RunState` (`.plk_state.json`) →
-for each step calls `STEP_INVOKE_MAP[step.type]` in `invoke.py` → the adapter imports the
+for each step calls `STEP_INVOKE_MAP[step.type]` in `invoke/` → the adapter imports the
 matching `steps/sN_*/` module and calls its `run()`. The original dataset is never mutated;
 only `output_dir/dataset/` is. The UI runs the *same* pipeline through `ui/runner/` +
 `ui/bridge.py` instead of the CLI.
@@ -120,4 +120,4 @@ for `--mock`.
 3. Register in `STEP_TYPE_MAP` and add ordering to `STEP_PREREQUISITES`
    (`project/pipeline/steps.py`).
 4. Implement the step under `steps/sN_<name>/step.py` with a `run()` entry point.
-5. Add an invoke adapter + `STEP_INVOKE_MAP` entry in `invoke.py`.
+5. Add an invoke adapter module under `invoke/` + its `STEP_INVOKE_MAP` entry in `invoke/__init__.py`.
