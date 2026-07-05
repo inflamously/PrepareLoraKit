@@ -26,7 +26,7 @@ STEP_PREREQUISITES: dict[str, list[str]] = {
     "AuditStep": ["CaptionStep"],
     "ConfigGenStep": ["AuditStep"],
     "BucketDryRunStep": ["ConfigGenStep"],
-    "ExportStep": ["CaptionStep"],
+    "ExportStep": [],
 }
 
 STEP_ORDER_INDEX = {step_type: index for index, step_type in enumerate(STEP_ORDER)}

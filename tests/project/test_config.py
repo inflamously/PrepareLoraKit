@@ -198,7 +198,7 @@ def test_step_prerequisites_allow_optional_upscale_step():
         "AuditStep": ["CaptionStep"],
         "ConfigGenStep": ["AuditStep"],
         "BucketDryRunStep": ["ConfigGenStep"],
-        "ExportStep": ["CaptionStep"],
+        "ExportStep": [],
     }
 
 
