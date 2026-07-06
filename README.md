@@ -10,6 +10,9 @@ The package installs a `plk` command via `pyproject.toml`. During local
 development, the same CLI can also be launched with `python3 main.py` on POSIX
 shells, or `python main.py` on Windows shells where `python` is available.
 
+If you need a quick orientation before reading code, start with the small
+project graph in [`docs/project-graph.md`](docs/project-graph.md).
+
 ## Core Workflow
 
 The main workflow is:

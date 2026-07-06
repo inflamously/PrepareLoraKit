@@ -1,0 +1,4 @@
+interface:
+  display_name: "Project Orientation Graph"
+  short_description: "Make a small readable repo connection map"
+  default_prompt: "Use $project-orientation-graph to create a small orientation map for this codebase."
