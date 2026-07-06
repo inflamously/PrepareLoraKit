@@ -9,13 +9,12 @@ from __future__ import annotations
 
 import click
 
-from prepare_lora_kit_pipeline.configuration import STEP_PREREQUISITES
+from prepare_lora_kit_pipeline.configuration import step_config_class, step_prerequisites
 from .._shared import cli, cli_option_input, cli_option_output, cli_option_token
 from .bbox import build_bbox_interaction
 from .resolve import _load_project, _resolve_step_type
 from ...invoke import STEP_INVOKE_MAP
 from ...pipeline import RunConfig
-from ...project.base import STEP_TYPE_MAP
 from ...project.steps import (
     default_substeps_for,
     enabled_substep_ids,
@@ -62,7 +61,10 @@ def step(ctx, step_name, project_name, input_dir, output_dir, token, force,
     if match is not None:
         config = match.config
     else:
-        config = STEP_TYPE_MAP[step_type]()
+        config_cls = step_config_class(step_type)
+        if config_cls is None:
+            raise click.ClickException(f"Unknown step type {step_type}")
+        config = config_cls()
         click.echo(f"'{step_type}' not defined in project '{project.name}' "
                    f"pipeline — using built-in defaults.")
 
@@ -95,7 +97,7 @@ def step(ctx, step_name, project_name, input_dir, output_dir, token, force,
     if not force:
         if mark_legacy_import_satisfied(state, out_dir):
             rpt.info("ImportStep satisfied by existing working dataset.")
-        for req in STEP_PREREQUISITES.get(step_type, []):
+        for req in step_prerequisites(step_type):
             if not state.is_done(req):
                 raise click.ClickException(f"{step_type} requires completed prerequisite {req}")
 

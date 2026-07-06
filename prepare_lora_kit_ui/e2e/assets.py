@@ -6,7 +6,7 @@ import shutil
 
 from PIL import Image, ImageDraw
 
-from prepare_lora_kit_pipeline.configuration import STEP_TYPE_MAP
+from prepare_lora_kit_pipeline.configuration import step_types
 from .constants import (
     FIXTURE_MARKER,
     MOCK_DUPLICATE_NAME,
@@ -123,8 +123,9 @@ def seed_working_dataset(
     if "ImportStep" in selected_steps:
         return
     working_dir.mkdir(parents=True, exist_ok=True)
-    first_index = min(list(STEP_TYPE_MAP).index(step) for step in selected_steps)
-    quality_index = list(STEP_TYPE_MAP).index("QualityGateStep")
+    ordered_steps = list(step_types())
+    first_index = min(ordered_steps.index(step) for step in selected_steps)
+    quality_index = ordered_steps.index("QualityGateStep")
     names = (
         quality_survivor_names(input_dir)
         if first_index > quality_index

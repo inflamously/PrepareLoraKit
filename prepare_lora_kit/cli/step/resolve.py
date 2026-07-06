@@ -8,7 +8,7 @@ from __future__ import annotations
 import click
 
 from prepare_lora_kit.project import project_registry
-from ...project.base import STEP_TYPE_MAP
+from prepare_lora_kit_pipeline.configuration import step_types
 from ...project.steps import step_aliases
 
 _STEP_ALIASES = step_aliases()
@@ -19,12 +19,12 @@ def _resolve_step_type(raw: str) -> str:
     low = raw.strip().lower()
     if low in _STEP_ALIASES:
         return _STEP_ALIASES[low]
-    for t in STEP_TYPE_MAP:
+    for t in step_types():
         if t.lower() == low:
             return t
     raise click.BadParameter(
         f"Unknown step '{raw}'.\n"
-        f"  Types:   {', '.join(STEP_TYPE_MAP)}",
+        f"  Types:   {', '.join(step_types())}",
         param_hint="--step",
     )
 

@@ -5,7 +5,12 @@ from pathlib import Path
 from typing import Any, Optional
 import yaml
 
-from prepare_lora_kit_pipeline.configuration import STEP_TYPE_MAP, STEP_ORDER_INDEX, STEP_PREREQUISITES
+from prepare_lora_kit_pipeline.configuration import (
+    step_config_class,
+    step_definition,
+    step_prerequisites,
+    step_types,
+)
 from prepare_lora_kit_pipeline.configs import ScorerEntry
 from .steps import (
     PipelineSubstep,
@@ -42,19 +47,20 @@ class ProjectConfig:
         previous_index = -1
         for step in self.pipeline:
             t = step.type
-            if t not in STEP_TYPE_MAP:
+            definition = step_definition(t)
+            if definition is None:
                 raise ValueError(
-                    f"Unknown step type '{t}'. Known types: {', '.join(sorted(STEP_TYPE_MAP))}"
+                    f"Unknown step type '{t}'. Known types: {', '.join(sorted(step_types()))}"
                 )
             if t in seen:
                 raise ValueError(f"Duplicate step type '{t}' in pipeline.")
-            index = STEP_ORDER_INDEX[t]
+            index = definition.order
             if index <= previous_index:
                 raise ValueError(
                     f"Step '{t}' appears out of order. Expected pipeline order: "
-                    f"{', '.join(STEP_TYPE_MAP)}"
+                    f"{', '.join(step_types())}"
                 )
-            for req in STEP_PREREQUISITES.get(t, []):
+            for req in step_prerequisites(t):
                 if req not in seen:
                     raise ValueError(
                         f"'{t}' requires '{req}' to appear earlier in the pipeline."
@@ -82,11 +88,11 @@ class ProjectConfig:
             raw = dict(raw)
             step_type = raw.pop("type")
             raw_substeps = raw.pop("substeps", None)
-            config_cls = STEP_TYPE_MAP.get(step_type)
+            config_cls = step_config_class(step_type)
             if config_cls is None:
                 raise ValueError(
                     f"Unknown step type '{step_type}'. "
-                    f"Known: {', '.join(sorted(STEP_TYPE_MAP))}"
+                    f"Known: {', '.join(sorted(step_types()))}"
                 )
             # Type-specific coercions
             if step_type == "QualityGateStep" and raw.get("scorers") is not None:
@@ -117,7 +123,10 @@ def _normalize_raw_pipeline(raw_pipeline: list[dict[str, Any]]) -> list[dict[str
 
 def _normalize_pipeline_steps(pipeline: list[PipelineStep]) -> list[PipelineStep]:
     if pipeline and pipeline[0].type == "QualityGateStep":
-        import_config = STEP_TYPE_MAP["ImportStep"]()
+        import_config_cls = step_config_class("ImportStep")
+        if import_config_cls is None:
+            raise ValueError("Unknown step type 'ImportStep'.")
+        import_config = import_config_cls()
         import_step = PipelineStep(
             type="ImportStep",
             config=import_config,

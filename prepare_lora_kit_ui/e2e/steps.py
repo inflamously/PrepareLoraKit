@@ -1,7 +1,7 @@
 """Step selection helpers for UI end-to-end mock fixtures."""
 from __future__ import annotations
 
-from prepare_lora_kit_pipeline.configuration import STEP_TYPE_MAP
+from prepare_lora_kit_pipeline.configuration import step_types
 
 
 def resolve_mock_steps(raw: str) -> list[str]:
@@ -9,12 +9,12 @@ def resolve_mock_steps(raw: str) -> list[str]:
     if not value:
         raise ValueError("Mock step cannot be empty")
     if value.lower() == "all":
-        return list(STEP_TYPE_MAP)
+        return list(step_types())
 
     lowered = value.lower()
-    for step_type in STEP_TYPE_MAP:
+    for step_type in step_types():
         if step_type.lower() == lowered:
             return [step_type]
 
-    known = ", ".join(["all", *STEP_TYPE_MAP])
+    known = ", ".join(["all", *step_types()])
     raise ValueError(f"Unknown mock step '{raw}'. Known: {known}")

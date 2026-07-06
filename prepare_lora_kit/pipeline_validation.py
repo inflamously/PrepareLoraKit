@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from prepare_lora_kit_pipeline.configuration import STEP_PREREQUISITES
+from prepare_lora_kit_pipeline.configuration import step_prerequisites
 
 from .project.base import ProjectConfig
 from .project.pipeline import (
@@ -43,7 +43,7 @@ def validate_pipeline_selection(
             raise PipelineValidationError(f"{step_type} has no enabled substeps")
         _validate_substep_prerequisites(step_type, enabled_substeps)
 
-        for req in STEP_PREREQUISITES.get(step_type, []):
+        for req in step_prerequisites(step_type):
             if req not in selected and not is_step_satisfied(req, state, output_dir):
                 raise PipelineValidationError(
                     f"{step_type} requires completed or selected prerequisite {req}"

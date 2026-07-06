@@ -60,12 +60,13 @@ and `prepare_lora_kit_ui/bridge.py` instead of the CLI.
 `quality_gate` (QualityGateStep), `curate` (CurateStep), `upscale` (UpscaleStep, optional),
 `caption_bbox` (CaptionBboxStep), `vae_gate` (VaeGateStep), `audit` (AuditStep),
 `bucket_pools_check` (BucketPoolsCheckStep), and `export_step` (ExportStep, optional). The
-canonical order and direct dependencies live in `STEP_ORDER` and `STEP_PREREQUISITES`.
+canonical order and direct dependencies live in `STEP_DEFINITIONS`.
 
 **Step/substep registries** — the single source of truth is
 `prepare_lora_kit_pipeline/configuration.py` plus
-`prepare_lora_kit/project/pipeline/substeps.py`. Key tables: `STEP_TYPE_MAP`, `STEP_ORDER`,
-`STEP_PREREQUISITES`, `OPTIONAL_STEP_TYPES`, and `SUBSTEP_REGISTRY`. Ordering and direct
+`prepare_lora_kit/project/pipeline/substeps.py`. Key tables: `STEP_DEFINITIONS`
+and `SUBSTEP_REGISTRY`; callers should use the registry helper functions instead
+of importing derived step maps. Ordering and direct
 prerequisites are validated at config load; duplicate step types are rejected; legacy configs
 missing `ImportStep` get it inserted in memory.
 
@@ -106,7 +107,7 @@ fixtures for `--mock`.
 
 1. Add a runtime config dataclass in `prepare_lora_kit_pipeline/configs/`.
 2. Add a UI field schema in `project/config_schema/steps/`.
-3. Register in `STEP_TYPE_MAP` and add ordering to `STEP_PREREQUISITES`
-   (`prepare_lora_kit_pipeline/configuration.py`).
+3. Register the step in `STEP_DEFINITIONS` with its order, prerequisites, and
+   optional/resume flags (`prepare_lora_kit_pipeline/configuration.py`).
 4. Implement the step under `steps/<name>/step.py` with a `run()` entry point.
 5. Add an invoke adapter module under `invoke/` + its `STEP_INVOKE_MAP` entry in `invoke/__init__.py`.

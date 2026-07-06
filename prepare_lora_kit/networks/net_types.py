@@ -3,7 +3,7 @@ Adapter-network type registry (ai-toolkit style).
 
 Declares the supported adapter-network *types* (the trainable LoRA/LoKr/DoRA),
 each with the set of config fields that are meaningful for it. This is the single
-place new types are registered - mirrors the ``STEP_TYPE_MAP`` pattern in
+place new types are registered - mirrors the ``STEP_DEFINITIONS`` pattern in
 ``prepare_lora_kit_pipeline/configuration.py``.
 
 NOTE: this is the *adapter* network, not the base-model ``NetworkProfile`` in

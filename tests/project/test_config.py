@@ -1,6 +1,7 @@
 import yaml
 import pytest
 
+import prepare_lora_kit_pipeline.configuration as pipeline_configuration
 from prepare_lora_kit.steps.upscale.seedvr2_catalog import (
     DEFAULT_SEEDVR2_DIT_MODEL,
     SUPPORTED_SEEDVR2_DIT_MODELS,
@@ -8,7 +9,14 @@ from prepare_lora_kit.steps.upscale.seedvr2_catalog import (
     list_seedvr2_dit_models,
 )
 from prepare_lora_kit.project.base import ProjectConfig
-from prepare_lora_kit_pipeline.configuration import OPTIONAL_STEP_TYPES, STEP_PREREQUISITES
+from prepare_lora_kit_pipeline.configuration import (
+    STEP_DEFINITIONS,
+    is_optional_step_type,
+    is_resume_aware_step_type,
+    step_config_class,
+    step_prerequisites,
+    step_types,
+)
 from prepare_lora_kit.project import project_registry
 from prepare_lora_kit_pipeline.configs import UpscaleConfig
 from prepare_lora_kit_ui.runner import project_payload
@@ -182,7 +190,13 @@ pipeline:
 
 
 def test_step_prerequisites_allow_optional_upscale_step():
-    assert STEP_PREREQUISITES == {
+    prerequisites = {
+        step_type: list(step_prerequisites(step_type))
+        for step_type in step_types()
+        if step_prerequisites(step_type)
+    }
+
+    assert prerequisites == {
         "QualityGateStep": ["ImportStep"],
         "CurateStep": ["QualityGateStep"],
         "UpscaleStep": ["ImportStep"],
@@ -194,8 +208,27 @@ def test_step_prerequisites_allow_optional_upscale_step():
     }
 
 
+def test_step_definitions_drive_configuration_helpers():
+    ordered = tuple(
+        step_type
+        for step_type, definition in sorted(
+            STEP_DEFINITIONS.items(),
+            key=lambda item: item[1].order,
+        )
+    )
+
+    assert step_types() == ordered
+    for step_type, definition in STEP_DEFINITIONS.items():
+        assert step_config_class(step_type) is definition.config_cls
+        assert step_prerequisites(step_type) == definition.prerequisites
+        assert is_optional_step_type(step_type) is definition.optional
+        assert is_resume_aware_step_type(step_type) is definition.resume_aware
+
+
 def test_optional_step_types_marks_upscale_optional():
-    assert OPTIONAL_STEP_TYPES == {"UpscaleStep", "ExportStep"}
+    assert {
+               step_type for step_type in step_types() if is_optional_step_type(step_type)
+           } == {"UpscaleStep", "ExportStep"}
 
 
 def test_upscale_config_defaults_to_seedvr2():

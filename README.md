@@ -284,11 +284,11 @@ Add a new project preset:
 Add a new pipeline step:
 
 1. Add a step config dataclass under `prepare_lora_kit_pipeline/configs/`.
-2. Register it in `STEP_TYPE_MAP` in `prepare_lora_kit_pipeline/configuration.py`.
+2. Register it in `STEP_DEFINITIONS` in `prepare_lora_kit_pipeline/configuration.py`.
 3. Implement the step module under `prepare_lora_kit/steps/`.
 4. Add an invoke adapter module in `prepare_lora_kit/invoke/`.
 5. Add substeps to `prepare_lora_kit/project/pipeline/substeps.py`.
-6. Add any ordering rules to `STEP_PREREQUISITES`.
+6. Set its order, prerequisites, and optional/resume behavior in the step definition.
 
 ## Development Notes
 

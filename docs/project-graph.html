@@ -251,7 +251,7 @@ pre {
 <main>
   <section>
     <h2>App Connection Map</h2>
-    <p class="note">The central join is the step type string. Project YAML uses a type such as <code>CaptionBboxStep</code>; <code>STEP_TYPE_MAP</code> parses its config, and <code>STEP_INVOKE_MAP</code> chooses the adapter that runs it.</p>
+    <p class="note">The central join is the step type string. Project YAML uses a type such as <code>CaptionBboxStep</code>; <code>STEP_DEFINITIONS</code> names its config class, and <code>STEP_INVOKE_MAP</code> chooses the adapter that runs it.</p>
     <div class="map-wrap" aria-label="PrepareLoraKit app connection graph">
       <svg viewBox="0 0 1180 700" role="img">
         <defs>
@@ -333,7 +333,7 @@ pre {
         </g>
         <g class="node config" transform="translate(768 284)">
           <rect width="136" height="76"></rect>
-          <text class="title" x="14" y="27">STEP_TYPE_MAP</text>
+          <text class="title" x="14" y="27">STEP_DEFINITIONS</text>
           <text class="sub" x="14" y="49">config classes</text>
         </g>
         <g class="node config" transform="translate(768 378)">
@@ -463,7 +463,7 @@ pre {
     project_yaml[configs/projects/*.yaml]
     project_registry[project_registry]
     project_config[ProjectConfig]
-    step_type_map[STEP_TYPE_MAP]
+    step_definitions[STEP_DEFINITIONS]
     substeps[SUBSTEP_REGISTRY]
   end
 

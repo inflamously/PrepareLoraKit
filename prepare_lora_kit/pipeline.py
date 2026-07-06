@@ -9,7 +9,7 @@ from typing import Optional
 from prepare_lora_kit.cancellation import CancelCheck, check_cancel
 from prepare_lora_kit.invoke import STEP_INVOKE_MAP
 from prepare_lora_kit.paths import PROJECT_ROOT
-from prepare_lora_kit_pipeline.configuration import RESUME_AWARE_STEP_TYPES
+from prepare_lora_kit_pipeline.configuration import is_resume_aware_step_type
 from prepare_lora_kit.project.base import ProjectConfig
 from prepare_lora_kit.project.pipeline import (
     enabled_substep_ids,
@@ -69,7 +69,7 @@ def run_all(cfg: RunConfig) -> None:
             return True
         # Resume-aware steps self-determine pending work each run, so they are never
         # skipped on is_done — that is what lets CaptionBboxStep resume without --force.
-        if key in RESUME_AWARE_STEP_TYPES:
+        if is_resume_aware_step_type(key):
             return False
         if state.is_done(key):
             report.info(f"{key} already done — skipping (use --force to re-run).")

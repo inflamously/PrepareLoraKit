@@ -12,11 +12,11 @@ from prepare_lora_kit_pipeline.configs import (
     CaptionBboxConfig,
     VaeGateConfig,
 )
-from prepare_lora_kit_pipeline.configuration import STEP_TYPE_MAP
+from prepare_lora_kit_pipeline.configuration import step_types
 
 
 def test_schema_payload_is_json_able_for_every_step():
-    for step_type in STEP_TYPE_MAP:
+    for step_type in step_types():
         json.dumps(schema_payload(step_type))
 
 

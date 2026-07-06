@@ -7,7 +7,10 @@ from typing import Any
 from urllib.parse import quote
 
 from prepare_lora_kit_ui.paths import PROJECT_ROOT
-from prepare_lora_kit_pipeline.configuration import OPTIONAL_STEP_TYPES, STEP_PREREQUISITES
+from prepare_lora_kit_pipeline.configuration import (
+    is_optional_step_type,
+    step_prerequisites,
+)
 from prepare_lora_kit.project.base import ProjectConfig
 from prepare_lora_kit.project.pipeline import substep_payloads
 from prepare_lora_kit.utils.state import RunState
@@ -86,7 +89,7 @@ def project_status(
 
     state = RunState(output_dir)
     required = [
-        step.type for step in project.pipeline if step.type not in OPTIONAL_STEP_TYPES
+        step.type for step in project.pipeline if not is_optional_step_type(step.type)
     ]
     if required and all(
             state.get(step_type).get("status") == "done" for step_type in required
@@ -116,8 +119,8 @@ def project_payload(project: ProjectConfig, output_dir: Path | None = None) -> d
                 "type": step.type,
                 "config": _jsonable(step.config),
                 "status": state.get(step.type).get("status", "pending") if state else "pending",
-                "prerequisites": STEP_PREREQUISITES.get(step.type, []),
-                "optional": step.type in OPTIONAL_STEP_TYPES,
+                "prerequisites": list(step_prerequisites(step.type)),
+                "optional": is_optional_step_type(step.type),
                 "substeps": substep_payloads(step.type, step.substeps, state),
                 **_step_attention(step, scan_dir),
             }

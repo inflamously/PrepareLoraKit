@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from prepare_lora_kit_pipeline.configuration import STEP_TYPE_MAP
+from prepare_lora_kit_pipeline.configuration import step_types
 from prepare_lora_kit.utils.state import RunState
 from ..paths import PROJECT_ROOT
 from .assets import (
@@ -58,13 +58,15 @@ def create_mock_ui_fixture(
 
 
 def seed_state(output_dir: Path, selected_steps: list[str]) -> None:
-    first_index = min(list(STEP_TYPE_MAP).index(step) for step in selected_steps)
+    ordered_steps = list(step_types())
+    first_index = min(ordered_steps.index(step) for step in selected_steps)
     state = RunState(output_dir)
-    for step_type in list(STEP_TYPE_MAP)[:first_index]:
+    for step_type in ordered_steps[:first_index]:
         state.mark_done(step_type, {"mock_fixture": True})
 
 
 def needs_seeded_captions(selected_steps: list[str]) -> bool:
-    first_index = min(list(STEP_TYPE_MAP).index(step) for step in selected_steps)
-    caption_index = list(STEP_TYPE_MAP).index("CaptionBboxStep")
+    ordered_steps = list(step_types())
+    first_index = min(ordered_steps.index(step) for step in selected_steps)
+    caption_index = ordered_steps.index("CaptionBboxStep")
     return first_index > caption_index

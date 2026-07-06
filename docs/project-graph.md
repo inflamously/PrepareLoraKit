@@ -30,7 +30,7 @@ flowchart TD
     project_yaml[configs/projects/*.yaml]
     project_registry[project_registry]
     project_config[ProjectConfig]
-    step_type_map[STEP_TYPE_MAP]
+    step_definitions[STEP_DEFINITIONS]
     substeps[SUBSTEP_REGISTRY]
   end
 
@@ -67,7 +67,7 @@ flowchart TD
   bridge --> project_registry
   project_yaml --> project_registry
   project_registry --> project_config
-  project_config --> step_type_map
+  project_config --> step_definitions
   project_config --> substeps
 
   run_cmd --> pipeline
@@ -98,7 +98,7 @@ PrepareLoraKit has one pipeline engine with two ways to start it:
 - The actual work lives in named step packages under `prepare_lora_kit/steps/`.
 
 The important join is the step type string. A project YAML says
-`type: CaptionBboxStep`; `STEP_TYPE_MAP` says which config dataclass parses it; and
+`type: CaptionBboxStep`; `STEP_DEFINITIONS` says which config dataclass parses it; and
 `STEP_INVOKE_MAP` says which adapter runs it.
 
 ## Pipeline Stage Order

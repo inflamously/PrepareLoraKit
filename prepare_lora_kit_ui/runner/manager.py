@@ -14,7 +14,7 @@ from prepare_lora_kit.cancellation import CancelledRun
 from prepare_lora_kit.invoke import STEP_INVOKE_MAP
 from prepare_lora_kit.pipeline import RunConfig
 from prepare_lora_kit.pipeline_validation import validate_pipeline_selection
-from prepare_lora_kit_pipeline.configuration import RESUME_AWARE_STEP_TYPES
+from prepare_lora_kit_pipeline.configuration import is_resume_aware_step_type
 from prepare_lora_kit.project import project_registry
 from prepare_lora_kit.project.base import ProjectConfig
 from prepare_lora_kit.project.config_schema import has_schema, apply_overrides
@@ -224,7 +224,7 @@ class JobManager:
             # redoing everything, without needing --force.
             if (
                     not force
-                    and step.type not in RESUME_AWARE_STEP_TYPES
+                    and not is_resume_aware_step_type(step.type)
                     and state.is_done(step.type)
             ):
                 job.skipped_steps.append(step.type)
