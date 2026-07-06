@@ -5,6 +5,7 @@ import pytest
 from prepare_lora_kit.cancellation import CancelledRun
 from prepare_lora_kit.pipeline import RunConfig, run_all
 from prepare_lora_kit.project.base import ProjectConfig, PipelineStep
+from prepare_lora_kit.project.steps import PipelineSubstep
 from prepare_lora_kit_pipeline.configs import (
     AuditConfig,
     BucketDryRunConfig,
@@ -312,3 +313,50 @@ def test_pipeline_does_not_mark_cancelled_step_done(tmp_path):
 
     invoke.assert_called_once()
     assert not RunState(tmp_path / "out").is_done("ImportStep")
+
+
+def test_pipeline_prevalidates_enabled_substep_prerequisites(tmp_path):
+    project = ProjectConfig(
+        name="test",
+        network="flux-klein-9b",
+        pipeline=[
+            PipelineStep("ImportStep", ImportConfig()),
+            PipelineStep(
+                "QualityGateStep",
+                QualityGateConfig(auto_only=False),
+                substeps=[
+                    PipelineSubstep("s1_1_score", enabled=False),
+                    PipelineSubstep("s1_2_decide", enabled=True),
+                ],
+            ),
+        ],
+    )
+    cfg = RunConfig(
+        dataset_dir=tmp_path / "dataset",
+        project=project,
+        output_dir=tmp_path / "out",
+    )
+
+    with patch("prepare_lora_kit.networks.network_registry.load", return_value=MagicMock()) as load_network, \
+            pytest.raises(ValueError, match="s1_2_decide requires enabled substep s1_1_score"):
+        run_all(cfg)
+
+    load_network.assert_not_called()
+
+
+def test_pipeline_prevalidates_working_dataset_for_non_import_pipeline(tmp_path):
+    cfg = RunConfig(
+        dataset_dir=tmp_path / "dataset",
+        project=ProjectConfig(
+            name="test",
+            network="flux-klein-9b",
+            pipeline=[PipelineStep("VaeGateStep", VaeGateConfig())],
+        ),
+        output_dir=tmp_path / "out",
+    )
+
+    with patch("prepare_lora_kit.networks.network_registry.load", return_value=MagicMock()) as load_network, \
+            pytest.raises(ValueError, match="working dataset"):
+        run_all(cfg)
+
+    load_network.assert_not_called()

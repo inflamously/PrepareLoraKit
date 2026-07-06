@@ -56,10 +56,14 @@ def run(ctx, input_dir, output_dir, project_name, token, force):
     output_dir = output_dir or _default_output(input_dir)
 
     from ..pipeline import run_all
-    run_all(RunConfig(
-        dataset_dir=input_dir,
-        project=project,
-        concept_token=token,
-        output_dir=output_dir,
-        force=force,
-    ))
+    from ..pipeline_validation import PipelineValidationError
+    try:
+        run_all(RunConfig(
+            dataset_dir=input_dir,
+            project=project,
+            concept_token=token,
+            output_dir=output_dir,
+            force=force,
+        ))
+    except PipelineValidationError as exc:
+        raise click.ClickException(str(exc)) from exc

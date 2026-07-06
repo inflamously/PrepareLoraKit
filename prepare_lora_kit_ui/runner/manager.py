@@ -14,12 +14,17 @@ from prepare_lora_kit.cancellation import CancelledRun
 from prepare_lora_kit.invoke import STEP_INVOKE_MAP
 from prepare_lora_kit.networks import network_registry
 from prepare_lora_kit.pipeline import RunConfig
-from prepare_lora_kit_pipeline.configuration import RESUME_AWARE_STEP_TYPES, STEP_PREREQUISITES
+from prepare_lora_kit.pipeline_validation import validate_pipeline_selection
+from prepare_lora_kit_pipeline.configuration import RESUME_AWARE_STEP_TYPES
 from prepare_lora_kit.project import project_registry
 from prepare_lora_kit.project.base import ProjectConfig
 from prepare_lora_kit.project.config_schema import has_schema, apply_overrides
-from prepare_lora_kit.project.pipeline import enabled_substep_ids, mark_legacy_import_satisfied, SUBSTEP_REGISTRY, normalize_substeps, \
-    is_step_satisfied
+from prepare_lora_kit.project.pipeline import (
+    SUBSTEP_REGISTRY,
+    enabled_substep_ids,
+    mark_legacy_import_satisfied,
+    normalize_substeps,
+)
 from prepare_lora_kit.utils import report
 from prepare_lora_kit.utils.state import RunState
 from . import UiInteractionProvider
@@ -318,41 +323,7 @@ class JobManager:
             output_dir: Path,
             selected_substeps: dict[str, list[str]] | None = None,
     ) -> None:
-        known = [s.type for s in project.pipeline]
-        unknown = [s for s in selected_steps if s not in known]
-        if unknown:
-            raise ValueError(f"Selected step is not in project pipeline: {', '.join(unknown)}")
-        if not selected_steps:
-            raise ValueError("Select at least one pipeline step")
-
-        state = RunState(output_dir)
-        selected = set(selected_steps)
-        for step_type in selected_steps:
-            enabled_substeps = (selected_substeps or {}).get(step_type)
-            if enabled_substeps == []:
-                raise ValueError(f"{step_type} has no enabled substeps")
-            if enabled_substeps is not None:
-                enabled_set = set(enabled_substeps)
-                for definition in SUBSTEP_REGISTRY.get(step_type, ()):
-                    if definition.id not in enabled_set:
-                        continue
-                    missing = [
-                        req for req in definition.prerequisites
-                        if req not in enabled_set
-                    ]
-                    if missing:
-                        raise ValueError(
-                            f"{definition.id} requires enabled substep {', '.join(missing)}"
-                        )
-            for req in STEP_PREREQUISITES.get(step_type, []):
-                if req not in selected and not is_step_satisfied(req, state, output_dir):
-                    raise ValueError(f"{step_type} requires completed or selected prerequisite {req}")
-
-        needs_working_dataset = any(step_type != "ImportStep" for step_type in selected)
-        if needs_working_dataset and "ImportStep" not in selected and not (output_dir / "dataset").exists():
-            raise ValueError(
-                "The working dataset does not exist. Select ImportStep first or choose an existing output."
-            )
+        validate_pipeline_selection(project, selected_steps, output_dir, selected_substeps)
 
     @staticmethod
     def _load_network(project: ProjectConfig):

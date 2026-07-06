@@ -12,7 +12,11 @@ from prepare_lora_kit.networks import network_registry
 from prepare_lora_kit.paths import PROJECT_ROOT
 from prepare_lora_kit_pipeline.configuration import RESUME_AWARE_STEP_TYPES
 from prepare_lora_kit.project.base import ProjectConfig
-from prepare_lora_kit.project.pipeline import mark_legacy_import_satisfied, enabled_substep_ids
+from prepare_lora_kit.project.pipeline import (
+    enabled_substep_ids,
+    mark_legacy_import_satisfied,
+)
+from prepare_lora_kit.pipeline_validation import validate_pipeline_selection
 from prepare_lora_kit.utils import report
 from prepare_lora_kit.utils.state import RunState
 
@@ -39,12 +43,16 @@ def run_all(cfg: RunConfig) -> None:
     makes. Subsequent steps mutate that working dir in place. Every step's JSON
     report lands in output_dir/reports/. Re-run from original any time with --force.
     """
-    network = network_registry.load(cfg.project.network)
-
     original_dir = cfg.dataset_dir
     output_dir = cfg.resolved_output_dir
     working_dir = output_dir / "dataset"
     force = cfg.force
+    validate_pipeline_selection(
+        cfg.project,
+        [step.type for step in cfg.project.pipeline],
+        output_dir,
+    )
+    network = network_registry.load(cfg.project.network)
     state = RunState(output_dir)
     if force:
         # --force is a full reset: clear the manifest so every step re-runs,

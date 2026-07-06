@@ -11,7 +11,8 @@ development, the same CLI can also be launched with `python3 main.py` on POSIX
 shells, or `python main.py` on Windows shells where `python` is available.
 
 If you need a quick orientation before reading code, start with the small
-project graph in [`docs/project-graph.md`](docs/project-graph.md).
+project graph in [`docs/project-graph.md`](docs/project-graph.md), or open the
+standalone HTML view at [`docs/project-graph.html`](docs/project-graph.html).
 
 ## Core Workflow
 
