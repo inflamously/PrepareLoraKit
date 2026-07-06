@@ -5,8 +5,10 @@ import pytest
 from PIL import Image
 
 from prepare_lora_kit.cancellation import CancelledRun
+from prepare_lora_kit.invoke.import_step import invoke_import_step
 from prepare_lora_kit.steps.import_step import run
 from prepare_lora_kit.steps.import_step.step import get_recursive_mirror_paths
+from prepare_lora_kit_pipeline.configs import ImportConfig
 
 
 def test_import_step_copies_images_and_writes_report(tmp_path):
@@ -26,6 +28,43 @@ def test_import_step_copies_images_and_writes_report(tmp_path):
     saved = json.loads(report_path.read_text(encoding="utf-8"))
     assert saved["count"] == 2
     assert len(saved["imported"]) == 2
+
+
+def test_invoke_import_step_uses_packaged_step_run(tmp_path, monkeypatch):
+    from prepare_lora_kit.steps import import_step as import_step_pkg
+
+    captured = {}
+
+    def fake_run(*args, **kwargs):
+        captured["args"] = args
+        captured["kwargs"] = kwargs
+        return {"ok": True}
+
+    working_dir = tmp_path / "working"
+    output_dir = tmp_path / "output"
+    original_dir = tmp_path / "original"
+    working_dir.mkdir()
+    original_dir.mkdir()
+    (working_dir / "stale.txt").write_text("stale", encoding="utf-8")
+
+    monkeypatch.setattr(import_step_pkg, "run", fake_run)
+
+    result = invoke_import_step(
+        working_dir,
+        output_dir,
+        ImportConfig(),
+        original_dir=original_dir,
+        enabled_substeps=["import_images"],
+    )
+
+    assert result == {"ok": True}
+    assert captured["args"] == (original_dir, working_dir)
+    assert captured["kwargs"] == {
+        "report_path": output_dir / "reports" / "ImportStep_report.json",
+        "enabled_substeps": ["import_images"],
+        "cancel_check": None,
+    }
+    assert not (working_dir / "stale.txt").exists()
 
 
 def test_import_step_preserves_subdir_named_like_input_component(tmp_path):
