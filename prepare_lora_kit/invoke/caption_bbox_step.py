@@ -8,8 +8,8 @@ from prepare_lora_kit_pipeline.configs import CaptionBboxConfig
 from .working_dataset import _require_working_dataset
 
 
-def _invoke_CaptionBboxStep(working_dir: Path, output_dir: Path, cfg: CaptionBboxConfig,
-                        *, concept_token: Optional[str], **_kw) -> None:
+def invoke_caption_bbox_step(working_dir: Path, output_dir: Path, cfg: CaptionBboxConfig,
+                             *, concept_token: Optional[str], **_kw) -> None:
     _require_working_dataset(working_dir)
     if _kw.get("mock_runtime"):
         from .mock_caption import _mock_caption

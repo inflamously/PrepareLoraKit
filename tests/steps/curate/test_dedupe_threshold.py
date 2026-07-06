@@ -50,7 +50,7 @@ def test_invoke_curate_forwards_threshold_config(tmp_path, monkeypatch):
         pca_umap_switch_threshold=42,
     )
 
-    invoke._invoke_CurateStep(working, tmp_path, cfg)
+    invoke.invoke_curate_step(working, tmp_path, cfg)
 
     assert captured["dedup_hamming_distance"] == 7
     assert captured["pca_umap_switch_threshold"] == 42

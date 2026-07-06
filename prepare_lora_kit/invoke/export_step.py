@@ -7,7 +7,7 @@ from prepare_lora_kit_pipeline.configs import ExportConfig
 from .working_dataset import _require_working_dataset
 
 
-def _invoke_ExportStep(working_dir: Path, output_dir: Path, cfg: ExportConfig,
+def invoke_export_step(working_dir: Path, output_dir: Path, cfg: ExportConfig,
                        *, original_dir: Path | None = None, **_kw) -> dict:
     _require_working_dataset(working_dir)
     from ..steps import export_step

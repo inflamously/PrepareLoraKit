@@ -8,8 +8,8 @@ from prepare_lora_kit_pipeline.configs import QualityGateConfig
 from .working_dataset import _require_working_dataset
 
 
-def _invoke_QualityGateStep(working_dir: Path, output_dir: Path, cfg: QualityGateConfig,
-                            *, original_dir: Path, **_kw) -> None:
+def invoke_quality_gate_step(working_dir: Path, output_dir: Path, cfg: QualityGateConfig,
+                             *, original_dir: Path, **_kw) -> None:
     from ..steps import quality_gate
     _require_working_dataset(working_dir)
     quality_gate.run(

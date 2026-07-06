@@ -7,7 +7,7 @@ from prepare_lora_kit_pipeline.configs import AuditConfig
 from .working_dataset import _require_working_dataset
 
 
-def _invoke_AuditStep(working_dir: Path, output_dir: Path, cfg: AuditConfig,
+def invoke_audit_step(working_dir: Path, output_dir: Path, cfg: AuditConfig,
                       **_kw) -> dict:
     _require_working_dataset(working_dir)
     from ..steps import audit

@@ -7,7 +7,7 @@ from prepare_lora_kit_pipeline.configs import CurateConfig
 from .working_dataset import _require_working_dataset
 
 
-def _invoke_CurateStep(working_dir: Path, output_dir: Path, cfg: CurateConfig,
+def invoke_curate_step(working_dir: Path, output_dir: Path, cfg: CurateConfig,
                        **_kw) -> None:
     _require_working_dataset(working_dir)
     if _kw.get("mock_runtime"):

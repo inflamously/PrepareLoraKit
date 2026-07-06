@@ -12,44 +12,44 @@ from __future__ import annotations
 from typing import Callable
 
 from .working_dataset import _require_working_dataset
-from .import_step import _invoke_ImportStep
-from .quality_gate_step import _invoke_QualityGateStep
-from .curate_step import _invoke_CurateStep
-from .upscale_step import _invoke_UpscaleStep
-from .vae_gate_step import _invoke_VaeGateStep
-from .caption_bbox_step import _invoke_CaptionBboxStep
-from .audit_step import _invoke_AuditStep
-from .bucket_pools_check_step import _invoke_BucketPoolsCheckStep
-from .export_step import _invoke_ExportStep
+from .import_step import invoke_import_step
+from .quality_gate_step import invoke_quality_gate_step
+from .curate_step import invoke_curate_step
+from .upscale_step import invoke_upscale_step
+from .vae_gate_step import invoke_vae_gate_step
+from .caption_bbox_step import invoke_caption_bbox_step
+from .audit_step import invoke_audit_step
+from .bucket_pools_check_step import invoke_bucket_pools_check_step
+from .export_step import invoke_export_step
 from .mock_curate import _mock_curate
 from .mock_embeddings import _mock_embeddings
 from .mock_vae_gate import _mock_vae_gate
 from .mock_caption import _mock_caption
 
 STEP_INVOKE_MAP: dict[str, Callable] = {
-    "ImportStep": _invoke_ImportStep,
-    "QualityGateStep": _invoke_QualityGateStep,
-    "CurateStep": _invoke_CurateStep,
-    "UpscaleStep": _invoke_UpscaleStep,
-    "VaeGateStep": _invoke_VaeGateStep,
-    "CaptionBboxStep": _invoke_CaptionBboxStep,
-    "AuditStep": _invoke_AuditStep,
-    "BucketPoolsCheckStep": _invoke_BucketPoolsCheckStep,
-    "ExportStep": _invoke_ExportStep,
+    "ImportStep": invoke_import_step,
+    "QualityGateStep": invoke_quality_gate_step,
+    "CurateStep": invoke_curate_step,
+    "UpscaleStep": invoke_upscale_step,
+    "VaeGateStep": invoke_vae_gate_step,
+    "CaptionBboxStep": invoke_caption_bbox_step,
+    "AuditStep": invoke_audit_step,
+    "BucketPoolsCheckStep": invoke_bucket_pools_check_step,
+    "ExportStep": invoke_export_step,
 }
 
 __all__ = [
     "STEP_INVOKE_MAP",
     "_require_working_dataset",
-    "_invoke_ImportStep",
-    "_invoke_QualityGateStep",
-    "_invoke_CurateStep",
-    "_invoke_UpscaleStep",
-    "_invoke_VaeGateStep",
-    "_invoke_CaptionBboxStep",
-    "_invoke_AuditStep",
-    "_invoke_BucketPoolsCheckStep",
-    "_invoke_ExportStep",
+    "invoke_import_step",
+    "invoke_quality_gate_step",
+    "invoke_curate_step",
+    "invoke_upscale_step",
+    "invoke_vae_gate_step",
+    "invoke_caption_bbox_step",
+    "invoke_audit_step",
+    "invoke_bucket_pools_check_step",
+    "invoke_export_step",
     "_mock_curate",
     "_mock_embeddings",
     "_mock_vae_gate",
