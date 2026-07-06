@@ -19,11 +19,11 @@ def test_mock_fixture_generates_dataset_and_prerequisite_state(tmp_path):
     assert state.is_done("ImportStep")
     assert state.is_done("QualityGateStep")
     assert state.is_done("VaeGateStep")
-    assert state.is_done("CaptionStep")
+    assert state.is_done("CaptionBboxStep")
     assert not state.is_done("AuditStep")
 
 
-def test_mock_fixture_does_not_seed_captions_before_caption_step(tmp_path):
+def test_mock_fixture_does_not_seed_captions_before_caption_bbox_step(tmp_path):
     fixture = create_mock_ui_fixture("CurateStep", root=tmp_path / "mock")
 
     assert len(list((fixture.output_dir / "dataset").glob("*.png"))) == 4

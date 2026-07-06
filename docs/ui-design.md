@@ -2,8 +2,8 @@
 
 The single source of truth for the desktop UI's visual design: the baseline
 layout pattern, the `nf-*` component kit, and the rules every component must
-follow. (Merged from the former `prepare_lora_kit/ui/static/DESIGN_BASELINE.md`
-and `prepare_lora_kit/ui/static/styles/design.md`.)
+follow. (Merged from the former `prepare_lora_kit_ui/static/DESIGN_BASELINE.md`
+and `prepare_lora_kit_ui/static/styles/design.md`.)
 
 Paths below are relative to the repository root.
 
@@ -11,16 +11,16 @@ Paths below are relative to the repository root.
 
 - `design/project-detail-view.png` — the visual target for a single project.
 - `design/project-browser-view.png` — the visual target for the project library.
-- `prepare_lora_kit/ui/static/styles/*.css` — the shipped, repo-integrated `nf-*`
+- `prepare_lora_kit_ui/static/styles/*.css` — the shipped, repo-integrated `nf-*`
   design kit, split one file per component.
 
 The project-detail view is the baseline design for the desktop UI.
 
 ## System
 
-- Use `prepare_lora_kit/ui/static/styles/tokens.css` for the active design-token
+- Use `prepare_lora_kit_ui/static/styles/tokens.css` for the active design-token
   contract (the `:root` custom properties); override these to reskin the kit.
-- Use `prepare_lora_kit/ui/static/core/foundation.css` for reset rules and base
+- Use `prepare_lora_kit_ui/static/core/foundation.css` for reset rules and base
   element defaults (it depends on the tokens above).
 - Use the per-component files in `styles/` for reusable `nf-*` desktop app
   primitives: window shell, appbar, workspace columns, panels, form fields,
@@ -32,7 +32,7 @@ The project-detail view is the baseline design for the desktop UI.
 - Keep page-specific layout in the feature stylesheet that owns the page, for
   example `shell/shell.css`, `project/project.css`, or `job/job.css`.
 - Do not import files from `design/` at runtime; packaged static assets must
-  live under `prepare_lora_kit/ui/static/`.
+  live under `prepare_lora_kit_ui/static/`.
 
 ## Project Detail Pattern
 

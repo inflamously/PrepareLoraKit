@@ -3,8 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 import warnings
 
-from prepare_lora_kit.steps.s3_upscale.seedvr2_catalog import DEFAULT_SEEDVR2_DIT_MODEL, get_seedvr2_dit_model
-from prepare_lora_kit.steps.s3_upscale.seedvr2_adapter import SEEDVR2_MODEL_RESIDENCY_MODES
+from prepare_lora_kit.steps.upscale.seedvr2_catalog import DEFAULT_SEEDVR2_DIT_MODEL, get_seedvr2_dit_model
+from prepare_lora_kit.steps.upscale.seedvr2_adapter import SEEDVR2_MODEL_RESIDENCY_MODES
 
 
 @dataclass

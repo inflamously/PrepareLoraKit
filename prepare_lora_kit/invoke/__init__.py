@@ -17,10 +17,9 @@ from .quality_gate_step import _invoke_QualityGateStep
 from .curate_step import _invoke_CurateStep
 from .upscale_step import _invoke_UpscaleStep
 from .vae_gate_step import _invoke_VaeGateStep
-from .caption_step import _invoke_CaptionStep
+from .caption_bbox_step import _invoke_CaptionBboxStep
 from .audit_step import _invoke_AuditStep
-from .config_gen_step import _invoke_ConfigGenStep
-from .bucket_dry_run_step import _invoke_BucketDryRunStep
+from .bucket_pools_check_step import _invoke_BucketPoolsCheckStep
 from .export_step import _invoke_ExportStep
 from .mock_curate import _mock_curate
 from .mock_embeddings import _mock_embeddings
@@ -33,10 +32,9 @@ STEP_INVOKE_MAP: dict[str, Callable] = {
     "CurateStep": _invoke_CurateStep,
     "UpscaleStep": _invoke_UpscaleStep,
     "VaeGateStep": _invoke_VaeGateStep,
-    "CaptionStep": _invoke_CaptionStep,
+    "CaptionBboxStep": _invoke_CaptionBboxStep,
     "AuditStep": _invoke_AuditStep,
-    "ConfigGenStep": _invoke_ConfigGenStep,
-    "BucketDryRunStep": _invoke_BucketDryRunStep,
+    "BucketPoolsCheckStep": _invoke_BucketPoolsCheckStep,
     "ExportStep": _invoke_ExportStep,
 }
 
@@ -48,10 +46,9 @@ __all__ = [
     "_invoke_CurateStep",
     "_invoke_UpscaleStep",
     "_invoke_VaeGateStep",
-    "_invoke_CaptionStep",
+    "_invoke_CaptionBboxStep",
     "_invoke_AuditStep",
-    "_invoke_ConfigGenStep",
-    "_invoke_BucketDryRunStep",
+    "_invoke_BucketPoolsCheckStep",
     "_invoke_ExportStep",
     "_mock_curate",
     "_mock_embeddings",

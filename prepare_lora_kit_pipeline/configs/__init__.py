@@ -1,8 +1,8 @@
 """
 Step config schemas — per-step configuration dataclasses.
 
-Each pipeline step type (e.g. "CaptionStep") has a matching config dataclass
-(e.g. CaptionConfig) holding its tunable fields and validation. These are
+Each pipeline step type (e.g. "CaptionBboxStep") has a matching config dataclass
+(e.g. CaptionBboxConfig) holding its tunable fields and validation. These are
 referenced by ProjectConfig.pipeline via the STEP_TYPE_MAP registry in
 ``steps.py``.
 
@@ -16,10 +16,9 @@ from .quality_gate_config import ScorerEntry, QualityGateConfig
 from .curate_config import CurateConfig
 from .upscale_config import UpscaleConfig
 from .vae_gate_config import VaeGateConfig
-from .caption_config import CaptionConfig
+from .caption_bbox_config import CaptionBboxConfig
 from .audit_config import AuditConfig
-from .config_gen_config import ConfigGenConfig
-from .bucket_dry_run_config import BucketDryRunConfig
+from .bucket_pools_check_config import BucketPoolsCheckConfig
 from .export_config import ExportConfig
 
 __all__ = [
@@ -29,9 +28,8 @@ __all__ = [
     "CurateConfig",
     "UpscaleConfig",
     "VaeGateConfig",
-    "CaptionConfig",
+    "CaptionBboxConfig",
     "AuditConfig",
-    "ConfigGenConfig",
-    "BucketDryRunConfig",
+    "BucketPoolsCheckConfig",
     "ExportConfig",
 ]

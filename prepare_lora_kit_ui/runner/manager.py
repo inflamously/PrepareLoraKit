@@ -12,7 +12,6 @@ from rich.console import Console
 
 from prepare_lora_kit.cancellation import CancelledRun
 from prepare_lora_kit.invoke import STEP_INVOKE_MAP
-from prepare_lora_kit.networks import network_registry
 from prepare_lora_kit.pipeline import RunConfig
 from prepare_lora_kit.pipeline_validation import validate_pipeline_selection
 from prepare_lora_kit_pipeline.configuration import RESUME_AWARE_STEP_TYPES
@@ -162,7 +161,6 @@ class JobManager:
         project = self._load_project(project_name)
         selected_substeps = self._resolve_selected_substeps(project, selected_steps, requested_substeps)
         self._validate_selection(project, selected_steps, output_dir, selected_substeps)
-        network = self._load_network(project)
         state = RunState(output_dir)
         if force:
             # --force is a full reset: clear the manifest so every selected step
@@ -184,10 +182,8 @@ class JobManager:
         )
         working_dir = cfg.resolved_output_dir / "dataset"
         shared_kw = dict(
-            network=network,
             concept_token=token,
             original_dir=input_dir,
-            network_type=project.network_type,
             interaction=interaction,
             force=force,
             caption_runtime={
@@ -223,7 +219,7 @@ class JobManager:
                 job.skipped_substeps[step.type] = enabled_substeps
                 job.add_log("ImportStep satisfied by existing working dataset")
                 continue
-            # Resume-aware steps (e.g. CaptionStep) self-determine pending work, so
+            # Resume-aware steps (e.g. CaptionBboxStep) self-determine pending work, so
             # they are never skipped on is_done — re-running them resumes instead of
             # redoing everything, without needing --force.
             if (
@@ -267,7 +263,6 @@ class JobManager:
         job.result = {
             "output_dir": str(cfg.resolved_output_dir),
             "reports_dir": str(cfg.resolved_output_dir / "reports"),
-            "run_config": str(cfg.resolved_output_dir / "run_config.yaml"),
         }
         job.set_status("completed", current_step=None, current_substep=None)
 
@@ -324,10 +319,6 @@ class JobManager:
             selected_substeps: dict[str, list[str]] | None = None,
     ) -> None:
         validate_pipeline_selection(project, selected_steps, output_dir, selected_substeps)
-
-    @staticmethod
-    def _load_network(project: ProjectConfig):
-        return network_registry.load(project.network)
 
     def _load_project(self, name: str) -> ProjectConfig:
         if name in self._projects:

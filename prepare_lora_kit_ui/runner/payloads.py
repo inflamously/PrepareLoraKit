@@ -110,8 +110,6 @@ def project_payload(project: ProjectConfig, output_dir: Path | None = None) -> d
     scan_dir = _attention_scan_dir(project, output_dir)
     return {
         "name": project.name,
-        "network": project.network,
-        "network_type": project.network_type,
         "input_dir": project.input_dir,
         "steps": [
             {

@@ -4,13 +4,13 @@ import pytest
 
 from prepare_lora_kit.cancellation import CancelledRun
 from prepare_lora_kit.pipeline import RunConfig, run_all
+from prepare_lora_kit.pipeline_validation import validate_pipeline_selection
 from prepare_lora_kit.project.base import ProjectConfig, PipelineStep
 from prepare_lora_kit.project.steps import PipelineSubstep
 from prepare_lora_kit_pipeline.configs import (
     AuditConfig,
-    BucketDryRunConfig,
-    CaptionConfig,
-    ConfigGenConfig,
+    BucketPoolsCheckConfig,
+    CaptionBboxConfig,
     CurateConfig,
     ImportConfig,
     QualityGateConfig,
@@ -23,17 +23,15 @@ from prepare_lora_kit.utils.state import RunState
 def _project() -> ProjectConfig:
     return ProjectConfig(
         name="test",
-        network="flux-klein-9b",
         pipeline=[
             PipelineStep("ImportStep", ImportConfig()),
             PipelineStep("QualityGateStep", QualityGateConfig(auto_only=True)),
             PipelineStep("CurateStep", CurateConfig()),
             PipelineStep("UpscaleStep", UpscaleConfig()),
-            PipelineStep("CaptionStep", CaptionConfig()),
+            PipelineStep("CaptionBboxStep", CaptionBboxConfig()),
             PipelineStep("VaeGateStep", VaeGateConfig()),
             PipelineStep("AuditStep", AuditConfig()),
-            PipelineStep("ConfigGenStep", ConfigGenConfig()),
-            PipelineStep("BucketDryRunStep", BucketDryRunConfig()),
+            PipelineStep("BucketPoolsCheckStep", BucketPoolsCheckConfig()),
         ],
     )
 
@@ -55,11 +53,10 @@ def test_pipeline_runs_project_steps_in_order(tmp_path):
             "QualityGateStep",
             "CurateStep",
             "UpscaleStep",
-            "CaptionStep",
+            "CaptionBboxStep",
             "VaeGateStep",
             "AuditStep",
-            "ConfigGenStep",
-            "BucketDryRunStep",
+            "BucketPoolsCheckStep",
         ]
     }
 
@@ -70,8 +67,7 @@ def test_pipeline_runs_project_steps_in_order(tmp_path):
         output_dir=tmp_path / "out",
     )
 
-    with patch("prepare_lora_kit.networks.network_registry.load", return_value=MagicMock()), \
-            patch.dict("prepare_lora_kit.pipeline.STEP_INVOKE_MAP", invoke_map, clear=True):
+    with patch.dict("prepare_lora_kit.pipeline.STEP_INVOKE_MAP", invoke_map, clear=True):
         run_all(cfg)
 
     assert calls == list(invoke_map)
@@ -100,11 +96,10 @@ def test_pipeline_resumes_from_first_pending_step_in_order(tmp_path):
             "QualityGateStep",
             "CurateStep",
             "UpscaleStep",
-            "CaptionStep",
+            "CaptionBboxStep",
             "VaeGateStep",
             "AuditStep",
-            "ConfigGenStep",
-            "BucketDryRunStep",
+            "BucketPoolsCheckStep",
         ]
     }
 
@@ -115,27 +110,25 @@ def test_pipeline_resumes_from_first_pending_step_in_order(tmp_path):
         output_dir=output_dir,
     )
 
-    with patch("prepare_lora_kit.networks.network_registry.load", return_value=MagicMock()), \
-            patch.dict("prepare_lora_kit.pipeline.STEP_INVOKE_MAP", invoke_map, clear=True):
+    with patch.dict("prepare_lora_kit.pipeline.STEP_INVOKE_MAP", invoke_map, clear=True):
         run_all(cfg)
 
     assert calls == [
         "CurateStep",
         "UpscaleStep",
-        "CaptionStep",
+        "CaptionBboxStep",
         "VaeGateStep",
         "AuditStep",
-        "ConfigGenStep",
-        "BucketDryRunStep",
+        "BucketPoolsCheckStep",
     ]
     invoke_map["ImportStep"].assert_not_called()
     invoke_map["QualityGateStep"].assert_not_called()
     assert invoke_map["CurateStep"].call_args.kwargs["enabled_substeps"] == [
-        "s2_1_dupecheck",
-        "s2_2_clipscan",
-        "s2_3_drop_images",
+        "duplicate_check",
+        "clip_scan",
+        "drop_images",
     ]
-    assert RunState(output_dir).is_done("BucketDryRunStep")
+    assert RunState(output_dir).is_done("BucketPoolsCheckStep")
 
 
 def test_pipeline_skips_import_for_existing_legacy_working_dataset(tmp_path):
@@ -155,11 +148,10 @@ def test_pipeline_skips_import_for_existing_legacy_working_dataset(tmp_path):
             "QualityGateStep",
             "CurateStep",
             "UpscaleStep",
-            "CaptionStep",
+            "CaptionBboxStep",
             "VaeGateStep",
             "AuditStep",
-            "ConfigGenStep",
-            "BucketDryRunStep",
+            "BucketPoolsCheckStep",
         ]
     }
 
@@ -170,19 +162,17 @@ def test_pipeline_skips_import_for_existing_legacy_working_dataset(tmp_path):
         output_dir=output_dir,
     )
 
-    with patch("prepare_lora_kit.networks.network_registry.load", return_value=MagicMock()), \
-            patch.dict("prepare_lora_kit.pipeline.STEP_INVOKE_MAP", invoke_map, clear=True):
+    with patch.dict("prepare_lora_kit.pipeline.STEP_INVOKE_MAP", invoke_map, clear=True):
         run_all(cfg)
 
     assert calls == [
         "QualityGateStep",
         "CurateStep",
         "UpscaleStep",
-        "CaptionStep",
+        "CaptionBboxStep",
         "VaeGateStep",
         "AuditStep",
-        "ConfigGenStep",
-        "BucketDryRunStep",
+        "BucketPoolsCheckStep",
     ]
     invoke_map["ImportStep"].assert_not_called()
 
@@ -198,11 +188,10 @@ def test_pipeline_force_reimports_from_original(tmp_path):
         "QualityGateStep",
         "CurateStep",
         "UpscaleStep",
-        "CaptionStep",
+        "CaptionBboxStep",
         "VaeGateStep",
         "AuditStep",
-        "ConfigGenStep",
-        "BucketDryRunStep",
+        "BucketPoolsCheckStep",
     ]
     state = RunState(output_dir)
     for step_type in all_steps:
@@ -225,8 +214,7 @@ def test_pipeline_force_reimports_from_original(tmp_path):
         force=True,
     )
 
-    with patch("prepare_lora_kit.networks.network_registry.load", return_value=MagicMock()), \
-            patch.dict("prepare_lora_kit.pipeline.STEP_INVOKE_MAP", invoke_map, clear=True):
+    with patch.dict("prepare_lora_kit.pipeline.STEP_INVOKE_MAP", invoke_map, clear=True):
         run_all(cfg)
 
     # --force reset the manifest so every previously-done step re-runs, including
@@ -236,25 +224,24 @@ def test_pipeline_force_reimports_from_original(tmp_path):
         "QualityGateStep",
         "CurateStep",
         "UpscaleStep",
-        "CaptionStep",
+        "CaptionBboxStep",
         "VaeGateStep",
         "AuditStep",
-        "ConfigGenStep",
-        "BucketDryRunStep",
+        "BucketPoolsCheckStep",
     ]
     invoke_map["ImportStep"].assert_called_once()
 
 
 def test_pipeline_reruns_resume_aware_caption_without_force(tmp_path):
-    # CaptionStep is resume-aware: even when marked done, a plain re-run re-enters it
+    # CaptionBboxStep is resume-aware: even when marked done, a plain re-run re-enters it
     # (it self-determines pending work) instead of being skipped like other steps.
     calls = []
     output_dir = tmp_path / "out"
     (output_dir / "dataset").mkdir(parents=True)
     state = RunState(output_dir)
     for step_type in ["ImportStep", "QualityGateStep", "CurateStep", "UpscaleStep",
-                      "CaptionStep", "VaeGateStep", "AuditStep", "ConfigGenStep",
-                      "BucketDryRunStep"]:
+                      "CaptionBboxStep", "VaeGateStep", "AuditStep",
+                      "BucketPoolsCheckStep"]:
         state.mark_done(step_type)
 
     def invoke_for(step_type):
@@ -265,8 +252,8 @@ def test_pipeline_reruns_resume_aware_caption_without_force(tmp_path):
         return fn
 
     invoke_map = {step_type: invoke_for(step_type) for step_type in [
-        "ImportStep", "QualityGateStep", "CurateStep", "UpscaleStep", "CaptionStep",
-        "VaeGateStep", "AuditStep", "ConfigGenStep", "BucketDryRunStep",
+        "ImportStep", "QualityGateStep", "CurateStep", "UpscaleStep", "CaptionBboxStep",
+        "VaeGateStep", "AuditStep", "BucketPoolsCheckStep",
     ]}
 
     cfg = RunConfig(
@@ -276,13 +263,12 @@ def test_pipeline_reruns_resume_aware_caption_without_force(tmp_path):
         output_dir=output_dir,
     )
 
-    with patch("prepare_lora_kit.networks.network_registry.load", return_value=MagicMock()), \
-            patch.dict("prepare_lora_kit.pipeline.STEP_INVOKE_MAP", invoke_map, clear=True):
+    with patch.dict("prepare_lora_kit.pipeline.STEP_INVOKE_MAP", invoke_map, clear=True):
         run_all(cfg)
 
-    # Only the resume-aware CaptionStep re-runs; the other done steps stay skipped.
-    assert calls == ["CaptionStep", "VaeGateStep"]
-    invoke_map["CaptionStep"].assert_called_once()
+    # Only the resume-aware CaptionBboxStep re-runs; the other done steps stay skipped.
+    assert calls == ["CaptionBboxStep", "VaeGateStep"]
+    invoke_map["CaptionBboxStep"].assert_called_once()
 
 
 def test_pipeline_does_not_mark_cancelled_step_done(tmp_path):
@@ -290,7 +276,6 @@ def test_pipeline_does_not_mark_cancelled_step_done(tmp_path):
         dataset_dir=tmp_path / "dataset",
         project=ProjectConfig(
             name="test",
-            network="flux-klein-9b",
             pipeline=[PipelineStep("ImportStep", ImportConfig())],
         ),
         output_dir=tmp_path / "out",
@@ -306,8 +291,7 @@ def test_pipeline_does_not_mark_cancelled_step_done(tmp_path):
     cfg.cancel_check = cancel_after_invoke
     invoke = MagicMock(return_value=None)
 
-    with patch("prepare_lora_kit.networks.network_registry.load", return_value=MagicMock()), \
-            patch.dict("prepare_lora_kit.pipeline.STEP_INVOKE_MAP", {"ImportStep": invoke}, clear=True), \
+    with patch.dict("prepare_lora_kit.pipeline.STEP_INVOKE_MAP", {"ImportStep": invoke}, clear=True), \
             pytest.raises(CancelledRun):
         run_all(cfg)
 
@@ -318,15 +302,14 @@ def test_pipeline_does_not_mark_cancelled_step_done(tmp_path):
 def test_pipeline_prevalidates_enabled_substep_prerequisites(tmp_path):
     project = ProjectConfig(
         name="test",
-        network="flux-klein-9b",
         pipeline=[
             PipelineStep("ImportStep", ImportConfig()),
             PipelineStep(
                 "QualityGateStep",
                 QualityGateConfig(auto_only=False),
                 substeps=[
-                    PipelineSubstep("s1_1_score", enabled=False),
-                    PipelineSubstep("s1_2_decide", enabled=True),
+                    PipelineSubstep("score_images", enabled=False),
+                    PipelineSubstep("review_decisions", enabled=True),
                 ],
             ),
         ],
@@ -337,26 +320,20 @@ def test_pipeline_prevalidates_enabled_substep_prerequisites(tmp_path):
         output_dir=tmp_path / "out",
     )
 
-    with patch("prepare_lora_kit.networks.network_registry.load", return_value=MagicMock()) as load_network, \
-            pytest.raises(ValueError, match="s1_2_decide requires enabled substep s1_1_score"):
+    with pytest.raises(ValueError, match="review_decisions requires enabled substep score_images"):
         run_all(cfg)
-
-    load_network.assert_not_called()
 
 
 def test_pipeline_prevalidates_working_dataset_for_non_import_pipeline(tmp_path):
-    cfg = RunConfig(
-        dataset_dir=tmp_path / "dataset",
-        project=ProjectConfig(
-            name="test",
-            network="flux-klein-9b",
-            pipeline=[PipelineStep("VaeGateStep", VaeGateConfig())],
-        ),
-        output_dir=tmp_path / "out",
+    project = ProjectConfig(
+        name="test",
+        pipeline=[
+            PipelineStep("ImportStep", ImportConfig()),
+            PipelineStep("VaeGateStep", VaeGateConfig()),
+        ],
     )
+    out = tmp_path / "out"
+    RunState(out).mark_done("ImportStep")
 
-    with patch("prepare_lora_kit.networks.network_registry.load", return_value=MagicMock()) as load_network, \
-            pytest.raises(ValueError, match="working dataset"):
-        run_all(cfg)
-
-    load_network.assert_not_called()
+    with pytest.raises(ValueError, match="working dataset"):
+        validate_pipeline_selection(project, ["VaeGateStep"], out)

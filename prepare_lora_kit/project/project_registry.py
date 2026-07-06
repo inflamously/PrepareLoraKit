@@ -65,16 +65,18 @@ def _default_pipeline() -> list[dict[str, Any]]:
             "substeps": _default_substep_data("UpscaleStep"),
         },
         {
-            "type": "CaptionStep",
+            "type": "CaptionBboxStep",
             "caption_model_id": None,
             "caption_model_task": "auto",
             "vram_tier": "auto",
             "max_new_tokens": 200,
             "spot_check_pct": 0.10,
-            "substeps": _default_substep_data("CaptionStep"),
+            "substeps": _default_substep_data("CaptionBboxStep"),
         },
         {
             "type": "VaeGateStep",
+            "vae_model_id": "black-forest-labs/FLUX.2-klein-base-9B",
+            "vae_config_id": None,
             "diff_amplification": 4.0,
             "gaussian_blur_sigma": 2.0,
             "gaussian_blur_kernel": 21,
@@ -84,7 +86,7 @@ def _default_pipeline() -> list[dict[str, Any]]:
             "output_hard_silhouettes": True,
             "outlier_sigma": 2.0,
             "hf_cutoff_fraction": 0.25,
-            "max_side": None,
+            "max_side": 1536,
             "seed": 42,
             "substeps": _default_substep_data("VaeGateStep"),
         },
@@ -96,19 +98,26 @@ def _default_pipeline() -> list[dict[str, Any]]:
             "check_corrupt": True,
             "check_caption_length": True,
             "check_resolution_gate": True,
+            "min_resolution_side": 1536,
+            "caption_model_type": "auto",
             "substeps": _default_substep_data("AuditStep"),
         },
         {
-            "type": "ConfigGenStep",
-            "base_template_path": None,
-            "substeps": _default_substep_data("ConfigGenStep"),
-        },
-        {
-            "type": "BucketDryRunStep",
+            "type": "BucketPoolsCheckStep",
             "thin_threshold": 2,
             "cache_mode": False,
-            "bucket_overrides": None,
-            "substeps": _default_substep_data("BucketDryRunStep"),
+            "resolution_buckets": [
+                [1024, 1024],
+                [1152, 896],
+                [896, 1152],
+                [1216, 832],
+                [832, 1216],
+                [1344, 768],
+                [768, 1344],
+                [1536, 640],
+                [640, 1536],
+            ],
+            "substeps": _default_substep_data("BucketPoolsCheckStep"),
         },
         {
             "type": "ExportStep",
@@ -125,12 +134,10 @@ def config_path_for_name(name: str) -> Path:
 def default_project_data(
     name: str,
     input_dir: Path | str | None = None,
-    network: str = "flux-klein-9b",
     output_dir: Path | str | None = None,
 ) -> dict[str, Any]:
     data: dict[str, Any] = {
         "name": name,
-        "network": network,
     }
     if input_dir is not None:
         data["input_dir"] = str(input_dir)
@@ -144,7 +151,6 @@ def write_default_project(
     name: str,
     path: Path | None = None,
     input_dir: Path | str | None = None,
-    network: str = "flux-klein-9b",
     output_dir: Path | str | None = None,
 ) -> Path:
     """Write a fully-defaulted project config and return its path."""
@@ -152,7 +158,7 @@ def write_default_project(
     config_path.parent.mkdir(parents=True, exist_ok=True)
     config_path.write_text(
         yaml.safe_dump(
-            default_project_data(name, input_dir, network, output_dir),
+            default_project_data(name, input_dir, output_dir),
             sort_keys=False,
         )
     )
@@ -161,7 +167,6 @@ def write_default_project(
 
 def create_project(
     name: str,
-    network: str = "flux-klein-9b",
     input_dir: Path | str | None = None,
     output_dir: Path | str | None = None,
 ) -> Path:
@@ -176,7 +181,6 @@ def create_project(
         name,
         config_path,
         input_dir=input_dir or None,
-        network=network or "flux-klein-9b",
         output_dir=output_dir or None,
     )
 
@@ -184,7 +188,6 @@ def create_project(
 def update_project_meta(
     orig_name: str,
     name: str,
-    network: str = "flux-klein-9b",
     input_dir: Path | str | None = None,
     output_dir: Path | str | None = None,
 ) -> Path:
@@ -207,7 +210,8 @@ def update_project_meta(
 
     data = yaml.safe_load(src_path.read_text()) or {}
     data["name"] = name
-    data["network"] = network or "flux-klein-9b"
+    data.pop("network", None)
+    data.pop("network_type", None)
     if input_dir:
         data["input_dir"] = str(input_dir)
     else:

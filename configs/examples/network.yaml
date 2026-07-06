@@ -9,18 +9,8 @@
 # parsed and validated by prepare_lora_kit.networks.config.NetworkConfig and
 # rendered into config.process[0].network of the generated training YAML.
 #
-# Per-run `linear` / `linear_alpha` (rank / alpha) are overwritten at config-build
-# time by step 7; the values here are defaults / placeholders.
-#
-# Switching the adapter type for a single run WITHOUT editing the profile: set a
-# top-level `network_type:` in the project config (configs/projects/<name>.yaml):
-#
-#     name: my-project
-#     network: flux-klein-9b
-#     network_type: dora        # overrides the profile's default (lora|lokr|dora)
-#     pipeline: [ ... ]
-#
-# Run `python main.py network-types` to list supported types and their defaults.
+# Per-run `linear` / `linear_alpha` (rank / alpha) may be overwritten by the
+# separate training-config workflow. The values here are defaults/placeholders.
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ── LoRA (default) — low-rank B·A on linear/attention layers ──────────────────

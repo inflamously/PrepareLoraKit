@@ -1,4 +1,4 @@
-"""Deterministic mock runtime for CaptionStep (--mock)."""
+"""Deterministic mock runtime for CaptionBboxStep (--mock)."""
 from __future__ import annotations
 from pathlib import Path
 from typing import Optional
@@ -19,7 +19,7 @@ def _mock_caption(
     from ..utils import image as img_utils
     from ..utils import report as rpt
     from ..interaction import annotate_dataset_via_images
-    from ..steps.s5_caption.artifacts import (
+    from ..steps.caption_bbox.artifacts import (
         _is_bbox_artifact,
         _save_bbox_training_item,
         load_boxes_sidecar,
@@ -27,18 +27,18 @@ def _mock_caption(
     )
 
     rpt.step_header(5, "Caption — Mock Runtime")
-    enabled = set(enabled_substeps or ["s5_1_annotate", "s5_2_caption", "s5_3_validate"])
+    enabled = set(enabled_substeps or ["annotate_regions", "caption_images", "validate_captions"])
     working_dir.mkdir(parents=True, exist_ok=True)
     images = [p for p in img_utils.iter_images(working_dir) if not _is_bbox_artifact(p)]
     token_prefix = f"{concept_token}, " if concept_token else ""
 
     # Resume: only images that still lack a caption need work (``force`` recaptions
     # everything). Already-captioned images and their hand-drawn boxes are left
-    # untouched, mirroring steps/s5_caption/step.py.
+    # untouched, mirroring steps/caption_bbox/step.py.
     pending = [p for p in images if force or not p.with_suffix(".txt").exists()]
     pending_set = set(pending)
 
-    # Mirror steps/s5_caption/regions.py::make_region_captioner but caption the
+    # Mirror steps/caption_bbox/regions.py::make_region_captioner but caption the
     # cropped region with deterministic mock text instead of a VLM, so the UI
     # "Caption selected box" button works end-to-end under --mock.
     def mock_region_captioner(crop, metadata=None):
@@ -63,12 +63,12 @@ def _mock_caption(
             captions[str(path)] = txt_path.read_text(encoding="utf-8").strip()
 
     # Phase A — gather decisions via the same batch interaction the real step uses
-    # (steps/s5_caption/workflow.py::gather_decisions), for the pending images only.
+    # (steps/caption_bbox/workflow.py::gather_decisions), for the pending images only.
     # Headless/CLI mock has no provider, so every pending image captions with no
     # regions; a resume with nothing pending never pops an empty modal.
-    if not pending or "s5_2_caption" not in enabled:
+    if not pending or "caption_images" not in enabled:
         decisions: dict[str, dict] = {}
-    elif "s5_1_annotate" not in enabled or interaction is None:
+    elif "annotate_regions" not in enabled or interaction is None:
         decisions = {str(p): {"annotations": [], "skipped": False} for p in pending}
     else:
         descriptors = [
@@ -94,7 +94,7 @@ def _mock_caption(
         txt_path = path.with_suffix(".txt")
         decision = decisions.get(str(path))
 
-        if "s5_2_caption" not in enabled:
+        if "caption_images" not in enabled:
             if txt_path.exists():
                 captions[str(path)] = txt_path.read_text(encoding="utf-8").strip()
             continue
@@ -128,11 +128,11 @@ def _mock_caption(
         "long_captions": [],
         "spot_check_sample": [],
         "substeps": {
-            "s5_1_annotate": {"enabled": "s5_1_annotate" in enabled},
-            "s5_2_caption": {"enabled": "s5_2_caption" in enabled},
-            "s5_3_validate": {"enabled": "s5_3_validate" in enabled},
+            "annotate_regions": {"enabled": "annotate_regions" in enabled},
+            "caption_images": {"enabled": "caption_images" in enabled},
+            "validate_captions": {"enabled": "validate_captions" in enabled},
         },
     }
     check_cancel(cancel_check)
-    rpt.save_report(report, output_dir / "reports" / "CaptionStep_report.json")
+    rpt.save_report(report, output_dir / "reports" / "CaptionBboxStep_report.json")
     return report

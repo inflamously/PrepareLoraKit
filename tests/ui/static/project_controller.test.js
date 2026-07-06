@@ -3,15 +3,15 @@ import { beforeEach, describe, it } from "node:test";
 
 import { JSDOM } from "jsdom";
 
-import { state } from "../../../prepare_lora_kit/ui/static/core/state.js";
+import { state } from "../../../prepare_lora_kit_ui/static/core/state.js";
 import {
   collapseAll,
   expandAll,
   loadProject,
   selectPending,
   unselectAll,
-} from "../../../prepare_lora_kit/ui/static/project/controller.js";
-import { selectedSubstepMap } from "../../../prepare_lora_kit/ui/static/project/selection.js";
+} from "../../../prepare_lora_kit_ui/static/project/controller.js";
+import { selectedSubstepMap } from "../../../prepare_lora_kit_ui/static/project/selection.js";
 
 let loadProjectCalls;
 let projectsByName;
@@ -51,7 +51,7 @@ beforeEach(() => {
   ]);
   state.selectedSteps = new Set(["UpscaleStep"]);
   state.selectedSubsteps = new Map([
-    ["UpscaleStep", new Set(["s3_1_select_candidates"])],
+    ["UpscaleStep", new Set(["select_upscale_candidates"])],
   ]);
   state.collapsedSteps = new Set();
   state.jobId = null;
@@ -93,10 +93,10 @@ describe("project controller selection", () => {
       "VaeGateStep",
     ]);
     assert.deepEqual(selectedSubstepMap(), {
-      ImportStep: ["s0_import"],
-      QualityGateStep: ["s1_1_score", "s1_2_decide"],
-      CurateStep: ["s2_1_dupecheck"],
-      VaeGateStep: ["s4_1_reconstruct"],
+      ImportStep: ["import_images"],
+      QualityGateStep: ["score_images", "review_decisions"],
+      CurateStep: ["duplicate_check"],
+      VaeGateStep: ["reconstruct_images"],
     });
   });
 
@@ -110,8 +110,8 @@ describe("project controller selection", () => {
       "VaeGateStep",
     ]);
     assert.deepEqual(selectedSubstepMap().QualityGateStep, [
-      "s1_1_score",
-      "s1_2_decide",
+      "score_images",
+      "review_decisions",
     ]);
   });
 
@@ -143,7 +143,7 @@ describe("project controller selection", () => {
       "other",
       project("other", [
         step("ImportStep", "pending", false),
-        step("CaptionStep", "pending", false, {
+        step("CaptionBboxStep", "pending", false, {
           qwen_model_id: "Qwen/Qwen2.5-VL-3B-Instruct",
           vram_tier: "mid",
         }),
@@ -158,7 +158,7 @@ describe("project controller selection", () => {
     state.outputCustomized = true;
     state.selectedSteps = new Set(["UpscaleStep"]);
     state.selectedSubsteps = new Map([
-      ["UpscaleStep", new Set(["s3_1_select_candidates"])],
+      ["UpscaleStep", new Set(["select_upscale_candidates"])],
     ]);
     state.jobId = "finished-job";
     state.job = {
@@ -177,10 +177,10 @@ describe("project controller selection", () => {
     });
     assert.equal(state.outputDir, "/outputs/other");
     assert.equal(state.outputCustomized, false);
-    assert.deepEqual([...state.selectedSteps], ["ImportStep", "CaptionStep"]);
+    assert.deepEqual([...state.selectedSteps], ["ImportStep", "CaptionBboxStep"]);
     assert.deepEqual(selectedSubstepMap(), {
-      ImportStep: ["s0_import"],
-      CaptionStep: ["s5_1_caption"],
+      ImportStep: ["import_images"],
+      CaptionBboxStep: ["caption_images"],
     });
     assert.equal(state.token, "");
     assert.equal(document.getElementById("forceInput").checked, false);
@@ -211,23 +211,21 @@ describe("project controller selection", () => {
 function project(name, steps) {
   return {
     name,
-    network: "flux-klein-9b",
-    network_type: null,
     steps,
   };
 }
 
 function step(type, status, optional, config = {}) {
   const substeps = {
-    ImportStep: [{ id: "s0_import", label: "Import", enabled: true, status, prerequisites: [], optional: false }],
+    ImportStep: [{ id: "import_images", label: "Import", enabled: true, status, prerequisites: [], optional: false }],
     QualityGateStep: [
-      { id: "s1_1_score", label: "Score", enabled: true, status, prerequisites: [], optional: false },
-      { id: "s1_2_decide", label: "Decide", enabled: true, status, prerequisites: ["s1_1_score"], optional: false },
+      { id: "score_images", label: "Score", enabled: true, status, prerequisites: [], optional: false },
+      { id: "review_decisions", label: "Decide", enabled: true, status, prerequisites: ["score_images"], optional: false },
     ],
-    CurateStep: [{ id: "s2_1_dupecheck", label: "Dupe", enabled: true, status, prerequisites: [], optional: false }],
-    UpscaleStep: [{ id: "s3_1_select_candidates", label: "Select", enabled: true, status, prerequisites: [], optional: false }],
-    VaeGateStep: [{ id: "s4_1_reconstruct", label: "Reconstruct", enabled: true, status, prerequisites: [], optional: false }],
-    CaptionStep: [{ id: "s5_1_caption", label: "Caption", enabled: true, status, prerequisites: [], optional: false }],
+    CurateStep: [{ id: "duplicate_check", label: "Dupe", enabled: true, status, prerequisites: [], optional: false }],
+    UpscaleStep: [{ id: "select_upscale_candidates", label: "Select", enabled: true, status, prerequisites: [], optional: false }],
+    VaeGateStep: [{ id: "reconstruct_images", label: "Reconstruct", enabled: true, status, prerequisites: [], optional: false }],
+    CaptionBboxStep: [{ id: "caption_images", label: "Caption", enabled: true, status, prerequisites: [], optional: false }],
   };
   return {
     type,

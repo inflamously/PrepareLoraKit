@@ -10,8 +10,8 @@ from .working_dataset import _require_working_dataset
 def _invoke_ExportStep(working_dir: Path, output_dir: Path, cfg: ExportConfig,
                        *, original_dir: Path | None = None, **_kw) -> dict:
     _require_working_dataset(working_dir)
-    from ..steps import s9_export
-    return s9_export.run(
+    from ..steps import export_step
+    return export_step.run(
         working_dir,
         original_dir=original_dir,
         target_dir=cfg.target_dir,

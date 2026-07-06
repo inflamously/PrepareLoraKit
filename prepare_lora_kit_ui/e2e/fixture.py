@@ -66,5 +66,5 @@ def seed_state(output_dir: Path, selected_steps: list[str]) -> None:
 
 def needs_seeded_captions(selected_steps: list[str]) -> bool:
     first_index = min(list(STEP_TYPE_MAP).index(step) for step in selected_steps)
-    caption_index = list(STEP_TYPE_MAP).index("CaptionStep")
+    caption_index = list(STEP_TYPE_MAP).index("CaptionBboxStep")
     return first_index > caption_index

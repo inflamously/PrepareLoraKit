@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Any
 
 from prepare_lora_kit import caption_prompts
-from prepare_lora_kit.networks import network_registry
 from prepare_lora_kit_ui.paths import PROJECT_ROOT
 from prepare_lora_kit.project import project_registry
 from prepare_lora_kit.project.base import ProjectConfig
@@ -50,9 +49,6 @@ class UiBridge:
         live = self.jobs.project_statuses()
         return {"projects": [self._project_card(name, live) for name in names]}
 
-    def list_networks(self) -> dict[str, Any]:
-        return {"networks": network_registry.list_networks()}
-
     def _project_card(
         self, name: str, live: dict[str, str] | None = None
     ) -> dict[str, Any]:
@@ -62,8 +58,6 @@ class UiBridge:
         except Exception as exc:
             return {
                 "name": name,
-                "network": None,
-                "network_type": None,
                 "input_dir": None,
                 "output_dir": None,
                 "initials": _initials(name),
@@ -81,8 +75,6 @@ class UiBridge:
         mtime = config_path.stat().st_mtime if config_path.exists() else 0
         return {
             "name": loaded.name,
-            "network": loaded.network,
-            "network_type": loaded.network_type,
             "input_dir": loaded.input_dir,
             "output_dir": str(out) if out is not None else None,
             "initials": _initials(loaded.name),
@@ -94,7 +86,6 @@ class UiBridge:
     def create_project(self, payload: dict[str, Any]) -> dict[str, Any]:
         project_registry.create_project(
             name=str(payload.get("name", "")),
-            network=str(payload.get("network") or "flux-klein-9b"),
             input_dir=payload.get("input_dir") or None,
             output_dir=payload.get("output_dir") or None,
         )
@@ -104,7 +95,6 @@ class UiBridge:
         project_registry.update_project_meta(
             orig_name=orig_name,
             name=str(payload.get("name", "")),
-            network=str(payload.get("network") or "flux-klein-9b"),
             input_dir=payload.get("input_dir") or None,
             output_dir=payload.get("output_dir") or None,
         )

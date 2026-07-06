@@ -4,7 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from prepare_lora_kit_pipeline.configs import QualityGateConfig, ImportConfig, ScorerEntry, UpscaleConfig, CurateConfig, \
-    CaptionConfig, VaeGateConfig, AuditConfig, ConfigGenConfig, BucketDryRunConfig
+    CaptionBboxConfig, VaeGateConfig, AuditConfig, BucketPoolsCheckConfig, ExportConfig
 from prepare_lora_kit.project.base import ProjectConfig, PipelineStep
 from .constants import MOCK_PROJECT_NAME, QUALITY_GATE_MIN_SIDE
 
@@ -12,7 +12,6 @@ from .constants import MOCK_PROJECT_NAME, QUALITY_GATE_MIN_SIDE
 def mock_project(input_dir: Path) -> ProjectConfig:
     return ProjectConfig(
         name=MOCK_PROJECT_NAME,
-        network="flux-klein-9b",
         input_dir=str(input_dir),
         pipeline=[
             PipelineStep("ImportStep", ImportConfig()),
@@ -37,8 +36,8 @@ def mock_project(input_dir: Path) -> ProjectConfig:
                 UpscaleConfig(upscale_target=1664, upscale_model="lanczos"),
             ),
             PipelineStep(
-                "CaptionStep",
-                CaptionConfig(
+                "CaptionBboxStep",
+                CaptionBboxConfig(
                     caption_model_id="mock",
                     vram_tier="auto",
                     max_new_tokens=32,
@@ -47,7 +46,7 @@ def mock_project(input_dir: Path) -> ProjectConfig:
             ),
             PipelineStep("VaeGateStep", VaeGateConfig()),
             PipelineStep("AuditStep", AuditConfig()),
-            PipelineStep("ConfigGenStep", ConfigGenConfig()),
-            PipelineStep("BucketDryRunStep", BucketDryRunConfig()),
+            PipelineStep("BucketPoolsCheckStep", BucketPoolsCheckConfig()),
+            PipelineStep("ExportStep", ExportConfig()),
         ],
     )

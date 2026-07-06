@@ -1,6 +1,6 @@
 import { JSDOM } from "jsdom";
 
-import { state } from "../../../prepare_lora_kit/ui/static/core/state.js";
+import { state } from "../../../prepare_lora_kit_ui/static/core/state.js";
 
 export const nextTick = () => new Promise((resolve) => setTimeout(resolve, 0));
 

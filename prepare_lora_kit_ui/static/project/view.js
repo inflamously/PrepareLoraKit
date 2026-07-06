@@ -19,12 +19,9 @@ export function renderSteps() {
   }
 
   const needsDataset = state.inputDir.trim() ? "" : " / select dataset";
-  const networkType = state.project.network_type
-    ? ` / ${state.project.network_type}`
-    : "";
   setText(
     "projectSummary",
-    `${state.project.name} / ${state.project.network}${networkType}${needsDataset}`,
+    `${state.project.name}${needsDataset}`,
   );
 
   for (const step of state.project.steps) {

@@ -7,7 +7,7 @@ import pytest
 
 from prepare_lora_kit.cli.step import _parse_bbox, _resolve_bbox_target
 from prepare_lora_kit.interaction import CliBboxRegionProvider
-from prepare_lora_kit.steps.s5_caption import step as caption_step
+from prepare_lora_kit.steps.caption_bbox import step as caption_bbox_step
 
 
 # ── _parse_bbox ────────────────────────────────────────────────────────────────
@@ -126,16 +126,16 @@ def test_bbox_annotations_reach_caption_image(tmp_path, monkeypatch):
     img = tmp_path / "image.png"
     Image.new("RGB", (16, 12), "blue").save(img)
     captured = []
-    monkeypatch.setattr(caption_step.vlm, "CaptionRuntime", _fake_runtime_class(captured))
+    monkeypatch.setattr(caption_bbox_step.vlm, "CaptionRuntime", _fake_runtime_class(captured))
 
     boxes = [{"x1": 0.1, "y1": 0.2, "x2": 0.5, "y2": 0.6, "label": "face"}]
-    caption_step.run(
+    caption_bbox_step.run(
         tmp_path,
         concept_token="tok",
         output_dir=tmp_path,
         caption_model_id="fake/model",
         interaction=CliBboxRegionProvider(img, boxes),
-        enabled_substeps=["s5_1_annotate", "s5_2_caption"],
+        enabled_substeps=["annotate_regions", "caption_images"],
         spot_check_pct=0,
     )
 

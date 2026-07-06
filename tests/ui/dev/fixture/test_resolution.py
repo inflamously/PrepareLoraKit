@@ -5,12 +5,8 @@ from prepare_lora_kit_ui.e2e import (
 )
 
 
-def test_resolve_mock_steps_accepts_aliases_and_all():
-    assert resolve_mock_steps("s0") == ["ImportStep"]
-    assert resolve_mock_steps("0") == ["ImportStep"]
-    assert resolve_mock_steps("s1") == ["QualityGateStep"]
-    assert resolve_mock_steps("s2") == ["CurateStep"]
-    assert resolve_mock_steps("2") == ["CurateStep"]
+def test_resolve_mock_steps_accepts_step_type_names_and_all():
+    assert resolve_mock_steps("ImportStep") == ["ImportStep"]
     assert resolve_mock_steps("curatestep") == ["CurateStep"]
     assert resolve_mock_steps("all")[0] == "ImportStep"
     assert resolve_mock_steps("all")[-1] == "ExportStep"

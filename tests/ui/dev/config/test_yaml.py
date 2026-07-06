@@ -6,7 +6,6 @@ def test_project_yaml_can_parse_curate_skip_clip(tmp_path):
     path.write_text(
         """\
 name: mock
-network: flux-klein-9b
 pipeline:
   - type: ImportStep
   - type: QualityGateStep

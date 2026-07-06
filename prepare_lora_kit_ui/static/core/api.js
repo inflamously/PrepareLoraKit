@@ -33,8 +33,6 @@
 /**
  * @typedef {Object} ProjectPayload
  * @property {string} name
- * @property {string} network
- * @property {string} network_type
  * @property {string | null} input_dir
  * @property {StepPayload[]} steps
  */
@@ -205,7 +203,6 @@
  * @typedef {Object} JobResult
  * @property {string} output_dir
  * @property {string} reports_dir
- * @property {string} run_config
  */
 
 /**
@@ -255,8 +252,6 @@
 /**
  * @typedef {Object} ProjectCard
  * @property {string} name
- * @property {string | null} network
- * @property {string | null} network_type
  * @property {string | null} input_dir
  * @property {string | null} output_dir
  * @property {string} initials
@@ -271,14 +266,12 @@
  * @property {string} name
  * @property {string} input_dir
  * @property {string} output_dir
- * @property {string} network
  */
 
 /**
  * @typedef {Object} PyWebviewApi
  * @property {() => Promise<{project_root: string, default_outputs: string, bootstrap: BootstrapPayload | null}>} app_info
  * @property {() => Promise<{projects: ProjectCard[]}>} list_projects
- * @property {() => Promise<{networks: string[]}>} list_networks
  * @property {(payload: ProjectMetaPayload) => Promise<{project: ProjectCard}>} create_project
  * @property {(orig_name: string, payload: ProjectMetaPayload) => Promise<{project: ProjectCard}>} update_project
  * @property {(name: string) => Promise<{deleted: boolean}>} delete_project

@@ -1,16 +1,4 @@
-"""
-ProjectConfig — top-level per-project pipeline configuration.
-
-Separate from NetworkProfile (which describes the *model*). A ProjectConfig
-references a network by name and holds a pipeline: an ordered list of
-PipelineStep entries. Each entry has a type (e.g. "CaptionStep") and
-step-specific config fields.
-
-The per-step config dataclasses live in ``configs.py``; this module wires
-them into the pipeline registry and validates project-level structure.
-
-Loaded from configs/projects/<name>.yaml via the project registry.
-"""
+"""ProjectConfig — top-level per-project dataset workflow configuration."""
 from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -39,13 +27,7 @@ class PipelineStep:
 @dataclass
 class ProjectConfig:
     name: str
-    network: str  # references a NetworkProfile by name
-    # Optional per-run adapter-network type override (lora|lokr|dora). When set,
-    # it wins over the profile's config_template.network.type in step 7.
-    network_type: Optional[str] = None
     input_dir: Optional[str] = None
-    # Optional output directory override. When blank, callers compute the default
-    # as outputs/<dataset-name> via runner._default_output.
     output_dir: Optional[str] = None
     pipeline: list[PipelineStep] = field(default_factory=list)
 
@@ -53,15 +35,6 @@ class ProjectConfig:
         self.pipeline = _normalize_pipeline_steps(self.pipeline)
         if not self.name:
             raise ValueError("ProjectConfig: 'name' is required")
-        if not self.network:
-            raise ValueError("ProjectConfig: 'network' is required")
-        if self.network_type is not None:
-            from ..networks.net_types import KNOWN_NET_TYPES
-            if self.network_type not in KNOWN_NET_TYPES:
-                raise ValueError(
-                    f"ProjectConfig: unknown network_type '{self.network_type}'. "
-                    f"Known: {', '.join(sorted(KNOWN_NET_TYPES))}"
-                )
         self._validate_pipeline()
 
     def _validate_pipeline(self) -> None:
@@ -94,10 +67,11 @@ class ProjectConfig:
     def from_yaml(cls, path: Path) -> "ProjectConfig":
         with open(path) as f:
             data = yaml.safe_load(f) or {}
+        migrated = _migrate_legacy_project_data(data)
+        if migrated:
+            path.write_text(yaml.safe_dump(data, sort_keys=False))
 
         name = data.pop("name")
-        network = data.pop("network")
-        network_type = data.pop("network_type", None)
         input_dir = data.pop("input_dir", None)
         output_dir = data.pop("output_dir", None)
         raw_pipeline = data.pop("pipeline", []) or []
@@ -117,8 +91,12 @@ class ProjectConfig:
             # Type-specific coercions
             if step_type == "QualityGateStep" and raw.get("scorers") is not None:
                 raw["scorers"] = [ScorerEntry(**s) for s in raw["scorers"]]
-            if step_type == "BucketDryRunStep" and raw.get("bucket_overrides") is not None:
-                raw["bucket_overrides"] = [tuple(b) for b in raw["bucket_overrides"]]
+            if step_type == "BucketPoolsCheckStep":
+                if raw.get("bucket_overrides") is not None and raw.get("resolution_buckets") is None:
+                    raw["resolution_buckets"] = raw.pop("bucket_overrides")
+                raw.pop("bucket_overrides", None)
+                if raw.get("resolution_buckets") is not None:
+                    raw["resolution_buckets"] = [tuple(b) for b in raw["resolution_buckets"]]
             config = config_cls(**raw)
             pipeline.append(
                 PipelineStep(
@@ -128,8 +106,7 @@ class ProjectConfig:
                 )
             )
 
-        return cls(name=name, network=network, network_type=network_type,
-                   input_dir=input_dir, output_dir=output_dir, pipeline=pipeline)
+        return cls(name=name, input_dir=input_dir, output_dir=output_dir, pipeline=pipeline)
 
 
 def _normalize_raw_pipeline(raw_pipeline: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -148,3 +125,87 @@ def _normalize_pipeline_steps(pipeline: list[PipelineStep]) -> list[PipelineStep
         )
         return [import_step, *pipeline]
     return pipeline
+
+
+_STEP_MIGRATIONS: dict[str, str | None] = {
+    "CaptionStep": "CaptionBboxStep",
+    "BucketDryRunStep": "BucketPoolsCheckStep",
+    "ConfigGenStep": None,
+}
+
+_SUBSTEP_MIGRATIONS: dict[str, str] = {
+    "s0_import": "import_images",
+    "s1_1_score": "score_images",
+    "s1_2_decide": "review_decisions",
+    "s2_1_dupecheck": "duplicate_check",
+    "s2_2_clipscan": "clip_scan",
+    "s2_3_drop_images": "drop_images",
+    "s3_1_select_candidates": "select_upscale_candidates",
+    "s3_2_upscale": "upscale_images",
+    "s3_3_hallucination_check": "hallucination_check",
+    "s5_1_annotate": "annotate_regions",
+    "s5_2_caption": "caption_images",
+    "s5_3_validate": "validate_captions",
+    "s4_1_reconstruct": "reconstruct_images",
+    "s4_2_review": "review_vae_artifacts",
+    "s4_3_apply_decisions": "apply_vae_decisions",
+    "s6_1_pairing": "check_pairing",
+    "s6_2_corrupt": "check_corrupt_files",
+    "s6_3_caption_quality": "check_caption_quality",
+    "s6_4_resolution": "check_resolution",
+    "s8_1_assign_buckets": "assign_bucket_pools",
+    "s8_2_report_thin_buckets": "report_thin_buckets",
+    "s8_3_cache_info": "write_cache_info",
+    "s9_1_diff": "preview_export_diff",
+    "s9_2_export": "copy_export",
+}
+
+
+def _migrate_legacy_project_data(data: dict[str, Any]) -> bool:
+    """Rewrite legacy project YAML data to the named dataset workflow schema."""
+
+    changed = False
+    for key in ("network", "network_type"):
+        if key in data:
+            data.pop(key, None)
+            changed = True
+
+    raw_pipeline = data.get("pipeline")
+    if not isinstance(raw_pipeline, list):
+        return changed
+
+    migrated_pipeline: list[dict[str, Any]] = []
+    for raw in raw_pipeline:
+        if not isinstance(raw, dict):
+            migrated_pipeline.append(raw)
+            continue
+        item = dict(raw)
+        old_type = str(item.get("type", ""))
+        new_type = _STEP_MIGRATIONS.get(old_type, old_type)
+        if new_type is None:
+            changed = True
+            continue
+        if new_type != old_type:
+            item["type"] = new_type
+            changed = True
+        substeps = item.get("substeps")
+        if isinstance(substeps, list):
+            for index, substep in enumerate(substeps):
+                if isinstance(substep, dict):
+                    old_id = str(substep.get("id", ""))
+                    new_id = _SUBSTEP_MIGRATIONS.get(old_id, old_id)
+                    if new_id != old_id:
+                        substep["id"] = new_id
+                        changed = True
+                elif isinstance(substep, str) and substep in _SUBSTEP_MIGRATIONS:
+                    substeps[index] = _SUBSTEP_MIGRATIONS[substep]
+                    changed = True
+        if item.get("type") == "BucketPoolsCheckStep" and "bucket_overrides" in item:
+            item["resolution_buckets"] = item.pop("bucket_overrides")
+            changed = True
+        migrated_pipeline.append(item)
+
+    if migrated_pipeline != raw_pipeline:
+        data["pipeline"] = migrated_pipeline
+        changed = True
+    return changed

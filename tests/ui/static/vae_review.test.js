@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
-import { showVaeReview } from "../../../prepare_lora_kit/ui/static/steps/vae_review/vae_review.js";
+import { showVaeReview } from "../../../prepare_lora_kit_ui/static/steps/vae_review/vae_review.js";
 import {
   calls,
   nextTick,

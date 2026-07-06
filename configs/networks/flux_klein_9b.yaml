@@ -25,7 +25,7 @@ requires_diff_guidance: false
 
 # config_template holds the network-static sections merged into the ai-toolkit
 # `config.process[0]` block by step 7. Per-run values (name, folders, steps, lr,
-# rank/alpha, ema, samples) are overlaid by s7_config.run().
+# rank/alpha, ema, samples) are overlaid by training_config.run().
 config_template:
   model:
     name_or_path: "black-forest-labs/FLUX.2-klein-base-9B"

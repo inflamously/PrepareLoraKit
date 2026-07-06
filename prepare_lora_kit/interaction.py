@@ -44,7 +44,7 @@ class CliInteractionProvider:
     """Default provider preserving the existing CLI UI/fallback behavior."""
 
     def source_review(self, scored: list[tuple[Path, dict]]) -> dict[str, str]:
-        from .steps.s1_source.review import _review_gallery_or_fallback
+        from .steps.quality_gate.review import _review_gallery_or_fallback
 
         return _review_gallery_or_fallback(scored)
 
@@ -58,17 +58,17 @@ class CliInteractionProvider:
         return [], True, False
 
     def vae_review(self, items: list[dict]) -> dict[str, str]:
-        from .steps.s4_vae_gate.review import _review_artifact_decisions
+        from .steps.vae_gate.review import _review_artifact_decisions
 
         return _review_artifact_decisions(items)
 
     def upscale_review(self, items: list[dict]) -> dict[str, str]:
-        from .steps.s3_upscale.review import _review_flagged_decisions
+        from .steps.upscale.review import _review_flagged_decisions
 
         return _review_flagged_decisions(items)
 
     def export_review(self, payload: dict[str, Any]) -> dict[str, Any]:
-        from .steps.s9_export.review import review_export_cli
+        from .steps.export_step.review import review_export_cli
 
         return review_export_cli(payload)
 

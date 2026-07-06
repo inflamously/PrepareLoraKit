@@ -12,9 +12,10 @@ from prepare_lora_kit.cli.ui import _static_server
 from prepare_lora_kit.project.base import ProjectConfig, PipelineStep
 from prepare_lora_kit_pipeline.configs import (
     AuditConfig,
-    CaptionConfig,
-    ConfigGenConfig,
+    BucketPoolsCheckConfig,
+    CaptionBboxConfig,
     CurateConfig,
+    ExportConfig,
     ImportConfig,
     QualityGateConfig,
     UpscaleConfig,
@@ -34,16 +35,16 @@ from prepare_lora_kit.utils.state import RunState
 def _project() -> ProjectConfig:
     return ProjectConfig(
         name="test",
-        network="flux-klein-9b",
         pipeline=[
             PipelineStep("ImportStep", ImportConfig()),
             PipelineStep("QualityGateStep", QualityGateConfig(auto_only=True)),
             PipelineStep("CurateStep", CurateConfig()),
             PipelineStep("UpscaleStep", UpscaleConfig()),
-            PipelineStep("CaptionStep", CaptionConfig()),
+            PipelineStep("CaptionBboxStep", CaptionBboxConfig()),
             PipelineStep("VaeGateStep", VaeGateConfig()),
             PipelineStep("AuditStep", AuditConfig()),
-            PipelineStep("ConfigGenStep", ConfigGenConfig()),
+            PipelineStep("BucketPoolsCheckStep", BucketPoolsCheckConfig()),
+            PipelineStep("ExportStep", ExportConfig()),
         ],
     )
 
@@ -53,10 +54,10 @@ def _active_step_types() -> list[str]:
         "ImportStep",
         "QualityGateStep",
         "CurateStep",
-        "CaptionStep",
+        "CaptionBboxStep",
         "VaeGateStep",
         "AuditStep",
-        "ConfigGenStep",
+        "BucketPoolsCheckStep",
     ]
 
 
@@ -84,7 +85,7 @@ def _invoke_map(calls: list[str]) -> dict[str, MagicMock]:
     return invokes
 
 
-def test_validate_selection_requires_caption_for_audit(tmp_path):
+def test_validate_selection_requires_vae_gate_for_audit(tmp_path):
     manager = JobManager()
 
     with pytest.raises(ValueError, match="AuditStep requires"):
@@ -94,7 +95,7 @@ def test_validate_selection_requires_caption_for_audit(tmp_path):
 def test_validate_selection_accepts_completed_prerequisite(tmp_path):
     out = tmp_path / "out"
     (out / "dataset").mkdir(parents=True)
-    RunState(out).mark_done("CaptionStep")
+    RunState(out).mark_done("VaeGateStep")
 
     manager = JobManager()
     manager._validate_selection(_project(), ["AuditStep"], out)
@@ -124,7 +125,7 @@ def test_validate_selection_allows_caption_without_optional_upscale_when_curate_
     state.mark_done("CurateStep")
 
     manager = JobManager()
-    manager._validate_selection(_project(), ["CaptionStep"], out)
+    manager._validate_selection(_project(), ["CaptionBboxStep"], out)
 
 
 def test_project_payload_includes_run_state(tmp_path):
@@ -137,7 +138,7 @@ def test_project_payload_includes_run_state(tmp_path):
     statuses = {step["type"]: step["status"] for step in payload["steps"]}
     assert statuses["ImportStep"] == "done"
     assert statuses["QualityGateStep"] == "done"
-    assert statuses["CaptionStep"] == "pending"
+    assert statuses["CaptionBboxStep"] == "pending"
 
 
 def test_project_payload_includes_optional_step_metadata(tmp_path):
@@ -153,9 +154,9 @@ def test_project_payload_includes_substeps(tmp_path):
     substeps = {step["type"]: step["substeps"] for step in payload["steps"]}
 
     assert [substep["id"] for substep in substeps["CurateStep"]] == [
-        "s2_1_dupecheck",
-        "s2_2_clipscan",
-        "s2_3_drop_images",
+        "duplicate_check",
+        "clip_scan",
+        "drop_images",
     ]
 
 
@@ -214,12 +215,12 @@ def test_project_payload_prefers_working_dataset_over_input(tmp_path):
 def test_validate_selection_rejects_substep_without_local_prerequisite(tmp_path):
     manager = JobManager()
 
-    with pytest.raises(ValueError, match="s1_2_decide requires"):
+    with pytest.raises(ValueError, match="review_decisions requires"):
         manager._validate_selection(
             _project(),
             ["ImportStep", "QualityGateStep"],
             tmp_path / "out",
-            {"ImportStep": ["s0_import"], "QualityGateStep": ["s1_2_decide"]},
+            {"ImportStep": ["import_images"], "QualityGateStep": ["review_decisions"]},
         )
 
 
@@ -229,10 +230,10 @@ def test_resolve_selected_substeps_accepts_request_override(tmp_path):
     resolved = manager._resolve_selected_substeps(
         _project(),
         ["CurateStep"],
-        {"CurateStep": ["s2_1_dupecheck", "s2_3_drop_images"]},
+        {"CurateStep": ["duplicate_check", "drop_images"]},
     )
 
-    assert resolved["CurateStep"] == ["s2_1_dupecheck", "s2_3_drop_images"]
+    assert resolved["CurateStep"] == ["duplicate_check", "drop_images"]
 
 
 def test_ui_run_starts_at_first_pending_active_step(tmp_path):
@@ -245,13 +246,12 @@ def test_ui_run_starts_at_first_pending_active_step(tmp_path):
     manager = JobManager(projects={"test": _project()})
     job = PipelineJob(manager, "test-job")
 
-    with patch("prepare_lora_kit.networks.network_registry.load", return_value=MagicMock()), \
-            patch.dict("prepare_lora_kit_ui.runner.STEP_INVOKE_MAP", invoke_map, clear=True):
+    with patch.dict("prepare_lora_kit_ui.runner.STEP_INVOKE_MAP", invoke_map, clear=True):
         manager._execute(job, _run_request(tmp_path, out))
 
-    assert calls == ["CurateStep", "CaptionStep", "VaeGateStep", "AuditStep", "ConfigGenStep"]
+    assert calls == ["CurateStep", "CaptionBboxStep", "VaeGateStep", "AuditStep", "BucketPoolsCheckStep"]
     assert job.snapshot()["skipped_steps"] == ["ImportStep", "QualityGateStep"]
-    assert RunState(out).is_done("ConfigGenStep")
+    assert RunState(out).is_done("BucketPoolsCheckStep")
 
 
 def test_ui_force_run_starts_active_pipeline_from_beginning(tmp_path):
@@ -264,8 +264,7 @@ def test_ui_force_run_starts_active_pipeline_from_beginning(tmp_path):
     manager = JobManager(projects={"test": _project()})
     job = PipelineJob(manager, "test-job")
 
-    with patch("prepare_lora_kit.networks.network_registry.load", return_value=MagicMock()), \
-            patch.dict("prepare_lora_kit_ui.runner.STEP_INVOKE_MAP", invoke_map, clear=True):
+    with patch.dict("prepare_lora_kit_ui.runner.STEP_INVOKE_MAP", invoke_map, clear=True):
         manager._execute(job, _run_request(tmp_path, out, force=True))
 
     assert calls == _active_step_types()
@@ -283,8 +282,7 @@ def test_ui_force_run_reimports_existing_working_dataset(tmp_path):
     manager = JobManager(projects={"test": _project()})
     job = PipelineJob(manager, "test-job")
 
-    with patch("prepare_lora_kit.networks.network_registry.load", return_value=MagicMock()), \
-            patch.dict("prepare_lora_kit_ui.runner.STEP_INVOKE_MAP", invoke_map, clear=True):
+    with patch.dict("prepare_lora_kit_ui.runner.STEP_INVOKE_MAP", invoke_map, clear=True):
         manager._execute(job, _run_request(tmp_path, out, force=True))
 
     # --force re-imports even when a working dataset already exists.
@@ -306,7 +304,6 @@ def test_ui_run_pauses_for_step_config_and_applies_overrides(tmp_path):
     out = tmp_path / "out"
     project = ProjectConfig(
         name="test",
-        network="flux-klein-9b",
         pipeline=[
             PipelineStep("ImportStep", ImportConfig()),
             PipelineStep("QualityGateStep", QualityGateConfig(auto_only=False)),
@@ -330,8 +327,7 @@ def test_ui_run_pauses_for_step_config_and_applies_overrides(tmp_path):
 
     def run():
         try:
-            with patch("prepare_lora_kit.networks.network_registry.load", return_value=MagicMock()), \
-                    patch.dict("prepare_lora_kit_ui.runner.STEP_INVOKE_MAP", invoke_map, clear=True):
+            with patch.dict("prepare_lora_kit_ui.runner.STEP_INVOKE_MAP", invoke_map, clear=True):
                 manager._execute(job, request)
         except Exception as exc:  # pragma: no cover - surfaced via assertion
             errors.append(exc)
@@ -378,8 +374,7 @@ def test_ui_run_failure_stops_before_downstream_steps(tmp_path):
     request = _run_request(tmp_path, out)
     request["steps"] = ["ImportStep", "QualityGateStep", "CurateStep"]
 
-    with patch("prepare_lora_kit.networks.network_registry.load", return_value=MagicMock()), \
-            patch.dict("prepare_lora_kit_ui.runner.STEP_INVOKE_MAP", invoke_map, clear=True), \
+    with patch.dict("prepare_lora_kit_ui.runner.STEP_INVOKE_MAP", invoke_map, clear=True), \
             pytest.raises(RuntimeError, match="quality failed"):
         manager._execute(job, request)
 
@@ -673,7 +668,7 @@ def test_ui_job_uses_plain_rich_console(monkeypatch):
 
     logs = job.snapshot()["logs"]
     assert all("\x1b" not in line for line in logs)
-    assert any("Step 4: VAE Reconstruction Gate" in line for line in logs)
+    assert any("VAE Reconstruction Gate" in line for line in logs)
     assert "external framework warning" in logs
 
 
@@ -696,14 +691,14 @@ def test_cancelled_run_sets_clean_cancelled_status_without_traceback(monkeypatch
 
 def test_cancel_updates_visible_job_status():
     job = PipelineJob(JobManager(), "test-job")
-    job.set_status("running", current_step="CaptionStep")
+    job.set_status("running", current_step="CaptionBboxStep")
 
     job.cancel()
 
     snapshot = job.snapshot()
     assert snapshot["cancel_requested"] is True
     assert snapshot["status"] == "cancelling"
-    assert snapshot["current_step"] == "CaptionStep"
+    assert snapshot["current_step"] == "CaptionBboxStep"
 
 
 def test_job_snapshot_includes_caption_status():
@@ -723,7 +718,7 @@ def test_job_snapshot_includes_caption_status():
 def test_cancel_active_marks_active_job_cancelling():
     manager = JobManager()
     job = PipelineJob(manager, "test-job")
-    job.set_status("running", current_step="CaptionStep")
+    job.set_status("running", current_step="CaptionBboxStep")
     manager._jobs[job.id] = job
     manager._active_job_id = job.id
 

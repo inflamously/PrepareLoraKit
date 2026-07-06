@@ -8,7 +8,6 @@ from typing import Optional
 
 from prepare_lora_kit.cancellation import CancelCheck, check_cancel
 from prepare_lora_kit.invoke import STEP_INVOKE_MAP
-from prepare_lora_kit.networks import network_registry
 from prepare_lora_kit.paths import PROJECT_ROOT
 from prepare_lora_kit_pipeline.configuration import RESUME_AWARE_STEP_TYPES
 from prepare_lora_kit.project.base import ProjectConfig
@@ -52,7 +51,6 @@ def run_all(cfg: RunConfig) -> None:
         [step.type for step in cfg.project.pipeline],
         output_dir,
     )
-    network = network_registry.load(cfg.project.network)
     state = RunState(output_dir)
     if force:
         # --force is a full reset: clear the manifest so every step re-runs,
@@ -70,7 +68,7 @@ def run_all(cfg: RunConfig) -> None:
             report.info("ImportStep satisfied by existing working dataset.")
             return True
         # Resume-aware steps self-determine pending work each run, so they are never
-        # skipped on is_done — that is what lets CaptionStep resume without --force.
+        # skipped on is_done — that is what lets CaptionBboxStep resume without --force.
         if key in RESUME_AWARE_STEP_TYPES:
             return False
         if state.is_done(key):
@@ -79,10 +77,8 @@ def run_all(cfg: RunConfig) -> None:
         return False
 
     shared_kw = dict(
-        network=network,
         concept_token=cfg.concept_token,
         original_dir=original_dir,
-        network_type=cfg.project.network_type,
         force=force,
     )
 
@@ -107,4 +103,4 @@ def run_all(cfg: RunConfig) -> None:
             state.mark_substep_done(step.type, substep_id)
         state.mark_done(step.type, {"enabled_substeps": enabled_substeps})
 
-    report.ok("Pipeline complete. Review reports and run_config.yaml before training.")
+    report.ok("Pipeline complete. Review reports and export the dataset when ready.")

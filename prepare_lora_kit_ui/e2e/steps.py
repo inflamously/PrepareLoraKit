@@ -2,9 +2,6 @@
 from __future__ import annotations
 
 from prepare_lora_kit_pipeline.configuration import STEP_TYPE_MAP
-from prepare_lora_kit.project.pipeline import step_aliases
-
-_STEP_ALIASES = step_aliases()
 
 
 def resolve_mock_steps(raw: str) -> list[str]:
@@ -15,13 +12,9 @@ def resolve_mock_steps(raw: str) -> list[str]:
         return list(STEP_TYPE_MAP)
 
     lowered = value.lower()
-    if lowered in _STEP_ALIASES:
-        return [_STEP_ALIASES[lowered]]
     for step_type in STEP_TYPE_MAP:
         if step_type.lower() == lowered:
             return [step_type]
 
-    known = ", ".join(
-        ["all", *STEP_TYPE_MAP, *sorted(_STEP_ALIASES)]
-    )
+    known = ", ".join(["all", *STEP_TYPE_MAP])
     raise ValueError(f"Unknown mock step '{raw}'. Known: {known}")

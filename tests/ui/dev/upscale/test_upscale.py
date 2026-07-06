@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from prepare_lora_kit.steps.s3_upscale import step as upscale_step
+from prepare_lora_kit.steps.upscale import step as upscale_step
 from prepare_lora_kit_ui.e2e import create_mock_ui_fixture
 from prepare_lora_kit_ui.runner import JobManager, PipelineJob
 

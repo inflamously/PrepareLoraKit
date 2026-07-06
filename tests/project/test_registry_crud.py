@@ -14,16 +14,15 @@ def isolated_configs(tmp_path, monkeypatch):
 
 def test_create_project_writes_defaulted_pipeline(isolated_configs):
     path = project_registry.create_project(
-        "demo", network="flux-klein-9b", input_dir="/data/in", output_dir="/data/out"
+        "demo", input_dir="/data/in", output_dir="/data/out"
     )
     assert path.exists()
 
     cfg = project_registry.load("demo")
     assert cfg.name == "demo"
-    assert cfg.network == "flux-klein-9b"
     assert cfg.input_dir == "/data/in"
     assert cfg.output_dir == "/data/out"
-    assert len(cfg.pipeline) == 10
+    assert len(cfg.pipeline) == 9
 
 
 def test_create_project_rejects_duplicate(isolated_configs):
@@ -37,7 +36,7 @@ def test_update_project_meta_rename_preserves_pipeline(isolated_configs):
     before = project_registry.load("demo")
 
     project_registry.update_project_meta(
-        "demo", "renamed", network="flux-klein-9b", input_dir="/data/in2", output_dir=None
+        "demo", "renamed", input_dir="/data/in2", output_dir=None
     )
 
     assert not project_registry.config_path_for_name("demo").exists()

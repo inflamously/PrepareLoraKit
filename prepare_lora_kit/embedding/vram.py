@@ -1,6 +1,6 @@
 """Total-VRAM detection for Auto embedding-model selection.
 
-Mirrors the detection used by the caption step (``s5_caption/vlm.py``); kept
+Mirrors the detection used by the caption step (``caption_bbox/vlm.py``); kept
 separate so the catalog can stay torch-free.
 """
 from __future__ import annotations

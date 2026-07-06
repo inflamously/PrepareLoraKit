@@ -32,8 +32,6 @@ flowchart TD
     project_config[ProjectConfig]
     step_type_map[STEP_TYPE_MAP]
     substeps[SUBSTEP_REGISTRY]
-    network_registry[network_registry]
-    network_profile[NetworkProfile]
   end
 
   subgraph Run["Run orchestration"]
@@ -41,14 +39,13 @@ flowchart TD
     ui_execute[JobManager._execute]
     invoke_map[STEP_INVOKE_MAP]
     invoke_adapters[prepare_lora_kit/invoke]
-    steps[steps/s0_import ... s9_export]
+    steps[steps/import_images ... export_step]
   end
 
   subgraph Output["Run state and artifacts"]
     working[outputs/name/dataset]
     reports[outputs/name/reports]
     state_file[outputs/name/.plk_state.json]
-    train_config[outputs/name/run_config.yaml]
     export_dir[optional export folder]
   end
 
@@ -72,8 +69,6 @@ flowchart TD
   project_registry --> project_config
   project_config --> step_type_map
   project_config --> substeps
-  project_config --> network_registry
-  network_registry --> network_profile
 
   run_cmd --> pipeline
   pipeline --> invoke_map
@@ -86,7 +81,6 @@ flowchart TD
   steps --> reports
   pipeline --> state_file
   ui_execute --> state_file
-  steps --> train_config
   steps --> export_dir
   reports --> jobs
 ```
@@ -101,34 +95,39 @@ PrepareLoraKit has one pipeline engine with two ways to start it:
 - `UiBridge` hands runs to `prepare_lora_kit_ui.runner.manager.JobManager`.
 - Both the CLI path and UI path eventually dispatch step types through
   `prepare_lora_kit.invoke.STEP_INVOKE_MAP`.
-- The actual work lives in numbered step packages under `prepare_lora_kit/steps/`.
+- The actual work lives in named step packages under `prepare_lora_kit/steps/`.
 
 The important join is the step type string. A project YAML says
-`type: CaptionStep`; `STEP_TYPE_MAP` says which config dataclass parses it; and
+`type: CaptionBboxStep`; `STEP_TYPE_MAP` says which config dataclass parses it; and
 `STEP_INVOKE_MAP` says which adapter runs it.
 
 ## Pipeline Stage Order
 
-The authoritative step order comes from
-`prepare_lora_kit_pipeline/configuration.py`. Some directory and substep names
-still carry historical numbers, so follow `STEP_ORDER` when the labels disagree.
+The authoritative step order and dependency graph come from
+`prepare_lora_kit_pipeline/configuration.py`. Export only depends on import, so
+it can run even when no image-changing step has been applied.
 
 ```mermaid
 flowchart LR
   source[Source images]
-  s0[ImportStep<br/>s0_import]
-  s1[QualityGateStep<br/>s1_source]
-  s2[CurateStep<br/>s2_curate]
-  s3[UpscaleStep<br/>optional]
-  s5[CaptionStep<br/>s5_caption]
-  s4[VaeGateStep<br/>s4_vae_gate]
-  s6[AuditStep<br/>s6_audit]
-  s7[ConfigGenStep<br/>s7_config]
-  s8[BucketDryRunStep<br/>s8_bucket]
-  s9[ExportStep<br/>optional]
+  import[ImportStep<br/>import_images]
+  quality[QualityGateStep<br/>quality_gate]
+  curate[CurateStep<br/>curate]
+  upscale[UpscaleStep<br/>optional]
+  caption[CaptionBboxStep<br/>caption_bbox]
+  vae[VaeGateStep<br/>vae_gate]
+  audit[AuditStep<br/>audit]
+  bucket[BucketPoolsCheckStep<br/>bucket_pools_check]
+  export[ExportStep<br/>optional]
   train[Training handoff]
 
-  source --> s0 --> s1 --> s2 --> s3 --> s5 --> s4 --> s6 --> s7 --> s8 --> s9 --> train
+  source --> import
+  import --> quality --> curate
+  import --> upscale
+  quality --> caption
+  curate --> caption
+  import --> vae --> audit --> bucket
+  import --> export --> train
 ```
 
 ## Control And Data Flow
@@ -141,8 +140,8 @@ flowchart LR
 | UI runner | `prepare_lora_kit_ui/runner/manager.py` | Adds job status, step selection, UI interactions, cancellation, and logs. |
 | Config | `prepare_lora_kit/project/base.py`, `prepare_lora_kit_pipeline/configuration.py` | Loads project YAML, validates step order, and maps step types to config classes. |
 | Dispatch | `prepare_lora_kit/pipeline.py`, `prepare_lora_kit/invoke/__init__.py` | Walks the configured pipeline and calls the right step adapter. |
-| Work | `prepare_lora_kit/steps/s0_import` through `prepare_lora_kit/steps/s9_export` | Implements the image preparation stages. |
-| State/output | `prepare_lora_kit/utils/state.py`, `outputs/<name>/` | Tracks completed steps and stores the working dataset, reports, and training config. |
+| Work | `prepare_lora_kit/steps/import_step` through `prepare_lora_kit/steps/export_step` | Implements the image preparation stages. |
+| State/output | `prepare_lora_kit/utils/state.py`, `outputs/<name>/` | Tracks completed steps and stores the working dataset, reports, and optional export. |
 
 ## Read This First
 

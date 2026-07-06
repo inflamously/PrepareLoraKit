@@ -42,7 +42,7 @@ export function renderLibrary() {
 }
 
 function matches(project, query) {
-  return [project.name, project.network, project.token, project.input_dir]
+  return [project.name, project.token, project.input_dir]
     .filter(Boolean)
     .some((value) => String(value).toLowerCase().includes(query));
 }
@@ -67,7 +67,7 @@ function buildCard(project) {
   const pill = STATUS_PILL[project.status] || STATUS_PILL.draft;
   const status = project.status || "draft";
   const meta =
-    [project.network, project.token].filter(Boolean).join(" · ") || "not set";
+    [project.input_dir, project.token].filter(Boolean).join(" · ") || "not set";
 
   card.innerHTML = `
     <div class="nf-projcard__cover">

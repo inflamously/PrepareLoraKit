@@ -21,8 +21,8 @@ def _invoke_CurateStep(working_dir: Path, output_dir: Path, cfg: CurateConfig,
             cancel_check=_kw.get("cancel_check"),
         )
 
-    from ..steps import s2_curate
-    return s2_curate.run(
+    from ..steps import curate
+    return curate.run(
         working_dir,
         output_dir=working_dir,
         auto_dedupe=True,

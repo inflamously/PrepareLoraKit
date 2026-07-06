@@ -4,11 +4,13 @@
 
 PrepareLoraKit is a Python 3.10+ package with a Click CLI exposed as `plk`.
 Core package code lives in `prepare_lora_kit/`. CLI entry points are in
-`prepare_lora_kit/cli/`, pipeline orchestration is in `pipeline.py`, project and
-network config models are in `project/` and `networks/`, and pipeline stages are
-split under `steps/s1_source` through `steps/s8_bucket`. The browser UI assets
-live in `prepare_lora_kit/ui/static/`. YAML examples and network profiles live
-under `configs/`. Tests are in `tests/` and currently use pytest-style functions.
+`prepare_lora_kit/cli/`, pipeline orchestration is in `pipeline.py`, project
+models are in `project/`, and dataset pipeline stages are split under named
+packages such as `steps/import_step`, `steps/caption_bbox`, and
+`steps/bucket_pools_check`. The browser UI assets live in
+`prepare_lora_kit_ui/static/`. YAML project examples live under
+`configs/projects/`. Tests are in `tests/` and currently use pytest-style
+functions.
 
 ## Build, Test, and Development Commands
 
@@ -25,14 +27,14 @@ under `configs/`. Tests are in `tests/` and currently use pytest-style functions
 ## Coding Style & Naming Conventions
 
 Use idiomatic Python with 4-space indentation, clear function names, and small
-modules grouped by domain. Keep step implementations in their existing numbered
-stage packages and name new step classes with the `*Step` suffix, for example
-`CaptionStep`. Tests should be named `test_<behavior>` and organized as
+modules grouped by domain. Keep step implementations in named stage packages and
+name new step classes with the `*Step` suffix, for example `CaptionBboxStep`.
+Tests should be named `test_<behavior>` and organized as
 `tests/<domain>/test_<area>.py`. Prefer `pathlib.Path` for filesystem paths and
 structured YAML parsing over ad hoc string handling.
 
-Keep `prepare_lora_kit/ui/static/core/api.js` JSDoc in sync with the pywebview
-bridge whenever `prepare_lora_kit/ui/bridge.py`, UI bridge payloads, or frontend
+Keep `prepare_lora_kit_ui/static/core/api.js` JSDoc in sync with the pywebview
+bridge whenever `prepare_lora_kit_ui/bridge.py`, UI bridge payloads, or frontend
 API call sites change. Update the files under `requirements/` (core deps in
 `base.txt`, SeedVR2 extras in `seedvr2*.txt`) whenever adding, removing, or
 changing runtime dependencies.

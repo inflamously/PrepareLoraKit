@@ -1,7 +1,7 @@
 import yaml
 import pytest
 
-from prepare_lora_kit.steps.s3_upscale.seedvr2_catalog import (
+from prepare_lora_kit.steps.upscale.seedvr2_catalog import (
     DEFAULT_SEEDVR2_DIT_MODEL,
     SUPPORTED_SEEDVR2_DIT_MODELS,
     get_seedvr2_dit_model,
@@ -26,6 +26,7 @@ pipeline: []
     cfg = ProjectConfig.from_yaml(path)
 
     assert cfg.input_dir == "/data/images"
+    assert "network" not in yaml.safe_load(path.read_text())
 
 
 def test_default_project_creation_writes_input_dir_and_pipeline(tmp_path):
@@ -36,22 +37,21 @@ def test_default_project_creation_writes_input_dir_and_pipeline(tmp_path):
     data = yaml.safe_load(written.read_text())
 
     assert data["name"] == "sample"
-    assert data["network"] == "flux-klein-9b"
+    assert "network" not in data
     assert data["input_dir"] == str(input_dir)
     assert [step["type"] for step in data["pipeline"]] == [
         "ImportStep",
         "QualityGateStep",
         "CurateStep",
         "UpscaleStep",
-        "CaptionStep",
+        "CaptionBboxStep",
         "VaeGateStep",
         "AuditStep",
-        "ConfigGenStep",
-        "BucketDryRunStep",
+        "BucketPoolsCheckStep",
         "ExportStep",
     ]
     upscale = next(step for step in data["pipeline"] if step["type"] == "UpscaleStep")
-    caption = next(step for step in data["pipeline"] if step["type"] == "CaptionStep")
+    caption = next(step for step in data["pipeline"] if step["type"] == "CaptionBboxStep")
     assert upscale["upscale_target"] == 3072
     assert upscale["upscale_model"] == "seedvr2"
     assert "use_seedvr" not in upscale
@@ -64,7 +64,6 @@ def test_project_config_inserts_import_step_for_legacy_quality_first_yaml(tmp_pa
     path = tmp_path / "project.yaml"
     path.write_text("""\
 name: sample
-network: flux-klein-9b
 pipeline:
   - type: QualityGateStep
 """)
@@ -72,32 +71,31 @@ pipeline:
     cfg = ProjectConfig.from_yaml(path)
 
     assert [step.type for step in cfg.pipeline] == ["ImportStep", "QualityGateStep"]
-    assert [substep.id for substep in cfg.pipeline[0].substeps] == ["s0_import"]
-    assert [substep.id for substep in cfg.pipeline[1].substeps] == ["s1_1_score", "s1_2_decide"]
+    assert [substep.id for substep in cfg.pipeline[0].substeps] == ["import_images"]
+    assert [substep.id for substep in cfg.pipeline[1].substeps] == ["score_images", "review_decisions"]
 
 
 def test_project_config_parses_substep_enabled_flags(tmp_path):
     path = tmp_path / "project.yaml"
     path.write_text("""\
 name: sample
-network: flux-klein-9b
 pipeline:
   - type: ImportStep
   - type: QualityGateStep
   - type: CurateStep
     substeps:
-      - {id: s2_1_dupecheck, enabled: true}
-      - {id: s2_2_clipscan, enabled: false}
-      - {id: s2_3_drop_images, enabled: true}
+      - {id: duplicate_check, enabled: true}
+      - {id: clip_scan, enabled: false}
+      - {id: drop_images, enabled: true}
 """)
 
     cfg = ProjectConfig.from_yaml(path)
     curate = cfg.pipeline[2]
 
     assert {substep.id: substep.enabled for substep in curate.substeps} == {
-        "s2_1_dupecheck": True,
-        "s2_2_clipscan": False,
-        "s2_3_drop_images": True,
+        "duplicate_check": True,
+        "clip_scan": False,
+        "drop_images": True,
     }
 
 
@@ -105,11 +103,10 @@ def test_project_config_rejects_unknown_substep(tmp_path):
     path = tmp_path / "project.yaml"
     path.write_text("""\
 name: sample
-network: flux-klein-9b
 pipeline:
   - type: ImportStep
     substeps:
-      - {id: s9_unknown, enabled: true}
+      - {id: unknown_substep, enabled: true}
 """)
 
     with pytest.raises(ValueError, match="unknown substep"):
@@ -120,7 +117,6 @@ def test_project_config_maps_legacy_skip_clip_to_curate_substep(tmp_path):
     path = tmp_path / "project.yaml"
     path.write_text("""\
 name: sample
-network: flux-klein-9b
 pipeline:
   - type: ImportStep
   - type: QualityGateStep
@@ -131,14 +127,13 @@ pipeline:
     cfg = ProjectConfig.from_yaml(path)
     curate = cfg.pipeline[2]
 
-    assert {substep.id: substep.enabled for substep in curate.substeps}["s2_2_clipscan"] is False
+    assert {substep.id: substep.enabled for substep in curate.substeps}["clip_scan"] is False
 
 
 def test_project_config_rejects_downstream_step_without_previous_step(tmp_path):
     path = tmp_path / "project.yaml"
     path.write_text("""\
 name: sample
-network: flux-klein-9b
 pipeline:
   - type: CurateStep
 """)
@@ -151,12 +146,11 @@ def test_project_config_allows_omitting_optional_upscale_step(tmp_path):
     path = tmp_path / "project.yaml"
     path.write_text("""\
 name: sample
-network: flux-klein-9b
 pipeline:
   - type: ImportStep
   - type: QualityGateStep
   - type: CurateStep
-  - type: CaptionStep
+  - type: CaptionBboxStep
   - type: VaeGateStep
 """)
 
@@ -166,7 +160,7 @@ pipeline:
         "ImportStep",
         "QualityGateStep",
         "CurateStep",
-        "CaptionStep",
+        "CaptionBboxStep",
         "VaeGateStep",
     ]
 
@@ -175,12 +169,11 @@ def test_project_config_rejects_optional_upscale_out_of_order(tmp_path):
     path = tmp_path / "project.yaml"
     path.write_text("""\
 name: sample
-network: flux-klein-9b
 pipeline:
   - type: ImportStep
   - type: QualityGateStep
   - type: CurateStep
-  - type: CaptionStep
+  - type: CaptionBboxStep
   - type: UpscaleStep
 """)
 
@@ -192,13 +185,12 @@ def test_step_prerequisites_allow_optional_upscale_step():
     assert STEP_PREREQUISITES == {
         "QualityGateStep": ["ImportStep"],
         "CurateStep": ["QualityGateStep"],
-        "UpscaleStep": ["CurateStep"],
-        "CaptionStep": ["CurateStep"],
-        "VaeGateStep": [],
-        "AuditStep": ["CaptionStep"],
-        "ConfigGenStep": ["AuditStep"],
-        "BucketDryRunStep": ["ConfigGenStep"],
-        "ExportStep": [],
+        "UpscaleStep": ["ImportStep"],
+        "CaptionBboxStep": ["QualityGateStep", "CurateStep"],
+        "VaeGateStep": ["ImportStep"],
+        "AuditStep": ["VaeGateStep"],
+        "BucketPoolsCheckStep": ["AuditStep"],
+        "ExportStep": ["ImportStep"],
     }
 
 
@@ -273,7 +265,6 @@ def test_project_config_from_yaml_parses_seedvr2_fields(tmp_path):
     path = tmp_path / "project.yaml"
     path.write_text("""\
 name: sample
-network: flux-klein-9b
 pipeline:
   - type: ImportStep
   - type: QualityGateStep
@@ -314,7 +305,6 @@ def test_project_config_from_yaml_normalizes_blank_seedvr2_dit_model(tmp_path, y
     path = tmp_path / "project.yaml"
     path.write_text(f"""\
 name: sample
-network: flux-klein-9b
 pipeline:
   - type: ImportStep
   - type: QualityGateStep
@@ -331,7 +321,7 @@ pipeline:
 
 
 def test_project_payload_includes_input_dir():
-    cfg = ProjectConfig(name="sample", network="flux-klein-9b", input_dir="/data/images")
+    cfg = ProjectConfig(name="sample", input_dir="/data/images")
 
     payload = project_payload(cfg)
 
@@ -342,13 +332,12 @@ def test_project_payload_marks_upscale_optional(tmp_path):
     path = tmp_path / "project.yaml"
     path.write_text("""\
 name: sample
-network: flux-klein-9b
 pipeline:
   - type: ImportStep
   - type: QualityGateStep
   - type: CurateStep
   - type: UpscaleStep
-  - type: CaptionStep
+  - type: CaptionBboxStep
   - type: VaeGateStep
 """)
 
@@ -363,7 +352,6 @@ def test_project_payload_includes_substep_metadata(tmp_path):
     path = tmp_path / "project.yaml"
     path.write_text("""\
 name: sample
-network: flux-klein-9b
 pipeline:
   - type: ImportStep
 """)
@@ -374,7 +362,7 @@ pipeline:
 
     assert import_step["substeps"] == [
         {
-            "id": "s0_import",
+            "id": "import_images",
             "label": "Import source images",
             "enabled": True,
             "status": "pending",

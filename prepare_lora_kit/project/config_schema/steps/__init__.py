@@ -8,9 +8,8 @@ from __future__ import annotations
 
 from . import (
     audit,
-    bucket_dry_run,
-    caption,
-    config_gen,
+    bucket_pools_check,
+    caption_bbox,
     curate,
     export,
     import_step,
@@ -25,10 +24,9 @@ STEP_MODULES = [
     quality_gate,
     curate,
     upscale,
+    caption_bbox,
     vae_gate,
-    caption,
     audit,
-    config_gen,
-    bucket_dry_run,
+    bucket_pools_check,
     export,
 ]

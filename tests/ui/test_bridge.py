@@ -32,13 +32,12 @@ def test_bridge_folder_first_updates_existing_project_without_losing_pipeline(tm
     project_path = configs_dir / "existing.yaml"
     project_path.write_text("""\
 name: existing
-network: flux-klein-9b
 pipeline:
   - type: QualityGateStep
     auto_only: true
   - type: CurateStep
   - type: UpscaleStep
-  - type: CaptionStep
+  - type: CaptionBboxStep
   - type: VaeGateStep
   - type: AuditStep
 """)
@@ -52,7 +51,7 @@ pipeline:
         "QualityGateStep",
         "CurateStep",
         "UpscaleStep",
-        "CaptionStep",
+        "CaptionBboxStep",
         "VaeGateStep",
         "AuditStep",
     ]
@@ -69,7 +68,6 @@ def test_bridge_load_project_returns_saved_input_dir_and_default_output(tmp_path
     project_path = configs_dir / "saved.yaml"
     project_path.write_text(f"""\
 name: saved
-network: flux-klein-9b
 input_dir: {input_dir}
 pipeline: []
 """)
@@ -84,7 +82,7 @@ pipeline: []
 def test_bridge_shutdown_cancels_active_job():
     bridge = UiBridge()
     job = PipelineJob(bridge.jobs, "active-job")
-    job.set_status("running", current_step="CaptionStep")
+    job.set_status("running", current_step="CaptionBboxStep")
     bridge.jobs._jobs[job.id] = job
     bridge.jobs._active_job_id = job.id
 

@@ -6,7 +6,7 @@ import {
   containedImageRect,
   findHoveredPoint,
   showCurateDetails,
-} from "../../../prepare_lora_kit/ui/static/steps/curate_details/curate_details.js";
+} from "../../../prepare_lora_kit_ui/static/steps/curate_details/curate_details.js";
 import {
   calls,
   nextTick,

@@ -26,7 +26,7 @@ from ...project.steps import (
 @cli.command()
 @click.pass_context
 @click.option("--step", "-s", "step_name", required=True,
-              help="Step to run: type name (e.g. CaptionStep) or alias s0..s8.")
+              help="Step to run by type name (e.g. CaptionBboxStep).")
 @click.option("--project", "-p", "project_name", required=True,
               help="Project config name (configs/projects/<name>.yaml).")
 @cli_option_input
@@ -35,12 +35,12 @@ from ...project.steps import (
 @click.option("--force", is_flag=True,
               help="Run even if run-state already marks this step done.")
 @click.option("--model", "model_id", default=None,
-              help="CaptionStep only: override the project's caption model for this run.")
+              help="CaptionBboxStep only: override the project's caption model for this run.")
 @click.option("--bbox", "bboxes", multiple=True, metavar="X1,Y1,X2,Y2[:LABEL]",
-              help="CaptionStep only: region to caption around (repeatable). Pixel "
+              help="CaptionBboxStep only: region to caption around (repeatable). Pixel "
                    "coords, or normalized [0,1] if all four values are <= 1.0.")
 @click.option("--bbox-image", "bbox_image", default=None,
-              help="CaptionStep only: which dataset image the --bbox regions apply to "
+              help="CaptionBboxStep only: which dataset image the --bbox regions apply to "
                    "(required when the dataset has more than one image).")
 def step(ctx, step_name, project_name, input_dir, output_dir, token, force,
          model_id, bboxes, bbox_image):
@@ -50,9 +50,9 @@ def step(ctx, step_name, project_name, input_dir, output_dir, token, force,
     if the project does not define that step, built-in defaults are used.
     """
     step_type = _resolve_step_type(step_name)
-    if step_type != "CaptionStep" and (model_id or bboxes or bbox_image):
+    if step_type != "CaptionBboxStep" and (model_id or bboxes or bbox_image):
         raise click.BadParameter(
-            "--model/--bbox/--bbox-image are only valid for CaptionStep (-s s5).",
+            "--model/--bbox/--bbox-image are only valid for CaptionBboxStep.",
             param_hint="--step")
 
     project = _load_project(project_name)
@@ -75,11 +75,9 @@ def step(ctx, step_name, project_name, input_dir, output_dir, token, force,
     out_dir = cfg.resolved_output_dir
     working_dir = out_dir / "dataset"
 
-    from ...networks import registry as net_registry
     from ...utils import report as rpt
     from ...utils.state import RunState
 
-    network = net_registry.load(project.network)
     state = RunState(out_dir)
 
     if (
@@ -104,8 +102,7 @@ def step(ctx, step_name, project_name, input_dir, output_dir, token, force,
     if step_type != "ImportStep" and not working_dir.exists():
         raise click.ClickException("The working dataset does not exist. Run ImportStep first.")
 
-    shared_kw = dict(network=network, concept_token=token, original_dir=input_dir,
-                     network_type=project.network_type, force=force)
+    shared_kw = dict(concept_token=token, original_dir=input_dir, force=force)
 
     rpt.info(f"Running {step_type} for project '{project.name}'.")
     substeps = match.substeps if match is not None else default_substeps_for(step_type, config)
@@ -116,8 +113,8 @@ def step(ctx, step_name, project_name, input_dir, output_dir, token, force,
     if bboxes:
         interaction, target, boxes = build_bbox_interaction(working_dir, bboxes, bbox_image)
         shared_kw["interaction"] = interaction
-        if "s5_1_annotate" not in enabled_substeps:
-            enabled_substeps = [*enabled_substeps, "s5_1_annotate"]
+        if "annotate_regions" not in enabled_substeps:
+            enabled_substeps = [*enabled_substeps, "annotate_regions"]
         rpt.info(f"Applying {len(boxes)} bbox region(s) to {target.name}.")
 
     invoke = STEP_INVOKE_MAP[step_type]

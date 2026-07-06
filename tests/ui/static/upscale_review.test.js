@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
-import { showUpscaleReview } from "../../../prepare_lora_kit/ui/static/steps/upscale_review/upscale_review.js";
+import { showUpscaleReview } from "../../../prepare_lora_kit_ui/static/steps/upscale_review/upscale_review.js";
 import {
   calls,
   nextTick,

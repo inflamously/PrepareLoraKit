@@ -7,7 +7,7 @@ import {
   effectiveSkipped,
   firstUncaptionedIndex,
   imageStripState,
-} from "../../../prepare_lora_kit/ui/static/steps/bbox_annotation/batch.js";
+} from "../../../prepare_lora_kit_ui/static/steps/bbox_annotation/batch.js";
 
 function statesFixture() {
   return createImageStates({

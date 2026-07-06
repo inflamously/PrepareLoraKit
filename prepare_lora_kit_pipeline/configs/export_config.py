@@ -10,7 +10,7 @@ class ExportConfig:
 
     ``target_dir`` is where the finalized image + ``.txt`` caption pairs are
     written. When ``None`` the step defaults to a sibling of the original input
-    folder named ``<input>_export`` (see ``steps/s9_export/step.py``), so the
+    folder named ``<input>_export`` (see ``steps/export_step/step.py``), so the
     pristine source folder and the working dataset are never mutated.
     """
     target_dir: Optional[str] = None

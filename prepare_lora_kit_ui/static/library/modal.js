@@ -10,7 +10,6 @@ import { closeModal, showModal } from "../components/modal.js";
  */
 export async function openProjectModal({ mode, project = null, onSaved }) {
   const isEdit = mode === "edit";
-  const networks = await loadNetworks();
 
   const modal = document.createElement("div");
   modal.className = "modal modal--compact";
@@ -43,13 +42,6 @@ export async function openProjectModal({ mode, project = null, onSaved }) {
         </div>
       </label>
 
-      <label class="nf-field">
-        <span class="nf-label">Network</span>
-        <select id="projNetwork" class="nf-select">
-          ${networks.map((n) => `<option value="${escapeText(n)}">${escapeText(n)}</option>`).join("")}
-        </select>
-      </label>
-
       <p id="projError" class="lib-form__error"></p>
 
       <div class="lib-form__actions">
@@ -62,14 +54,12 @@ export async function openProjectModal({ mode, project = null, onSaved }) {
   const nameEl = modal.querySelector("#projName");
   const inputEl = modal.querySelector("#projInput");
   const outputEl = modal.querySelector("#projOutput");
-  const networkEl = modal.querySelector("#projNetwork");
   const errorEl = modal.querySelector("#projError");
 
   if (isEdit && project) {
     nameEl.value = project.name || "";
     inputEl.value = project.input_dir || "";
     outputEl.value = project.output_dir || "";
-    if (project.network) networkEl.value = project.network;
   }
 
   // Track whether the user has customised name/output so we don't clobber them
@@ -113,7 +103,6 @@ export async function openProjectModal({ mode, project = null, onSaved }) {
       name: nameEl.value.trim(),
       input_dir: inputEl.value.trim(),
       output_dir: outputEl.value.trim(),
-      network: networkEl.value,
     };
     if (!payload.name) {
       errorEl.textContent = "Name is required.";
@@ -169,17 +158,6 @@ export function confirmModal({ title, message, confirmLabel = "Confirm" }) {
     modal.querySelector('[data-act="ok"]').addEventListener("click", () => finish(true));
     showModal(modal);
   });
-}
-
-async function loadNetworks() {
-  try {
-    const result = await api().list_networks();
-    return result.networks && result.networks.length
-      ? result.networks
-      : ["flux-klein-9b"];
-  } catch {
-    return ["flux-klein-9b"];
-  }
 }
 
 function folderName(path) {

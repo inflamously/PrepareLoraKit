@@ -1,6 +1,6 @@
 """Step-type and project resolution for the ``step`` command.
 
-Maps a user-supplied step name/alias to a canonical step type and loads the
+Maps a user-supplied step name to a canonical step type and loads the
 named project config, raising click errors with actionable hints on failure.
 """
 from __future__ import annotations
@@ -11,7 +11,6 @@ from prepare_lora_kit.project import project_registry
 from ...project.base import STEP_TYPE_MAP
 from ...project.steps import step_aliases
 
-# Short aliases (sN / bare index) → canonical step type, preserving s1..s8.
 _STEP_ALIASES = step_aliases()
 
 
@@ -25,8 +24,7 @@ def _resolve_step_type(raw: str) -> str:
             return t
     raise click.BadParameter(
         f"Unknown step '{raw}'.\n"
-        f"  Types:   {', '.join(STEP_TYPE_MAP)}\n"
-        f"  Aliases: {', '.join(sorted(_STEP_ALIASES))}",
+        f"  Types:   {', '.join(STEP_TYPE_MAP)}",
         param_hint="--step",
     )
 

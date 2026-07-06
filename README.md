@@ -1,10 +1,9 @@
 # PrepareLoraKit Overview
 
-PrepareLoraKit is a Python CLI for preparing image datasets for LoRA-style
-training, with a focus on Flux and similar diffusion models. It takes an
-original dataset folder, builds a separate working dataset, runs a configurable
-sequence of preparation steps, and emits reports plus an ai-toolkit-compatible
-training config.
+PrepareLoraKit is a Python CLI and browser UI for preparing image datasets for
+LoRA-style training. It takes an original dataset folder, builds a separate
+working dataset, runs the dataset preparation pipeline, and emits reports plus
+an optional training-ready export folder.
 
 The package installs a `plk` command via `pyproject.toml`. During local
 development, the same CLI can also be launched with `python3 main.py` on POSIX
@@ -91,24 +90,15 @@ Important options:
 Runs a single step using the selected project's step config.
 
 ```bash
-plk step -s CaptionStep -p example -i /path/to/images -o outputs/example -t my_trigger
-plk step -s s5 -p example -i /path/to/images -o outputs/example -t my_trigger
+plk step -s CaptionBboxStep -p example -i /path/to/images -o outputs/example -t my_trigger
 ```
 
-Step aliases are `s0` through `s8` in pipeline order. `s0` imports the source
-images; existing `s1` through `s8` aliases keep their historical meanings.
+Use the step type name shown in the project pipeline, for example
+`CaptionBboxStep` or `BucketPoolsCheckStep`.
 
 `plk projects`
 
 Lists project configs discovered in `configs/projects/`.
-
-`plk networks`
-
-Lists network profiles discovered in `configs/networks/`.
-
-`plk network-types`
-
-Lists supported adapter network types: `lora`, `lokr`, and `dora`.
 
 ## Pipeline Stages
 
@@ -121,20 +111,18 @@ example pipeline has nine stages.
 | 1 | `QualityGateStep` | Scores imported images for size, blur, noise, JPEG artifacts, and watermark likelihood. Supports manual review. | Updated `dataset/`, `QualityGateStep_report.json` |
 | 2 | `CurateStep` | Removes perceptual-hash duplicates and creates CLIP coverage plots. | Updated `dataset/`, coverage image, `CurateStep_report.json` |
 | 3 | `UpscaleStep` | Upscales images below the target minimum side with the configured algorithm; unavailable algorithms warn and skip. | Updated images, `UpscaleStep_report.json` |
-| 4 | `CaptionStep` | Opens bbox annotation UI, captions with Qwen VL, enforces concept token when supplied, and writes `.txt` sidecars. | Caption sidecars, `CaptionStep_report.json` |
+| 4 | `CaptionBboxStep` | Opens bbox annotation UI, captions with Qwen VL, enforces concept token when supplied, and writes `.txt` sidecars. | Caption sidecars, `CaptionBboxStep_report.json` |
 | 5 | `VaeGateStep` | Reconstructs images through the target VAE and flags high-frequency loss outliers. | Updated `dataset/`, `VaeGateStep_report.json` |
 | 6 | `AuditStep` | Verifies image-caption pairing, corrupt files, caption length, and minimum resolution. | `AuditStep_report.json` |
-| 7 | `ConfigGenStep` | Builds ai-toolkit training YAML from dataset stats, project settings, and network profile defaults. | `run_config.yaml`, `ConfigGenStep_report.json` |
-| 8 | `BucketDryRunStep` | Simulates bucket assignment and flags thin buckets before training. | Bucket report, optional `cache_info.json` |
+| 7 | `BucketPoolsCheckStep` | Simulates bucket assignment and flags thin buckets before training. | Bucket report, optional `cache_info.json` |
+| 8 | `ExportStep` | Previews and copies the prepared dataset to a clean export folder. | Optional export folder |
 
-Ordering rules are enforced when project configs load. Each step after
-`ImportStep` requires the previous step to appear earlier in the pipeline, and
-duplicate step types are rejected. Legacy configs that start with
-`QualityGateStep` are loaded with `ImportStep` inserted in memory.
+Ordering and dependency rules are enforced when project configs load. Export
+only requires import, so a dataset can be exported after import even if no image
+changing step ran. Duplicate step types are rejected. Legacy configs that start
+with `QualityGateStep` are loaded with `ImportStep` inserted in memory.
 
 ## Configuration Model
-
-PrepareLoraKit separates project configuration from network configuration.
 
 Project configs live in:
 
@@ -145,8 +133,7 @@ configs/projects/
 A project config chooses:
 
 - the project name,
-- the base network profile,
-- an optional adapter type override,
+- optional input and output folders,
 - the ordered list of pipeline steps,
 - step-specific settings.
 
@@ -154,38 +141,22 @@ Example:
 
 ```yaml
 name: example
-network: flux-klein-9b
-network_type: dora
 
 pipeline:
   - type: ImportStep
   - type: QualityGateStep
   - type: CurateStep
   - type: UpscaleStep
-  - type: CaptionStep
+  - type: CaptionBboxStep
   - type: VaeGateStep
   - type: AuditStep
-  - type: ConfigGenStep
-  - type: BucketDryRunStep
+  - type: BucketPoolsCheckStep
+  - type: ExportStep
 ```
 
-Network profiles live in:
-
-```text
-configs/networks/
-```
-
-A network profile describes the base model and its training defaults:
-
-- display name,
-- VAE model id,
-- resolution buckets,
-- recommended learning-rate and rank ranges,
-- ai-toolkit `model`, `network`, `train`, `save`, and `sample` template blocks,
-- training resolutions used when generating `run_config.yaml`.
-
-The adapter network block is parsed through `prepare_lora_kit.networks.config`.
-Supported adapter types are defined in `prepare_lora_kit.networks.net_types`.
+Network and training configuration are intentionally separate from the dataset
+project. Dataset-specific model and bucket choices live in the relevant step
+configs, such as `VaeGateStep`, `AuditStep`, and `BucketPoolsCheckStep`.
 
 ## Output Layout
 
@@ -205,15 +176,14 @@ outputs/<dataset-name>/
     CurateStep_report.json
     coverage_pca.png
     UpscaleStep_report.json
-    CaptionStep_report.json
+    CaptionBboxStep_report.json
     VaeGateStep_report.json
     AuditStep_report.json
-    ConfigGenStep_report.json
-    BucketDryRunStep_report.json
-  run_config.yaml
+    BucketPoolsCheckStep_report.json
 ```
 
-`run_config.yaml` is the main handoff artifact for training.
+If `ExportStep` is enabled, the prepared image/caption pairs are copied to the
+configured export folder for the next training step.
 
 ## Important Runtime Dependencies
 
@@ -311,20 +281,14 @@ Add a new project preset:
 4. Adjust the pipeline and step settings.
 5. Run with `plk run -i <dataset> -p <name>`.
 
-Add a new network profile:
-
-1. Add a YAML file under `configs/networks/`.
-2. Match the schema in `prepare_lora_kit.networks.base.NetworkProfile`.
-3. Include a `config_template` compatible with ai-toolkit.
-4. Confirm discovery with `plk networks`.
-
 Add a new pipeline step:
 
-1. Add a step config dataclass under `prepare_lora_kit/project/configs/`.
-2. Register it in `STEP_TYPE_MAP` in `prepare_lora_kit/project/steps.py`.
+1. Add a step config dataclass under `prepare_lora_kit_pipeline/configs/`.
+2. Register it in `STEP_TYPE_MAP` in `prepare_lora_kit_pipeline/configuration.py`.
 3. Implement the step module under `prepare_lora_kit/steps/`.
 4. Add an invoke adapter module in `prepare_lora_kit/invoke/`.
-5. Add any ordering rules to `STEP_PREREQUISITES`.
+5. Add substeps to `prepare_lora_kit/project/pipeline/substeps.py`.
+6. Add any ordering rules to `STEP_PREREQUISITES`.
 
 ## Development Notes
 
@@ -334,7 +298,7 @@ Run tests with:
 python3 -m pytest
 ```
 
-The repository currently contains focused tests for pipeline behavior and
-network configuration. The CLI is intentionally thin: command modules load
-project and network config, then delegate execution to the pipeline orchestrator
-and step invoke adapters.
+The repository currently contains focused tests for project parsing, pipeline
+behavior, UI bridge payloads, and step modules. The CLI is intentionally thin:
+command modules load project config, then delegate execution to the pipeline
+orchestrator and step invoke adapters.

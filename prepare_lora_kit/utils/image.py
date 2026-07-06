@@ -190,7 +190,7 @@ def watermark_score(src) -> float:
 
 def min_side(src) -> int:
     # ImageData → reuse the already-decoded array; Path → cheap header-only read
-    # (callers in s3/s6 pass Path purely for dimensions, must not force a decode).
+    # (upscale/audit callers pass Path purely for dimensions, must not force a decode).
     if isinstance(src, ImageData):
         h, w = src.bgr.shape[:2]
         return int(min(h, w))

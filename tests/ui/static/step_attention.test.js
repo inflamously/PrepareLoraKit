@@ -3,8 +3,8 @@ import { beforeEach, describe, it } from "node:test";
 
 import { JSDOM } from "jsdom";
 
-import { state } from "../../../prepare_lora_kit/ui/static/core/state.js";
-import { renderSteps } from "../../../prepare_lora_kit/ui/static/project/view.js";
+import { state } from "../../../prepare_lora_kit_ui/static/core/state.js";
+import { renderSteps } from "../../../prepare_lora_kit_ui/static/project/view.js";
 
 function step(type, extra = {}) {
   return {
@@ -38,8 +38,6 @@ describe("step list attention highlight", () => {
   it("glows the UpscaleStep row when the dataset needs attention", () => {
     state.project = {
       name: "sample",
-      network: "flux-klein-9b",
-      network_type: null,
       steps: [
         step("CurateStep"),
         step("UpscaleStep", {
@@ -67,8 +65,6 @@ describe("step list attention highlight", () => {
   it("does not glow when needs_attention is absent or false", () => {
     state.project = {
       name: "sample",
-      network: "flux-klein-9b",
-      network_type: null,
       steps: [
         step("UpscaleStep", { needs_attention: false, attention: null }),
       ],

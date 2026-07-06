@@ -1,4 +1,4 @@
-"""Mock-runtime CaptionStep drives the same batch interaction as the real step."""
+"""Mock-runtime CaptionBboxStep drives the same batch interaction as the real step."""
 from pathlib import Path
 
 from PIL import Image

@@ -26,51 +26,46 @@ class PipelineSubstep:
 
 SUBSTEP_REGISTRY: dict[str, tuple[SubstepDefinition, ...]] = {
     "ImportStep": (
-        SubstepDefinition("s0_import", "Import source images"),
+        SubstepDefinition("import_images", "Import source images"),
     ),
     "QualityGateStep": (
-        SubstepDefinition("s1_1_score", "Score images"),
-        SubstepDefinition("s1_2_decide", "Review decisions", prerequisites=("s1_1_score",)),
+        SubstepDefinition("score_images", "Score images"),
+        SubstepDefinition("review_decisions", "Review decisions", prerequisites=("score_images",)),
     ),
     "CurateStep": (
-        SubstepDefinition("s2_1_dupecheck", "Duplicate check"),
-        SubstepDefinition("s2_2_clipscan", "CLIP scan", optional=True),
-        SubstepDefinition("s2_3_drop_images", "Drop images", prerequisites=("s2_1_dupecheck",)),
+        SubstepDefinition("duplicate_check", "Duplicate check"),
+        SubstepDefinition("clip_scan", "CLIP scan", optional=True),
+        SubstepDefinition("drop_images", "Drop images", prerequisites=("duplicate_check",)),
     ),
     "UpscaleStep": (
-        SubstepDefinition("s3_1_select_candidates", "Select candidates"),
-        SubstepDefinition("s3_2_upscale", "Upscale images", prerequisites=("s3_1_select_candidates",)),
-        SubstepDefinition("s3_3_hallucination_check", "Hallucination check", prerequisites=("s3_2_upscale",)),
+        SubstepDefinition("select_upscale_candidates", "Select candidates"),
+        SubstepDefinition("upscale_images", "Upscale images", prerequisites=("select_upscale_candidates",)),
+        SubstepDefinition("hallucination_check", "Hallucination check", prerequisites=("upscale_images",)),
+    ),
+    "CaptionBboxStep": (
+        SubstepDefinition("annotate_regions", "Annotate regions"),
+        SubstepDefinition("caption_images", "Caption images"),
+        SubstepDefinition("validate_captions", "Validate captions", prerequisites=("caption_images",)),
     ),
     "VaeGateStep": (
-        SubstepDefinition("s4_1_reconstruct", "Reconstruct images"),
-        SubstepDefinition("s4_2_review", "Review artifacts", prerequisites=("s4_1_reconstruct",)),
-        SubstepDefinition("s4_3_apply_decisions", "Apply decisions", prerequisites=("s4_2_review",)),
-    ),
-    "CaptionStep": (
-        SubstepDefinition("s5_1_annotate", "Annotate regions"),
-        SubstepDefinition("s5_2_caption", "Caption images"),
-        SubstepDefinition("s5_3_validate", "Validate captions", prerequisites=("s5_2_caption",)),
+        SubstepDefinition("reconstruct_images", "Reconstruct images"),
+        SubstepDefinition("review_vae_artifacts", "Review artifacts", prerequisites=("reconstruct_images",)),
+        SubstepDefinition("apply_vae_decisions", "Apply decisions", prerequisites=("review_vae_artifacts",)),
     ),
     "AuditStep": (
-        SubstepDefinition("s6_1_pairing", "Pairing"),
-        SubstepDefinition("s6_2_corrupt", "Corrupt files"),
-        SubstepDefinition("s6_3_caption_quality", "Caption quality"),
-        SubstepDefinition("s6_4_resolution", "Resolution"),
+        SubstepDefinition("check_pairing", "Pairing"),
+        SubstepDefinition("check_corrupt_files", "Corrupt files"),
+        SubstepDefinition("check_caption_quality", "Caption quality"),
+        SubstepDefinition("check_resolution", "Resolution"),
     ),
-    "ConfigGenStep": (
-        SubstepDefinition("s7_1_dataset_stats", "Dataset stats"),
-        SubstepDefinition("s7_2_build_config", "Build config", prerequisites=("s7_1_dataset_stats",)),
-        SubstepDefinition("s7_3_write_config", "Write config", prerequisites=("s7_2_build_config",)),
-    ),
-    "BucketDryRunStep": (
-        SubstepDefinition("s8_1_assign_buckets", "Assign buckets"),
-        SubstepDefinition("s8_2_report_thin_buckets", "Report thin buckets", prerequisites=("s8_1_assign_buckets",)),
-        SubstepDefinition("s8_3_cache_info", "Cache info", optional=True, enabled_by_default=False),
+    "BucketPoolsCheckStep": (
+        SubstepDefinition("assign_bucket_pools", "Assign buckets"),
+        SubstepDefinition("report_thin_buckets", "Report thin buckets", prerequisites=("assign_bucket_pools",)),
+        SubstepDefinition("write_cache_info", "Cache info", optional=True, enabled_by_default=False),
     ),
     "ExportStep": (
-        SubstepDefinition("s9_1_diff", "Preview export diff"),
-        SubstepDefinition("s9_2_export", "Copy to export folder", prerequisites=("s9_1_diff",)),
+        SubstepDefinition("preview_export_diff", "Preview export diff"),
+        SubstepDefinition("copy_export", "Copy to export folder", prerequisites=("preview_export_diff",)),
     ),
 }
 SUBSTEP_ORDER_INDEX = {
@@ -105,17 +100,17 @@ def default_substeps_for(step_type: str, config: Any | None = None) -> list[Pipe
     enabled_by_id = {entry.id: entry.enabled for entry in entries}
     if step_type == "QualityGateStep":
         if getattr(config, "auto_only", False) or not getattr(config, "manual_review", True):
-            enabled_by_id["s1_2_decide"] = False
+            enabled_by_id["review_decisions"] = False
     elif step_type == "CurateStep":
         if getattr(config, "skip_clip", False):
-            enabled_by_id["s2_2_clipscan"] = False
+            enabled_by_id["clip_scan"] = False
     elif step_type == "AuditStep":
-        enabled_by_id["s6_1_pairing"] = bool(getattr(config, "check_pairing", True))
-        enabled_by_id["s6_2_corrupt"] = bool(getattr(config, "check_corrupt", True))
-        enabled_by_id["s6_3_caption_quality"] = bool(getattr(config, "check_caption_length", True))
-        enabled_by_id["s6_4_resolution"] = bool(getattr(config, "check_resolution_gate", True))
-    elif step_type == "BucketDryRunStep":
-        enabled_by_id["s8_3_cache_info"] = bool(getattr(config, "cache_mode", False))
+        enabled_by_id["check_pairing"] = bool(getattr(config, "check_pairing", True))
+        enabled_by_id["check_corrupt_files"] = bool(getattr(config, "check_corrupt", True))
+        enabled_by_id["check_caption_quality"] = bool(getattr(config, "check_caption_length", True))
+        enabled_by_id["check_resolution"] = bool(getattr(config, "check_resolution_gate", True))
+    elif step_type == "BucketPoolsCheckStep":
+        enabled_by_id["write_cache_info"] = bool(getattr(config, "cache_mode", False))
 
     return [
         PipelineSubstep(id=entry.id, enabled=enabled_by_id.get(entry.id, entry.enabled))

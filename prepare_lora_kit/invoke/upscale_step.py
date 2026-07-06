@@ -10,8 +10,8 @@ from .working_dataset import _require_working_dataset
 def _invoke_UpscaleStep(working_dir: Path, output_dir: Path, cfg: UpscaleConfig,
                         **_kw) -> None:
     _require_working_dataset(working_dir)
-    from ..steps import s3_upscale
-    s3_upscale.run(
+    from ..steps import upscale
+    upscale.run(
         working_dir,
         output_dir=working_dir,
         upscale_target=cfg.upscale_target,

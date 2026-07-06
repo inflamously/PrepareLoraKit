@@ -6,6 +6,39 @@ from typing import Any
 import json
 import time
 
+_STEP_MIGRATIONS: dict[str, str | None] = {
+    "CaptionStep": "CaptionBboxStep",
+    "BucketDryRunStep": "BucketPoolsCheckStep",
+    "ConfigGenStep": None,
+}
+
+_SUBSTEP_MIGRATIONS: dict[str, str] = {
+    "s0_import": "import_images",
+    "s1_1_score": "score_images",
+    "s1_2_decide": "review_decisions",
+    "s2_1_dupecheck": "duplicate_check",
+    "s2_2_clipscan": "clip_scan",
+    "s2_3_drop_images": "drop_images",
+    "s3_1_select_candidates": "select_upscale_candidates",
+    "s3_2_upscale": "upscale_images",
+    "s3_3_hallucination_check": "hallucination_check",
+    "s5_1_annotate": "annotate_regions",
+    "s5_2_caption": "caption_images",
+    "s5_3_validate": "validate_captions",
+    "s4_1_reconstruct": "reconstruct_images",
+    "s4_2_review": "review_vae_artifacts",
+    "s4_3_apply_decisions": "apply_vae_decisions",
+    "s6_1_pairing": "check_pairing",
+    "s6_2_corrupt": "check_corrupt_files",
+    "s6_3_caption_quality": "check_caption_quality",
+    "s6_4_resolution": "check_resolution",
+    "s8_1_assign_buckets": "assign_bucket_pools",
+    "s8_2_report_thin_buckets": "report_thin_buckets",
+    "s8_3_cache_info": "write_cache_info",
+    "s9_1_diff": "preview_export_diff",
+    "s9_2_export": "copy_export",
+}
+
 
 @dataclass
 class StepState:
@@ -57,6 +90,8 @@ class RunState:
     def __init__(self, dataset_dir: Path):
         self._path = dataset_dir / ".plk_state.json"
         self._data: StateData = self._load()
+        if self._migrate_legacy_ids():
+            self.save()
 
     # ── persistence ──────────────────────────────────────────────────────────
 
@@ -65,6 +100,39 @@ class RunState:
             with open(self._path) as f:
                 return StateData.from_dict(json.load(f))
         return StateData()
+
+    def _migrate_legacy_ids(self) -> bool:
+        changed = False
+        migrated: dict[str, StepState] = {}
+        for old_step, state in self._data.steps.items():
+            new_step = _STEP_MIGRATIONS.get(old_step, old_step)
+            if new_step is None:
+                changed = True
+                continue
+            if new_step != old_step:
+                changed = True
+            meta = dict(state.meta)
+            substeps = meta.get("substeps")
+            if isinstance(substeps, dict):
+                new_substeps = {}
+                for old_substep, value in substeps.items():
+                    new_substep = _SUBSTEP_MIGRATIONS.get(old_substep, old_substep)
+                    if new_substep != old_substep:
+                        changed = True
+                    new_substeps[new_substep] = value
+                meta["substeps"] = new_substeps
+            if meta != state.meta:
+                state = StepState(
+                    status=state.status,
+                    completed_at=state.completed_at,
+                    reason=state.reason,
+                    meta=meta,
+                )
+            migrated[new_step] = state
+        if migrated != self._data.steps:
+            self._data.steps = migrated
+            changed = True
+        return changed
 
     def save(self) -> None:
         self._path.parent.mkdir(parents=True, exist_ok=True)

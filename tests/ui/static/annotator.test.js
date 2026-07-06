@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
-import { showAnnotator } from "../../../prepare_lora_kit/ui/static/steps/bbox_annotation/bbox_annotation.js";
-import { isUncaptioned } from "../../../prepare_lora_kit/ui/static/steps/bbox_annotation/bbox-annotation-utils.js";
-import { state } from "../../../prepare_lora_kit/ui/static/core/state.js";
+import { showAnnotator } from "../../../prepare_lora_kit_ui/static/steps/bbox_annotation/bbox_annotation.js";
+import { isUncaptioned } from "../../../prepare_lora_kit_ui/static/steps/bbox_annotation/bbox-annotation-utils.js";
+import { state } from "../../../prepare_lora_kit_ui/static/core/state.js";
 import {
   annotationImage,
   annotationPending,

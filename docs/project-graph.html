@@ -251,7 +251,7 @@ pre {
 <main>
   <section>
     <h2>App Connection Map</h2>
-    <p class="note">The central join is the step type string. Project YAML uses a type such as <code>CaptionStep</code>; <code>STEP_TYPE_MAP</code> parses its config, and <code>STEP_INVOKE_MAP</code> chooses the adapter that runs it.</p>
+    <p class="note">The central join is the step type string. Project YAML uses a type such as <code>CaptionBboxStep</code>; <code>STEP_TYPE_MAP</code> parses its config, and <code>STEP_INVOKE_MAP</code> chooses the adapter that runs it.</p>
     <div class="map-wrap" aria-label="PrepareLoraKit app connection graph">
       <svg viewBox="0 0 1180 700" role="img">
         <defs>
@@ -338,8 +338,8 @@ pre {
         </g>
         <g class="node config" transform="translate(768 378)">
           <rect width="136" height="76"></rect>
-          <text class="title" x="14" y="27">NetworkProfile</text>
-          <text class="sub" x="14" y="49">networks</text>
+          <text class="title" x="14" y="27">SUBSTEP_REGISTRY</text>
+          <text class="sub" x="14" y="49">substeps</text>
         </g>
 
         <g class="node run" transform="translate(596 470)">
@@ -355,7 +355,7 @@ pre {
         <g class="node run" transform="translate(1044 470)">
           <rect width="112" height="76"></rect>
           <text class="title" x="14" y="27">Steps</text>
-          <text class="sub" x="14" y="49">s0 ... s9</text>
+          <text class="sub" x="14" y="49">named packages</text>
         </g>
 
         <g class="node output" transform="translate(36 574)">
@@ -376,7 +376,7 @@ pre {
         <g class="node output" transform="translate(1036 574)">
           <rect width="120" height="72"></rect>
           <text class="title" x="14" y="27">Handoff</text>
-          <text class="sub" x="14" y="49">run_config/export</text>
+          <text class="sub" x="14" y="49">dataset export</text>
         </g>
       </svg>
     </div>
@@ -391,17 +391,16 @@ pre {
 
   <section>
     <h2>Pipeline Stage Order</h2>
-    <p class="note">The authoritative order comes from <code>prepare_lora_kit_pipeline/configuration.py</code>. Some package and substep numbers are historical, so follow <code>STEP_ORDER</code> when labels disagree.</p>
+    <p class="note">The authoritative order and dependency graph come from <code>prepare_lora_kit_pipeline/configuration.py</code>. Export only depends on import, so it can run even when no image-changing step has been applied.</p>
     <div class="stage-grid">
-      <div class="stage"><strong>ImportStep</strong><code>s0_import</code></div>
-      <div class="stage"><strong>QualityGateStep</strong><code>s1_source</code></div>
-      <div class="stage"><strong>CurateStep</strong><code>s2_curate</code></div>
+      <div class="stage"><strong>ImportStep</strong><code>import_images</code></div>
+      <div class="stage"><strong>QualityGateStep</strong><code>quality_gate</code></div>
+      <div class="stage"><strong>CurateStep</strong><code>curate</code></div>
       <div class="stage"><strong>UpscaleStep</strong><code>optional</code></div>
-      <div class="stage"><strong>CaptionStep</strong><code>s5_caption</code></div>
-      <div class="stage"><strong>VaeGateStep</strong><code>s4_vae_gate</code></div>
-      <div class="stage"><strong>AuditStep</strong><code>s6_audit</code></div>
-      <div class="stage"><strong>ConfigGenStep</strong><code>s7_config</code></div>
-      <div class="stage"><strong>BucketDryRunStep</strong><code>s8_bucket</code></div>
+      <div class="stage"><strong>CaptionBboxStep</strong><code>caption_bbox</code></div>
+      <div class="stage"><strong>VaeGateStep</strong><code>vae_gate</code></div>
+      <div class="stage"><strong>AuditStep</strong><code>audit</code></div>
+      <div class="stage"><strong>BucketPoolsCheckStep</strong><code>bucket_pools_check</code></div>
       <div class="stage"><strong>ExportStep</strong><code>optional</code></div>
     </div>
   </section>
@@ -419,8 +418,8 @@ pre {
         <tr><td>UI runner</td><td><code>prepare_lora_kit_ui/runner/manager.py</code></td><td>Adds job status, step selection, interactions, cancellation, and logs.</td></tr>
         <tr><td>Config</td><td><code>prepare_lora_kit/project/base.py</code>, <code>prepare_lora_kit_pipeline/configuration.py</code></td><td>Loads project YAML, validates order, and maps step types to config classes.</td></tr>
         <tr><td>Dispatch</td><td><code>prepare_lora_kit/pipeline.py</code>, <code>prepare_lora_kit/invoke/__init__.py</code></td><td>Walks the configured pipeline and calls the right step adapter.</td></tr>
-        <tr><td>Work</td><td><code>prepare_lora_kit/steps/s0_import</code> through <code>s9_export</code></td><td>Implements the image preparation stages.</td></tr>
-        <tr><td>State/output</td><td><code>prepare_lora_kit/utils/state.py</code>, <code>outputs/name/</code></td><td>Tracks completed steps and stores dataset, reports, config, and export artifacts.</td></tr>
+        <tr><td>Work</td><td><code>prepare_lora_kit/steps/import_step</code> through <code>export_step</code></td><td>Implements the image preparation stages.</td></tr>
+        <tr><td>State/output</td><td><code>prepare_lora_kit/utils/state.py</code>, <code>outputs/name/</code></td><td>Tracks completed steps and stores dataset, reports, and optional export artifacts.</td></tr>
       </tbody>
     </table>
   </section>
@@ -466,8 +465,6 @@ pre {
     project_config[ProjectConfig]
     step_type_map[STEP_TYPE_MAP]
     substeps[SUBSTEP_REGISTRY]
-    network_registry[network_registry]
-    network_profile[NetworkProfile]
   end
 
   subgraph Run["Run orchestration"]
@@ -475,14 +472,13 @@ pre {
     ui_execute[JobManager._execute]
     invoke_map[STEP_INVOKE_MAP]
     invoke_adapters[prepare_lora_kit/invoke]
-    steps[steps/s0_import ... s9_export]
+    steps[steps/import_images ... export_step]
   end
 
   subgraph Output["Run state and artifacts"]
     working[outputs/name/dataset]
     reports[outputs/name/reports]
     state_file[outputs/name/.plk_state.json]
-    train_config[outputs/name/run_config.yaml]
     export_dir[optional export folder]
   end
 
@@ -506,8 +502,6 @@ pre {
   project_registry --> project_config
   project_config --> step_type_map
   project_config --> substeps
-  project_config --> network_registry
-  network_registry --> network_profile
 
   run_cmd --> pipeline
   pipeline --> invoke_map
@@ -520,7 +514,6 @@ pre {
   steps --> reports
   pipeline --> state_file
   ui_execute --> state_file
-  steps --> train_config
   steps --> export_dir
   reports --> jobs
 </pre>

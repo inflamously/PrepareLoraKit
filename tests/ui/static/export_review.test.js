@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
-import { showExportReview } from "../../../prepare_lora_kit/ui/static/steps/export_review/export_review.js";
+import { showExportReview } from "../../../prepare_lora_kit_ui/static/steps/export_review/export_review.js";
 import {
   calls,
   exportReviewPending,

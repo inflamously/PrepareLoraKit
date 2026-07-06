@@ -12,7 +12,7 @@ console = Console()
 
 
 def step_header(step_num: int, title: str) -> None:
-    console.rule(f"[bold cyan]Step {step_num}: {title}[/bold cyan]")
+    console.rule(f"[bold cyan]{title}[/bold cyan]")
 
 
 def info(msg: str) -> None:

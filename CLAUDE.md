@@ -4,26 +4,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-PrepareLoraKit is a Python 3.10+ CLI (`plk`) that prepares image datasets for LoRA-style
-training of Flux and similar diffusion models. It takes an untouched source folder, builds a
-separate working dataset under `outputs/<name>/dataset/`, runs an ordered pipeline of
-preparation steps, and emits per-step JSON reports plus an ai-toolkit-compatible
-`run_config.yaml` (the main training handoff artifact). A pywebview desktop UI wraps the same
-pipeline.
+PrepareLoraKit is a Python 3.10+ CLI (`plk`) and pywebview UI that prepares image datasets
+for LoRA-style training. It takes an untouched source folder, builds a separate working dataset
+under `outputs/<name>/dataset/`, runs the dataset pipeline, and emits per-step JSON reports plus
+an optional export folder for the next training step.
 
 ## Commands
 
 ```bash
 python main.py <cmd>          # run CLI from the checkout (or `plk <cmd>` after `pip install -e .`)
 python main.py run -i /path/to/images -p example -t my_trigger   # full pipeline
-python main.py step -s CaptionStep -p example -i ... -o ... -t ... # single step (alias s0..s8 also work)
+python main.py step -s CaptionBboxStep -p example -i ... -o ... -t ... # single step by type
 python main.py ui                 # launch the desktop webview UI (--mock <STEP> for fixture data)
 python main.py projects           # list configs/projects/
 python main.py networks           # list configs/networks/
 
 pytest                            # full Python test suite
 pytest tests/project/test_config.py          # one module
-pytest tests/steps/s5_caption/test_step.py::test_name   # one test
+pytest tests/steps/caption_bbox/test_step.py::test_name # one test
 python tests/run_pytest.py        # pytest wrapper that falls back to .venv site-packages
 npm run test:ui                   # JS UI tests (node --test + jsdom)
 ```
@@ -41,7 +39,7 @@ already recorded in `outputs/<name>/.plk_state.json`; `--force` reruns everythin
   site-packages when the active interpreter lacks pytest.
 - SeedVR2 upscaling (`upscale_model: seedvr2`) is optional and lives in the
   `third_party/seedvr2` git submodule. It is invoked as an isolated worker subprocess
-  (`steps/s3_upscale/seedvr2_worker.py`), never imported into the main process. When the
+  (`steps/upscale/seedvr2_worker.py`), never imported into the main process. When the
   submodule/models are absent, Step 3 skips with a report reason rather than falling back.
 
 ## Architecture
@@ -50,74 +48,65 @@ The pipeline is **config-driven**: a project YAML lists ordered steps; the orche
 each step up in registries and dispatches. Adding a step touches several registries (see below),
 not a single switch.
 
-**Flow:** `cli/` (Click commands) → loads `ProjectConfig` (`project/registry.py`) and a
-`NetworkProfile` (`networks/registry.py`) → `pipeline.run_all(RunConfig)` iterates
-`project.pipeline`, skipping done steps via `utils/state.RunState` (`.plk_state.json`) →
+**Flow:** `cli/` (Click commands) -> loads `ProjectConfig` (`project/project_registry.py`)
+-> `pipeline.run_all(RunConfig)` iterates `project.pipeline`, skipping done steps via
+`utils/state.RunState` (`.plk_state.json`) ->
 for each step calls `STEP_INVOKE_MAP[step.type]` in `invoke/` → the adapter imports the
-matching `steps/sN_*/` module and calls its `run()`. The original dataset is never mutated;
-only `output_dir/dataset/` is. The UI runs the *same* pipeline through `ui/runner/` +
-`ui/bridge.py` instead of the CLI.
+matching named `steps/*/` module and calls its `run()`. The original dataset is never mutated;
+only `output_dir/dataset/` is. The UI runs the same pipeline through `prepare_lora_kit_ui/runner/`
+and `prepare_lora_kit_ui/bridge.py` instead of the CLI.
 
-**Pipeline stages** (`steps/sN_*/`, each `step.py` + helpers): `s0_import` (ImportStep — the
-only image copy), `s1_source` (QualityGateStep), `s2_curate` (CurateStep — dedupe + CLIP
-coverage), `s3_upscale` (UpscaleStep, optional), `s5_caption` (CaptionStep — bbox UI + Qwen
-VL), `s4_vae_gate` (VaeGateStep), `s6_audit` (AuditStep), `s7_config` (ConfigGenStep — builds
-`run_config.yaml`), `s8_bucket` (BucketDryRunStep), `s9_export` (ExportStep, optional/opt-in —
-copies the finalized image + `.txt` pairs to a sibling `<input>_export/` folder after a diff
-pre-step; never mutates the source or working dataset). Note the directory number is *not* the
-pipeline position (vae_gate `s4` runs *after* caption `s5`); the canonical order lives in
-`STEP_ORDER`.
+**Pipeline stages** (named packages, each `step.py` + helpers): `import_step` (ImportStep),
+`quality_gate` (QualityGateStep), `curate` (CurateStep), `upscale` (UpscaleStep, optional),
+`caption_bbox` (CaptionBboxStep), `vae_gate` (VaeGateStep), `audit` (AuditStep),
+`bucket_pools_check` (BucketPoolsCheckStep), and `export_step` (ExportStep, optional). The
+canonical order and direct dependencies live in `STEP_ORDER` and `STEP_PREREQUISITES`.
 
 **Step/substep registries** — the single source of truth is
-`project/pipeline/{steps,substeps}.py`; `project/steps.py` is a thin re-export shim, so import
-from either. Key tables: `STEP_TYPE_MAP`, `STEP_ORDER`, `STEP_PREREQUISITES`,
-`OPTIONAL_STEP_TYPES`, `SUBSTEP_REGISTRY`. Ordering is validated at config load (each step
-requires its predecessor earlier; duplicates rejected; legacy configs missing `ImportStep`
-get it inserted in memory).
+`prepare_lora_kit_pipeline/configuration.py` plus
+`prepare_lora_kit/project/pipeline/substeps.py`. Key tables: `STEP_TYPE_MAP`, `STEP_ORDER`,
+`STEP_PREREQUISITES`, `OPTIONAL_STEP_TYPES`, and `SUBSTEP_REGISTRY`. Ordering and direct
+prerequisites are validated at config load; duplicate step types are rejected; legacy configs
+missing `ImportStep` get it inserted in memory.
 
 **Config models** are split deliberately:
-- `project/configs/*_config.py` — runtime dataclasses passed to step `run()`s.
+- `prepare_lora_kit_pipeline/configs/*_config.py` — runtime dataclasses passed to step `run()`s.
 - `project/config_schema/` — UI-facing field schemas (`steps/*.py`) for the mid-run step-config
   strip and override handling.
-- `networks/` — `NetworkProfile` describes the base model, VAE id, buckets, LR/rank ranges, and
-  the ai-toolkit `model`/`network`/`train`/`save`/`sample` template blocks used by ConfigGenStep.
-  `vae_model_id` (consumed by the VAE gate, `steps/s4_vae_gate/vae.py`) accepts three forms: a
-  diffusers repo id or local dir (loaded via `from_pretrained(subfolder="vae")` — only the `vae/`
-  subfolder is fetched, not the full model); a single-file checkpoint path/URL ending in
-  `.safetensors`/`.ckpt`/`.pt`/`.bin` (e.g. ComfyUI `ae.safetensors`, `sdxl_vae.safetensors`,
-  loaded via `from_single_file`); or `repo_id::path/in/repo.safetensors` to grab one file from an
-  HF repo. Optional `vae_config_id` points the single-file loader at a base repo's `vae/` config
-  when diffusers can't infer it from the checkpoint keys.
+- Dataset-specific model and bucket choices live in step configs such as `VaeGateStep`,
+  `AuditStep`, and `BucketPoolsCheckStep`. Network/training config generation is a separate
+  concern outside the dataset project baseline.
 
-**Configs on disk:** project presets in `configs/projects/`, network profiles in
-`configs/networks/`, caption prompts in `configs/caption_prompts/`.
+**Configs on disk:** project presets in `configs/projects/`, caption prompts in
+`configs/caption_prompts/`, and separate network examples/profiles under `configs/examples/` and
+`configs/networks/`.
 
-**UI** (`ui/`): `bridge.py` is the synchronous pywebview API object (`window.pywebview.api`);
-`ui/runner/` manages background jobs and pending interaction requests (source review, VAE
-review, bbox annotation, curate confirmation). The frontend is plain ES modules under
-`ui/static/` (no bundler — `index.html` loads them directly). `ui/e2e/` provides mock fixtures
-for `--mock`.
+**UI** (`prepare_lora_kit_ui/`): `bridge.py` is the synchronous pywebview API object
+(`window.pywebview.api`); `runner/` manages background jobs and pending interaction requests
+(source review, VAE review, bbox annotation, curate confirmation). The frontend is plain ES
+modules under `static/` (no bundler; `index.html` loads them directly). `e2e/` provides mock
+fixtures for `--mock`.
 
 ## Conventions
 
 - Keep files focused and small — aim for ≤500 lines. Before writing a file, check whether its
   use-case actually bundles multiple distinct sub-use-cases (or concerns); if so, split it into
   separate, single-responsibility files rather than growing one large file.
-- Name step classes with the `*Step` suffix; keep step code in its numbered `steps/sN_*/` package.
+- Name step classes with the `*Step` suffix; keep step code in named `steps/<domain>/` packages.
 - Tests mock all ML-heavy work (model loading, captioning, upscaling, VAE) and use
   `tmp_path`/`monkeypatch` — never touch real datasets or model caches. Add/update tests when
   changing config parsing, pipeline ordering, CLI behavior, or UI bridge payloads.
-- Keep `ui/static/core/api.js` JSDoc in sync with `ui/bridge.py` whenever bridge payloads or
-  frontend call sites change.
+- Keep `prepare_lora_kit_ui/static/core/api.js` JSDoc in sync with
+  `prepare_lora_kit_ui/bridge.py` whenever bridge payloads or frontend call sites change.
 - Commits use conventional prefixes (`feat:`, `fix:`, `refactor:`) with an imperative summary.
 - UI visual rules (the `nf-*` component kit, design tokens, gold-glow transition) are documented
   in `docs/ui-design.md`; `docs/core.md` describes the step/substep run model.
 
 ## Adding a pipeline step
 
-1. Add a runtime config dataclass in `project/configs/`.
+1. Add a runtime config dataclass in `prepare_lora_kit_pipeline/configs/`.
 2. Add a UI field schema in `project/config_schema/steps/`.
 3. Register in `STEP_TYPE_MAP` and add ordering to `STEP_PREREQUISITES`
-   (`project/pipeline/steps.py`).
-4. Implement the step under `steps/sN_<name>/step.py` with a `run()` entry point.
+   (`prepare_lora_kit_pipeline/configuration.py`).
+4. Implement the step under `steps/<name>/step.py` with a `run()` entry point.
 5. Add an invoke adapter module under `invoke/` + its `STEP_INVOKE_MAP` entry in `invoke/__init__.py`.

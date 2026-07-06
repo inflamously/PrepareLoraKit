@@ -118,7 +118,7 @@ def _static_server(static_dir):
     "--mock",
     "mock_step",
     default=None,
-    help="Launch with a generated UI smoke-test fixture and preselect STEP, alias s0..s8, or all.",
+    help="Launch with a generated UI smoke-test fixture and preselect STEP type or all.",
 )
 @click.option(
     "--mock-output",

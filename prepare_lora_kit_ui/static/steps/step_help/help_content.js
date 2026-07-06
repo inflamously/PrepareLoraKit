@@ -10,7 +10,7 @@ export const STEP_HELP = {
       "Copies the images from your input folder into the project's working dataset, " +
       "leaving your originals untouched. Everything after this point operates on the copy.",
     substeps: [
-      { id: "s0_import", label: "Import source images",
+      { id: "import_images", label: "Import source images",
         desc: "Copies supported image files (jpg, png, webp, etc.) into the working dataset." },
     ],
   },
@@ -22,9 +22,9 @@ export const STEP_HELP = {
       "and marks the ones that fail. You can then review those decisions in a gallery and " +
       "override anything before the rejects are dropped.",
     substeps: [
-      { id: "s1_1_score", label: "Score images",
+      { id: "score_images", label: "Score images",
         desc: "Runs the automatic quality scorers and decides pass/fail for each image." },
-      { id: "s1_2_decide", label: "Review decisions",
+      { id: "review_decisions", label: "Review decisions",
         desc: "Opens a gallery so you can confirm or flip the auto pass/fail choices." },
     ],
     params: [
@@ -43,11 +43,11 @@ export const STEP_HELP = {
       "Finds and drops repeated or near-identical images, then builds a coverage map so you " +
       "can see if your dataset is varied or clustered.",
     substeps: [
-      { id: "s2_1_dupecheck", label: "Duplicate check",
+      { id: "duplicate_check", label: "Duplicate check",
         desc: "Detects near-identical images using a perceptual hash." },
-      { id: "s2_2_clipscan", label: "CLIP scan",
+      { id: "clip_scan", label: "CLIP scan",
         desc: "Optional: builds the coverage map using an AI embedding model." },
-      { id: "s2_3_drop_images", label: "Drop images",
+      { id: "drop_images", label: "Drop images",
         desc: "Removes the duplicates you chose to discard." },
     ],
     params: [
@@ -68,11 +68,11 @@ export const STEP_HELP = {
       "Optional step. Upscales images below your target resolution using the chosen upscaler, " +
       "then re-checks them to reject results where the upscaler invented fake texture or detail.",
     substeps: [
-      { id: "s3_1_select_candidates", label: "Select candidates",
+      { id: "select_upscale_candidates", label: "Select candidates",
         desc: "Picks the images smaller than the target size that need upscaling." },
-      { id: "s3_2_upscale", label: "Upscale images",
+      { id: "upscale_images", label: "Upscale images",
         desc: "Runs the chosen upscaler on the selected images." },
-      { id: "s3_3_hallucination_check", label: "Hallucination check",
+      { id: "hallucination_check", label: "Hallucination check",
         desc: "Rejects upscaled images that drifted too far from the original (invented detail)." },
     ],
     params: [
@@ -99,11 +99,11 @@ export const STEP_HELP = {
       "degraded are flagged so you can keep, drop, or replace them — because the model would " +
       "struggle to learn from them as-is.",
     substeps: [
-      { id: "s4_1_reconstruct", label: "Reconstruct images",
+      { id: "reconstruct_images", label: "Reconstruct images",
         desc: "Compresses and rebuilds each image through the VAE and measures the detail loss." },
-      { id: "s4_2_review", label: "Review artifacts",
+      { id: "review_vae_artifacts", label: "Review artifacts",
         desc: "Shows the flagged images with difference previews so you can decide on each." },
-      { id: "s4_3_apply_decisions", label: "Apply decisions",
+      { id: "apply_vae_decisions", label: "Apply decisions",
         desc: "Keeps, drops, or replaces images based on your review choices." },
     ],
     params: [
@@ -120,24 +120,24 @@ export const STEP_HELP = {
       { label: "HF cutoff fraction",
         desc: "Which slice of high-frequency detail is measured for loss (0–0.5)." },
       { label: "Max side (px)",
-        desc: "Shrink images to this longest side before testing, to save VRAM. Blank = network default." },
+        desc: "Shrink images to this longest side before testing, to save VRAM. Blank = step default." },
       { label: "Seed",
         desc: "Random seed so the reconstruction is repeatable run to run." },
     ],
   },
 
-  CaptionStep: {
+  CaptionBboxStep: {
     summary: "Writes a text caption for each image to train the LoRA on.",
     detail:
       "Sends each image to a vision-language model to produce a description, then saves it as a " +
       "matching .txt file. You can optionally mark regions of interest first, and a sample of " +
       "captions is spot-checked for quality.",
     substeps: [
-      { id: "s5_1_annotate", label: "Annotate regions",
+      { id: "annotate_regions", label: "Annotate regions",
         desc: "Optional: draw boxes on areas you want the caption to focus on." },
-      { id: "s5_2_caption", label: "Caption images",
+      { id: "caption_images", label: "Caption images",
         desc: "Generates a caption for each image and saves it as a .txt sidecar file." },
-      { id: "s5_3_validate", label: "Validate captions",
+      { id: "validate_captions", label: "Validate captions",
         desc: "Spot-checks a sample of captions so you can catch bad ones." },
     ],
     params: [
@@ -160,14 +160,14 @@ export const STEP_HELP = {
       "Verifies that every image has exactly one caption, no files are corrupt, captions aren't " +
       "empty or wildly long, and no image is below the minimum training resolution.",
     substeps: [
-      { id: "s6_1_pairing", label: "Pairing",
+      { id: "check_pairing", label: "Pairing",
         desc: "Checks every image has one caption and every caption has one image." },
-      { id: "s6_2_corrupt", label: "Corrupt files",
+      { id: "check_corrupt_files", label: "Corrupt files",
         desc: "Opens each image to catch truncated or unreadable files." },
-      { id: "s6_3_caption_quality", label: "Caption quality",
+      { id: "check_caption_quality", label: "Caption quality",
         desc: "Flags empty captions and ones that are too short or too long." },
-      { id: "s6_4_resolution", label: "Resolution",
-        desc: "Flags images smaller than the largest training bucket." },
+      { id: "check_resolution", label: "Resolution",
+        desc: "Flags images smaller than the configured training side." },
     ],
     params: [
       { label: "Min caption length",
@@ -182,39 +182,24 @@ export const STEP_HELP = {
         desc: "Enable the caption length check." },
       { label: "Check resolution gate",
         desc: "Enable the minimum-resolution check." },
+      { label: "Min training side (px)",
+        desc: "Minimum image side for the resolution gate." },
+      { label: "Caption model type",
+        desc: "Caption-family hint for caption quality checks." },
     ],
   },
 
-  ConfigGenStep: {
-    summary: "Generates the training config file for your dataset.",
-    detail:
-      "Builds an ai-toolkit-compatible YAML config from your network profile, dataset stats, and " +
-      "training intent, so you can hand it straight to the trainer.",
-    substeps: [
-      { id: "s7_1_dataset_stats", label: "Dataset stats",
-        desc: "Counts images and works out repeats and other dataset numbers." },
-      { id: "s7_2_build_config", label: "Build config",
-        desc: "Assembles the training settings from the network profile and stats." },
-      { id: "s7_3_write_config", label: "Write config",
-        desc: "Writes the final YAML config file to disk." },
-    ],
-    params: [
-      { label: "Base template path",
-        desc: "Optional YAML to start from instead of the built-in template." },
-    ],
-  },
-
-  BucketDryRunStep: {
+  BucketPoolsCheckStep: {
     summary: "Previews how images get grouped by resolution before training.",
     detail:
       "Simulates ai-toolkit's resolution bucketing without training. It assigns each image to its " +
       "closest bucket and flags \"thin\" buckets with too few images, suggesting fixes.",
     substeps: [
-      { id: "s8_1_assign_buckets", label: "Assign buckets",
+      { id: "assign_bucket_pools", label: "Assign buckets",
         desc: "Places each image in its closest aspect-ratio/resolution bucket." },
-      { id: "s8_2_report_thin_buckets", label: "Report thin buckets",
+      { id: "report_thin_buckets", label: "Report thin buckets",
         desc: "Flags buckets with too few images and suggests crops or repeats." },
-      { id: "s8_3_cache_info", label: "Cache info",
+      { id: "write_cache_info", label: "Cache info",
         desc: "Optional: writes a cache_info.json to speed up the real training run." },
     ],
     params: [

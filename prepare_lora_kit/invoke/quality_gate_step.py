@@ -10,9 +10,9 @@ from .working_dataset import _require_working_dataset
 
 def _invoke_QualityGateStep(working_dir: Path, output_dir: Path, cfg: QualityGateConfig,
                             *, original_dir: Path, **_kw) -> None:
-    from ..steps import s1_source
+    from ..steps import quality_gate
     _require_working_dataset(working_dir)
-    s1_source.run(
+    quality_gate.run(
         working_dir,
         working_dir,
         auto_only=cfg.auto_only,

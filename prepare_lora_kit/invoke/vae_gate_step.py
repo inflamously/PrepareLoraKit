@@ -8,7 +8,7 @@ from .working_dataset import _require_working_dataset
 
 
 def _invoke_VaeGateStep(working_dir: Path, output_dir: Path, cfg: VaeGateConfig,
-                        *, network, **_kw) -> None:
+                        **_kw) -> None:
     _require_working_dataset(working_dir)
     if _kw.get("mock_runtime"):
         from .mock_vae_gate import _mock_vae_gate
@@ -21,10 +21,11 @@ def _invoke_VaeGateStep(working_dir: Path, output_dir: Path, cfg: VaeGateConfig,
         )
         return
 
-    from ..steps import s4_vae_gate
-    s4_vae_gate.run(
+    from ..steps import vae_gate
+    vae_gate.run(
         working_dir,
-        network=network,
+        vae_model_id=cfg.vae_model_id,
+        vae_config_id=cfg.vae_config_id,
         output_dir=working_dir,
         outlier_sigma=cfg.outlier_sigma,
         report_path=output_dir / "reports" / "VaeGateStep_report.json",

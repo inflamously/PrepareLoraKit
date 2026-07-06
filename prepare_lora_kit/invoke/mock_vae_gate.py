@@ -15,12 +15,12 @@ def _mock_vae_gate(
 ) -> dict:
     from ..utils import image as img_utils
     from ..utils import report as rpt
-    from ..steps.s4_vae_gate.review import _save_review_artifacts
+    from ..steps.vae_gate.review import _save_review_artifacts
     import numpy as np
     from PIL import Image, ImageFilter
 
     rpt.step_header(4, "VAE Reconstruction Gate")
-    enabled = set(enabled_substeps or ["s4_1_reconstruct", "s4_2_review", "s4_3_apply_decisions"])
+    enabled = set(enabled_substeps or ["reconstruct_images", "review_vae_artifacts", "apply_vae_decisions"])
     images = img_utils.iter_images(working_dir)
     scores = {str(path): 0.0 for path in images}
     preview_root = output_dir / "reports" / "VaeGateStep_previews"
@@ -47,13 +47,13 @@ def _mock_vae_gate(
     check_cancel(cancel_check)
     decisions = (
         interaction.vae_review(review_items)
-        if "s4_2_review" in enabled and interaction and review_items
+        if "review_vae_artifacts" in enabled and interaction and review_items
         else {}
     )
     check_cancel(cancel_check)
     survivors = [
         path for path in images
-        if "s4_3_apply_decisions" not in enabled
+        if "apply_vae_decisions" not in enabled
            or decisions.get(str(path), decisions.get(str(path.resolve()), "keep")) != "drop"
     ]
     img_utils.materialize(survivors, working_dir, working_dir)
@@ -78,9 +78,9 @@ def _mock_vae_gate(
             if decisions.get(str(path), decisions.get(str(path.resolve()), "keep")) == "replace"
         ],
         "substeps": {
-            "s4_1_reconstruct": {"enabled": "s4_1_reconstruct" in enabled},
-            "s4_2_review": {"enabled": "s4_2_review" in enabled},
-            "s4_3_apply_decisions": {"enabled": "s4_3_apply_decisions" in enabled},
+            "reconstruct_images": {"enabled": "reconstruct_images" in enabled},
+            "review_vae_artifacts": {"enabled": "review_vae_artifacts" in enabled},
+            "apply_vae_decisions": {"enabled": "apply_vae_decisions" in enabled},
         },
     }
     rpt.info(f"Mock runtime: recorded deterministic VAE pass for {len(images)} image(s).")

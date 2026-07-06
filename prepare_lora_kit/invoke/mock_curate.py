@@ -17,8 +17,8 @@ def _mock_curate(
         enabled_substeps: list[str] | None = None,
         cancel_check=None,
 ) -> dict:
-    from ..steps.s2_curate.coverage import _save_pca, _save_umap
-    from ..steps.s2_curate.dedupe import _compute_hashes, _find_duplicates
+    from ..steps.curate.coverage import _save_pca, _save_umap
+    from ..steps.curate.dedupe import _compute_hashes, _find_duplicates
     from ..utils import image as img_utils
     from ..utils import report as rpt
 
@@ -33,9 +33,9 @@ def _mock_curate(
         return {}
 
     check_cancel(cancel_check)
-    enabled = set(enabled_substeps or ["s2_1_dupecheck", "s2_2_clipscan", "s2_3_drop_images"])
+    enabled = set(enabled_substeps or ["duplicate_check", "clip_scan", "drop_images"])
     pairs = []
-    if "s2_1_dupecheck" in enabled:
+    if "duplicate_check" in enabled:
         hashes = _compute_hashes(images, cancel_check=cancel_check)
         pairs = _find_duplicates(hashes, cancel_check=cancel_check)
     to_drop: set[Path] = set()
@@ -48,7 +48,7 @@ def _mock_curate(
     if mode not in {"auto", "pca", "umap"}:
         mode = "auto"
 
-    if "s2_2_clipscan" in enabled and len(kept_images) >= 2:
+    if "clip_scan" in enabled and len(kept_images) >= 2:
         check_cancel(cancel_check)
         embeddings = _mock_embeddings(kept_images)
         use_umap = mode == "umap" or (
@@ -69,9 +69,9 @@ def _mock_curate(
         "coverage_image": str(coverage_path) if coverage_path else None,
         "coverage": coverage_metadata,
         "substeps": {substep_id: {"enabled": substep_id in enabled} for substep_id in [
-            "s2_1_dupecheck",
-            "s2_2_clipscan",
-            "s2_3_drop_images",
+            "duplicate_check",
+            "clip_scan",
+            "drop_images",
         ]},
     }
     rpt.info(f"Mock runtime: curated {len(kept_images)} image(s).")

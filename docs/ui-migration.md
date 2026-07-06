@@ -1,6 +1,6 @@
 # UI Migration — Off the manual DOM/render layer
 
-Status: proposal · Author: discussion 2026-06-26 · Scope: `prepare_lora_kit/ui/static/`
+Status: proposal · Author: discussion 2026-06-26 · Scope: `prepare_lora_kit_ui/static/`
 
 ## TL;DR
 
@@ -132,7 +132,7 @@ over the existing `.js`.
        "strict": true,
        "lib": ["es2022", "dom", "dom.iterable"]
      },
-     "include": ["prepare_lora_kit/ui/static/**/*.js"]
+     "include": ["prepare_lora_kit_ui/static/**/*.js"]
    }
    ```
 3. Type the merged `state` object once (extend the JSDoc already in
