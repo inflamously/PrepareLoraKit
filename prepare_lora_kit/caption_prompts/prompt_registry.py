@@ -1,7 +1,7 @@
 """Global caption prompt library: list/load/save/delete named prompts.
 
 Prompts are stored as one YAML file per entry under ``configs/caption_prompts/``,
-mirroring the project/network registries (see :mod:`..project.project_registry`). The
+mirroring the project registry (see :mod:`..project.project_registry`). The
 library is *global* — shared across every project — so a prompt saved once can be
 reused for any run.
 

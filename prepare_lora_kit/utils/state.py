@@ -9,7 +9,6 @@ import time
 _STEP_MIGRATIONS: dict[str, str | None] = {
     "CaptionStep": "CaptionBboxStep",
     "BucketDryRunStep": "BucketPoolsCheckStep",
-    "ConfigGenStep": None,
 }
 
 _SUBSTEP_MIGRATIONS: dict[str, str] = {

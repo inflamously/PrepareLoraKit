@@ -139,7 +139,6 @@ def _normalize_pipeline_steps(pipeline: list[PipelineStep]) -> list[PipelineStep
 _STEP_MIGRATIONS: dict[str, str | None] = {
     "CaptionStep": "CaptionBboxStep",
     "BucketDryRunStep": "BucketPoolsCheckStep",
-    "ConfigGenStep": None,
 }
 
 _SUBSTEP_MIGRATIONS: dict[str, str] = {
@@ -174,11 +173,6 @@ def _migrate_legacy_project_data(data: dict[str, Any]) -> bool:
     """Rewrite legacy project YAML data to the named dataset workflow schema."""
 
     changed = False
-    for key in ("network", "network_type"):
-        if key in data:
-            data.pop(key, None)
-            changed = True
-
     raw_pipeline = data.get("pipeline")
     if not isinstance(raw_pipeline, list):
         return changed

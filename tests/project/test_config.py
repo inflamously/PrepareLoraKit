@@ -26,7 +26,6 @@ def test_project_config_from_yaml_parses_input_dir(tmp_path):
     path = tmp_path / "project.yaml"
     path.write_text("""\
 name: sample
-network: flux-klein-9b
 input_dir: /data/images
 pipeline: []
 """)
@@ -34,7 +33,6 @@ pipeline: []
     cfg = ProjectConfig.from_yaml(path)
 
     assert cfg.input_dir == "/data/images"
-    assert "network" not in yaml.safe_load(path.read_text())
 
 
 def test_default_project_creation_writes_input_dir_and_pipeline(tmp_path):
@@ -45,7 +43,6 @@ def test_default_project_creation_writes_input_dir_and_pipeline(tmp_path):
     data = yaml.safe_load(written.read_text())
 
     assert data["name"] == "sample"
-    assert "network" not in data
     assert data["input_dir"] == str(input_dir)
     assert [step["type"] for step in data["pipeline"]] == [
         "ImportStep",

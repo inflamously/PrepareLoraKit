@@ -210,8 +210,6 @@ def update_project_meta(
 
     data = yaml.safe_load(src_path.read_text()) or {}
     data["name"] = name
-    data.pop("network", None)
-    data.pop("network_type", None)
     if input_dir:
         data["input_dir"] = str(input_dir)
     else:

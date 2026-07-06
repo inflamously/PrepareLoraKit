@@ -2,7 +2,7 @@
 Per-step invoke adapters — bridge a PipelineStep's config to its step module's
 ``run()`` entry point. ``STEP_INVOKE_MAP`` maps a step type to its adapter.
 
-Each adapter signature: (working_dir, output_dir, cfg, *, network, concept_token, original_dir)
+Each adapter signature: (working_dir, output_dir, cfg, *, concept_token, original_dir)
 
 Each adapter (and its deterministic ``--mock`` runtime counterpart, if any) lives in its own
 module in this package; this file only wires them into ``STEP_INVOKE_MAP`` and re-exports them

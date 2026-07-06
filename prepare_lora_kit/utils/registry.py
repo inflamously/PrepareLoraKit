@@ -1,9 +1,9 @@
-"""Generic name → config registry shared by the project and network registries.
+"""Generic name -> config registry shared by YAML-backed registries.
 
 A registry resolves a *name* to a config object, looking first at Python-defined
 built-ins (each a module exposing a ``load()`` callable) and then at a YAML file
 under ``configs/<subdir>/``. Names are hyphenated; the matching YAML file uses
-underscores (``flux-klein-9b`` → ``flux_klein_9b.yaml``).
+underscores (``sample-project`` -> ``sample_project.yaml``).
 """
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ class ConfigRegistry(Generic[T]):
             skip_example: bool = False,
     ) -> None:
         self.kind = kind  # noun used in error messages
-        self.loader = loader  # e.g. NetworkProfile.from_yaml
+        self.loader = loader  # e.g. ProjectConfig.from_yaml
         self.builtin_package = builtin_package  # dotted package of built-in modules
         self.builtins = builtins or {}  # name → module name within package
         self.skip_example = skip_example

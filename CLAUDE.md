@@ -17,7 +17,6 @@ python main.py run -i /path/to/images -p example -t my_trigger   # full pipeline
 python main.py step -s CaptionBboxStep -p example -i ... -o ... -t ... # single step by type
 python main.py ui                 # launch the desktop webview UI (--mock <STEP> for fixture data)
 python main.py projects           # list configs/projects/
-python main.py networks           # list configs/networks/
 
 pytest                            # full Python test suite
 pytest tests/project/test_config.py          # one module
@@ -75,12 +74,10 @@ missing `ImportStep` get it inserted in memory.
 - `project/config_schema/` — UI-facing field schemas (`steps/*.py`) for the mid-run step-config
   strip and override handling.
 - Dataset-specific model and bucket choices live in step configs such as `VaeGateStep`,
-  `AuditStep`, and `BucketPoolsCheckStep`. Network/training config generation is a separate
-  concern outside the dataset project baseline.
+  `AuditStep`, and `BucketPoolsCheckStep`.
 
 **Configs on disk:** project presets in `configs/projects/`, caption prompts in
-`configs/caption_prompts/`, and separate network examples/profiles under `configs/examples/` and
-`configs/networks/`.
+`configs/caption_prompts/`.
 
 **UI** (`prepare_lora_kit_ui/`): `bridge.py` is the synchronous pywebview API object
 (`window.pywebview.api`); `runner/` manages background jobs and pending interaction requests
