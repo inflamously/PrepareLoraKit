@@ -41,12 +41,14 @@ class JobManager:
             self,
             media_base_url: str | None = None,
             projects: dict[str, ProjectConfig] | None = None,
+            interaction_provider_cls: type[UiInteractionProvider] | None = None,
     ) -> None:
         self._jobs: dict[str, PipelineJob] = {}
         self._job_projects: dict[str, str] = {}
         self._active_job_id: str | None = None
         self._media_base_url = media_base_url
         self._projects = projects or {}
+        self._interaction_provider_cls = interaction_provider_cls
         self._lock = threading.Lock()
 
     def start_run(self, request: dict[str, Any]) -> str:
@@ -168,8 +170,11 @@ class JobManager:
             # from the original (discarding any prior working dataset).
             state.reset()
 
-        from prepare_lora_kit_ui.runner.interactions import UiInteractionProvider
-        interaction = UiInteractionProvider(job, self._media_base_url)
+        interaction_provider_cls = self._interaction_provider_cls
+        if interaction_provider_cls is None:
+            import prepare_lora_kit_ui.runner as runner
+            interaction_provider_cls = runner.UiInteractionProvider
+        interaction = interaction_provider_cls(job, self._media_base_url)
         job.interaction_provider = interaction
 
         cfg = RunConfig(

@@ -12,14 +12,14 @@ def invoke_curate_step(working_dir: Path, output_dir: Path, cfg: CurateConfig,
     _require_working_dataset(working_dir)
     if _kw.get("mock_runtime"):
         from prepare_lora_kit.invoke.mock_curate import _mock_curate
-    return _mock_curate(
-            working_dir,
-            output_dir,
-            cfg,
-            coverage_mode=str(_kw.get("mock_curate_coverage") or "auto"),
-            enabled_substeps=_kw.get("enabled_substeps"),
-            cancel_check=_kw.get("cancel_check"),
-        )
+        return _mock_curate(
+                working_dir,
+                output_dir,
+                cfg,
+                coverage_mode=str(_kw.get("mock_curate_coverage") or "auto"),
+                enabled_substeps=_kw.get("enabled_substeps"),
+                cancel_check=_kw.get("cancel_check"),
+            )
 
     from prepare_lora_kit.steps import curate
     return curate.run(

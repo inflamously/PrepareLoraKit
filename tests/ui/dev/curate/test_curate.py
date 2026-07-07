@@ -8,14 +8,14 @@ from prepare_lora_kit.utils import image as img_utils
 
 
 def test_mock_project_curate_runs_through_job_manager(
-    tmp_path, monkeypatch, recording_curate_provider
+    tmp_path, recording_curate_provider
 ):
-    import prepare_lora_kit_ui.runner as runner
-
     fixture = create_mock_ui_fixture("CurateStep", root=tmp_path / "mock")
-    manager = JobManager(projects={fixture.project.name: fixture.project})
+    manager = JobManager(
+        projects={fixture.project.name: fixture.project},
+        interaction_provider_cls=recording_curate_provider,
+    )
     job = PipelineJob(manager, "mock-job")
-    monkeypatch.setattr(runner, "UiInteractionProvider", recording_curate_provider)
 
     manager._execute(
         job,
@@ -53,21 +53,20 @@ def test_mock_project_curate_runs_through_job_manager(
 )
 def test_mock_project_curate_writes_requested_coverage_plot(
     tmp_path,
-    monkeypatch,
     recording_curate_provider,
     coverage_mode,
     expected_method,
 ):
-    import prepare_lora_kit_ui.runner as runner
-
     fixture = create_mock_ui_fixture(
         "CurateStep",
         root=tmp_path / "mock",
         curate_coverage=coverage_mode,
     )
-    manager = JobManager(projects={fixture.project.name: fixture.project})
+    manager = JobManager(
+        projects={fixture.project.name: fixture.project},
+        interaction_provider_cls=recording_curate_provider,
+    )
     job = PipelineJob(manager, "mock-job")
-    monkeypatch.setattr(runner, "UiInteractionProvider", recording_curate_provider)
 
     manager._execute(
         job,
@@ -95,19 +94,19 @@ def test_mock_project_curate_writes_requested_coverage_plot(
 
 
 def test_mock_project_curate_auto_uses_umap_above_threshold(
-    tmp_path, monkeypatch, recording_curate_provider
+    tmp_path, recording_curate_provider
 ):
-    import prepare_lora_kit_ui.runner as runner
-
     fixture = create_mock_ui_fixture(
         "CurateStep",
         root=tmp_path / "mock",
         curate_coverage="umap",
     )
     initial_image_count = len(img_utils.iter_images(fixture.output_dir / "dataset"))
-    manager = JobManager(projects={fixture.project.name: fixture.project})
+    manager = JobManager(
+        projects={fixture.project.name: fixture.project},
+        interaction_provider_cls=recording_curate_provider,
+    )
     job = PipelineJob(manager, "mock-job")
-    monkeypatch.setattr(runner, "UiInteractionProvider", recording_curate_provider)
 
     manager._execute(
         job,

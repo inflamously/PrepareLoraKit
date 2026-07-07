@@ -7,8 +7,6 @@ from prepare_lora_kit_ui.runner import JobManager, PipelineJob
 
 
 def test_mock_upscale_review_flags_and_converts_jpeg_to_png(tmp_path, monkeypatch):
-    import prepare_lora_kit_ui.runner as runner
-
     captured = {}
 
     class FakeInteractionProvider:
@@ -21,10 +19,12 @@ def test_mock_upscale_review_flags_and_converts_jpeg_to_png(tmp_path, monkeypatc
             return {item["path"]: "upscale" for item in items}
 
     monkeypatch.setattr(upscale_step, "_hallucination_check", lambda *_args: 1.0)
-    monkeypatch.setattr(runner, "UiInteractionProvider", FakeInteractionProvider)
 
     fixture = create_mock_ui_fixture("UpscaleStep", root=tmp_path / "mock")
-    manager = JobManager(projects={fixture.project.name: fixture.project})
+    manager = JobManager(
+        projects={fixture.project.name: fixture.project},
+        interaction_provider_cls=FakeInteractionProvider,
+    )
     job = PipelineJob(manager, "mock-job")
 
     manager._execute(
