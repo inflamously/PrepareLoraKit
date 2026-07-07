@@ -11,8 +11,8 @@ import hashlib
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from ...utils import image as img_utils
 
+from prepare_lora_kit.utils import image as img_utils
 CAPTION_SUFFIX = ".txt"
 
 
@@ -93,8 +93,8 @@ def compute_diff(dataset_dir: Path, target_dir: Path) -> ExportDiff:
             caption_src=str(caption),
             image_status=_classify(image, dst_image),
             caption_status=_classify(caption, dst_caption),
-        )
 
+        )
         if entry.image_status == "added":
             diff.added.append(entry)
         elif entry.image_status == "modified" or entry.caption_status != "unchanged":

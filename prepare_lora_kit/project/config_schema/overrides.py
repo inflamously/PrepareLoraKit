@@ -9,9 +9,9 @@ from __future__ import annotations
 import dataclasses
 from typing import Any
 
-from .fields import FieldSpec
-from .schema import CONFIG_FIELD_SCHEMA
 
+from prepare_lora_kit.project.config_schema.fields import FieldSpec
+from prepare_lora_kit.project.config_schema.schema import CONFIG_FIELD_SCHEMA
 
 def _coerce(spec: FieldSpec, raw: Any) -> tuple[bool, Any]:
     """Coerce a raw override to its field type. Returns (apply?, value)."""

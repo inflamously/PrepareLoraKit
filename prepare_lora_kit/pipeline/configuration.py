@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from prepare_lora_kit_pipeline.configs import (
+from prepare_lora_kit.pipeline.configs import (
     AuditConfig,
     BucketPoolsCheckConfig,
     CaptionBboxConfig,

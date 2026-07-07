@@ -10,10 +10,10 @@ Checks:
 from __future__ import annotations
 from pathlib import Path
 
-from ...cancellation import CancelCheck, check_cancel
+from prepare_lora_kit.cancellation import CancelCheck, check_cancel
 from prepare_lora_kit.report import reporter
 
-from .checks import (
+from prepare_lora_kit.steps.audit.checks import (
     collect_stems,
     check_pairing,
     check_corrupt,

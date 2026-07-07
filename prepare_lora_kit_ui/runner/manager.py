@@ -13,8 +13,8 @@ from rich.console import Console
 from prepare_lora_kit.cancellation import CancelledRun
 from prepare_lora_kit.invoke import STEP_INVOKE_MAP
 from prepare_lora_kit.pipeline import RunConfig
-from prepare_lora_kit.pipeline_validation import validate_pipeline_selection
-from prepare_lora_kit_pipeline.configuration import is_resume_aware_step_type
+from prepare_lora_kit.pipeline.validation import validate_pipeline_selection
+from prepare_lora_kit.pipeline import is_resume_aware_step_type
 from prepare_lora_kit.project import project_registry
 from prepare_lora_kit.project.base import ProjectConfig
 from prepare_lora_kit.project.config_schema import has_schema, apply_overrides
@@ -27,13 +27,12 @@ from prepare_lora_kit.project.pipeline import (
 
 from prepare_lora_kit.report import reporter
 from prepare_lora_kit.utils.state import RunState
-from . import UiInteractionProvider
 
-from .constants import TERMINAL_STATUSES
-from .job import PipelineJob
-from .logging import _LogStream
-from .payloads import _default_output
-
+from prepare_lora_kit_ui.runner.constants import TERMINAL_STATUSES
+from prepare_lora_kit_ui.runner.interactions import UiInteractionProvider
+from prepare_lora_kit_ui.runner.job import PipelineJob
+from prepare_lora_kit_ui.runner.logging import _LogStream
+from prepare_lora_kit_ui.runner.payloads import _default_output
 
 class JobManager:
     """Starts and tracks one pipeline job at a time."""
@@ -168,8 +167,8 @@ class JobManager:
             # re-runs, including ImportStep, which re-seeds the working dataset
             # from the original (discarding any prior working dataset).
             state.reset()
-        from . import UiInteractionProvider
 
+        from prepare_lora_kit_ui.runner.interactions import UiInteractionProvider
         interaction = UiInteractionProvider(job, self._media_base_url)
         job.interaction_provider = interaction
 

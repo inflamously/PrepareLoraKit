@@ -2,7 +2,7 @@
 from pathlib import Path
 
 from prepare_lora_kit import invoke
-from prepare_lora_kit_pipeline.configs import CurateConfig
+from prepare_lora_kit.pipeline.configs import CurateConfig
 from prepare_lora_kit.project.project_registry import _default_pipeline
 from prepare_lora_kit.steps.curate import dedupe
 

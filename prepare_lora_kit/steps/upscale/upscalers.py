@@ -14,8 +14,8 @@ def _lanczos_upscale(path: Path, output_path: Path, target: int = UPSCALE_TARGET
     """
     from PIL import Image
 
-    from .jpeg_cleanup import _denoise, _is_jpeg
 
+    from prepare_lora_kit.steps.upscale.jpeg_cleanup import _denoise, _is_jpeg
     img = Image.open(path).convert("RGB")
     if _is_jpeg(path):
         # Lanczos has no learned restoration of its own, so denoise the

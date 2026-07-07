@@ -13,9 +13,9 @@ def _mock_vae_gate(
         enabled_substeps: list[str] | None = None,
         cancel_check=None,
 ) -> dict:
-    from ..utils import image as img_utils
+    from prepare_lora_kit.utils import image as img_utils
     from prepare_lora_kit.report import reporter
-    from ..steps.vae_gate.review import _save_review_artifacts
+    from prepare_lora_kit.steps.vae_gate.review import _save_review_artifacts
     import numpy as np
     from PIL import Image, ImageFilter
 

@@ -1,7 +1,7 @@
 """Compatibility exports for UI end-to-end mock fixtures."""
 from __future__ import annotations
 
-from .e2e import (
+from prepare_lora_kit_ui.e2e import (
     MOCK_PROJECT_NAME,
     MOCK_TOKEN,
     MockUiFixture,

@@ -6,8 +6,8 @@ import uuid
 from typing import Any
 
 from prepare_lora_kit.cancellation import CancelledRun
-from .constants import TERMINAL_STATUSES
 
+from prepare_lora_kit_ui.runner.constants import TERMINAL_STATUSES
 
 class PipelineJob:
     """Mutable job state guarded by a condition variable."""

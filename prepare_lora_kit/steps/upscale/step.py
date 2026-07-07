@@ -22,19 +22,19 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
-from ...cancellation import CancelCheck, CancelledRun, check_cancel
-from ...providers.interaction import InteractionProvider
-from ...utils import image as img_utils
+from prepare_lora_kit.cancellation import CancelCheck, CancelledRun, check_cancel
+from prepare_lora_kit.providers.interaction import InteractionProvider
+from prepare_lora_kit.utils import image as img_utils
 from prepare_lora_kit.report import reporter
-from .hallucination import HALLUCINATION_SSIM_THRESHOLD, _hallucination_check
-from .jpeg_cleanup import _is_jpeg, _write_downscaled_copy
-from .seedvr2_adapter import (
+from prepare_lora_kit.steps.upscale.hallucination import HALLUCINATION_SSIM_THRESHOLD, _hallucination_check
+from prepare_lora_kit.steps.upscale.jpeg_cleanup import _is_jpeg, _write_downscaled_copy
+from prepare_lora_kit.steps.upscale.seedvr2_adapter import (
     DEFAULT_SEEDVR2_DIT_MODEL,
     SeedVR2Unavailable,
     SeedVR2Upscaler,
 )
-from .upscalers import UPSCALE_HIGHLIGHT_THRESHOLD, UPSCALE_TARGET, _lanczos_upscale
 
+from prepare_lora_kit.steps.upscale.upscalers import UPSCALE_HIGHLIGHT_THRESHOLD, UPSCALE_TARGET, _lanczos_upscale
 Upscaler = Callable[[Path, Path], Path | None]
 
 
@@ -174,8 +174,8 @@ def run(
         return _save_report(results, context)
 
     with tempfile.TemporaryDirectory(prefix="plk_upscale_scratch_") as scratch_dir_str:
-        scratch_dir = Path(scratch_dir_str)
 
+        scratch_dir = Path(scratch_dir_str)
         if candidates:
             reporter.info(f"{len(candidates)} images below {upscale_target}px min-side will be upscaled.")
             check_cancel(cancel_check)
@@ -224,8 +224,8 @@ def run(
                             hallucination_check_enabled="hallucination_check" in enabled,
                             results=results,
                             cancel_check=cancel_check,
-                        )
 
+                        )
         if cleanup_candidates:
             check_cancel(cancel_check)
             _process_jpeg_cleanup_candidates(

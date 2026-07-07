@@ -7,18 +7,18 @@ Step 2 — Curation
 from __future__ import annotations
 from pathlib import Path
 
-from ...cancellation import CancelCheck, CancelledRun, check_cancel
-from ...utils import image as img_utils
+from prepare_lora_kit.cancellation import CancelCheck, CancelledRun, check_cancel
+from prepare_lora_kit.utils import image as img_utils
 from prepare_lora_kit.report import reporter
 
-from .dedupe import _compute_hashes, _find_duplicates, _resolve_duplicates
-from .coverage import _coverage_embeddings, _save_umap, _save_pca
 
+from prepare_lora_kit.steps.curate.dedupe import _compute_hashes, _find_duplicates, _resolve_duplicates
+from prepare_lora_kit.steps.curate.coverage import _coverage_embeddings, _save_umap, _save_pca
 
 def _resolve_coverage_model(coverage_embedding_model: str | None) -> str:
     """Resolve the coverage model, expanding ``auto`` from detected VRAM."""
-    from ...embedding import catalog, vram
 
+    from prepare_lora_kit.embedding import catalog, vram
     choice = (coverage_embedding_model or catalog.AUTO).strip()
     if choice == catalog.AUTO:
         return catalog.auto_select(vram.total_vram_gb())

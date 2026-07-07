@@ -44,8 +44,8 @@ class CliInteractionProvider:
     """Default provider preserving the existing CLI UI/fallback behavior."""
 
     def source_review(self, scored: list[tuple[Path, dict]]) -> dict[str, str]:
-        from .steps.quality_gate.review import _review_gallery_or_fallback
 
+        from prepare_lora_kit.steps.quality_gate.review import _review_gallery_or_fallback
         return _review_gallery_or_fallback(scored)
 
     def annotate_image(
@@ -58,18 +58,18 @@ class CliInteractionProvider:
         return [], True, False
 
     def vae_review(self, items: list[dict]) -> dict[str, str]:
-        from .steps.vae_gate.review import _review_artifact_decisions
 
+        from prepare_lora_kit.steps.vae_gate.review import _review_artifact_decisions
         return _review_artifact_decisions(items)
 
     def upscale_review(self, items: list[dict]) -> dict[str, str]:
-        from .steps.upscale.review import _review_flagged_decisions
 
+        from prepare_lora_kit.steps.upscale.review import _review_flagged_decisions
         return _review_flagged_decisions(items)
 
     def export_review(self, payload: dict[str, Any]) -> dict[str, Any]:
-        from .steps.export_step.review import review_export_cli
 
+        from prepare_lora_kit.steps.export_step.review import review_export_cli
         return review_export_cli(payload)
 
 

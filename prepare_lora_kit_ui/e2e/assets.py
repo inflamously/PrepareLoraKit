@@ -6,8 +6,8 @@ import shutil
 
 from PIL import Image, ImageDraw
 
-from prepare_lora_kit_pipeline.configuration import step_types
-from .constants import (
+from prepare_lora_kit.pipeline import step_types
+from prepare_lora_kit_ui.e2e.constants import (
     FIXTURE_MARKER,
     MOCK_DUPLICATE_NAME,
     MOCK_DUPLICATE_SOURCE,

@@ -1,8 +1,8 @@
 """Editable config fields for VaeGateStep."""
 from __future__ import annotations
 
-from ..fields import FieldSpec, _check, _number, _text
 
+from prepare_lora_kit.project.config_schema.fields import FieldSpec, _check, _number, _text
 STEP_TYPE = "VaeGateStep"
 
 FIELDS: list[FieldSpec] = [

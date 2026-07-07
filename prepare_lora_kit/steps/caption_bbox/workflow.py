@@ -3,18 +3,19 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable
 
-from ...interaction import annotate_dataset_via_images
-from ...providers.interaction import InteractionProvider
-from ...cancellation import CancelCheck, CancelledRun, check_cancel
+from prepare_lora_kit.interaction import annotate_dataset_via_images
+from prepare_lora_kit.providers.interaction import InteractionProvider
+from prepare_lora_kit.cancellation import CancelCheck, CancelledRun, check_cancel
 from prepare_lora_kit.report import reporter
 
-from . import vlm
-from .artifacts import _update_bbox_caption, load_boxes_sidecar
-from .reports import _save_failure_report
-from .validation import clean_caption_for_mode
+if TYPE_CHECKING:
+    from prepare_lora_kit.steps.caption_bbox.vlm import CaptionRuntime
 
+from prepare_lora_kit.steps.caption_bbox.artifacts import _update_bbox_caption, load_boxes_sidecar
+from prepare_lora_kit.steps.caption_bbox.reports import _save_failure_report
+from prepare_lora_kit.steps.caption_bbox.validation import clean_caption_for_mode
 
 @dataclass
 class CaptionWorkflowResult:
@@ -136,7 +137,7 @@ def _caption_full_image(
         images: list[Path],
         enabled: set[str],
         result: CaptionWorkflowResult,
-        runtime: vlm.CaptionRuntime,
+        runtime: CaptionRuntime,
         concept_token: str | None,
         max_new_tokens: int,
         report_path: Path,

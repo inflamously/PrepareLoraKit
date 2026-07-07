@@ -16,10 +16,10 @@ def _mock_caption(
         cancel_check=None,
         interaction=None,
 ) -> dict:
-    from ..utils import image as img_utils
+    from prepare_lora_kit.utils import image as img_utils
     from prepare_lora_kit.report import reporter
-    from ..interaction import annotate_dataset_via_images
-    from ..steps.caption_bbox.artifacts import (
+    from prepare_lora_kit.interaction import annotate_dataset_via_images
+    from prepare_lora_kit.steps.caption_bbox.artifacts import (
         _is_bbox_artifact,
         _save_bbox_training_item,
         load_boxes_sidecar,
@@ -92,13 +92,13 @@ def _mock_caption(
     for path in pending:
         check_cancel(cancel_check)
         txt_path = path.with_suffix(".txt")
-        decision = decisions.get(str(path))
 
+        decision = decisions.get(str(path))
         if "caption_images" not in enabled:
             if txt_path.exists():
                 captions[str(path)] = txt_path.read_text(encoding="utf-8").strip()
-            continue
 
+            continue
         if decision is None or decision.get("skipped"):
             if txt_path.exists() and not force:
                 captions[str(path)] = txt_path.read_text(encoding="utf-8").strip()

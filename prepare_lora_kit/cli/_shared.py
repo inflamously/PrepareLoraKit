@@ -6,8 +6,8 @@ from typing import Any
 
 import click
 
-from ..paths import PROJECT_ROOT
 
+from prepare_lora_kit.paths import PROJECT_ROOT
 
 @dataclass
 class CliState:

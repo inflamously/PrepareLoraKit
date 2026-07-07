@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .constants import _PREVIEW, HOVER_TIMEOUT
 
+from prepare_lora_kit.steps.quality_gate.gallery.constants import _PREVIEW, HOVER_TIMEOUT
 
 class HoverPreview:
     """

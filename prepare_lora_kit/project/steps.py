@@ -6,7 +6,7 @@ as a thin shim so existing ``from .steps import ...`` import paths stay stable.
 """
 from __future__ import annotations
 
-from .pipeline import (  # noqa: F401
+from prepare_lora_kit.project.pipeline import (  # noqa: F401
     SUBSTEP_ORDER_INDEX,
     SUBSTEP_PARENT,
     SUBSTEP_REGISTRY,

@@ -9,13 +9,13 @@ from __future__ import annotations
 
 import click
 
-from prepare_lora_kit_pipeline.configuration import step_config_class, step_prerequisites
-from .._shared import cli, cli_option_input, cli_option_output, cli_option_token
-from .bbox import build_bbox_interaction
-from .resolve import _load_project, _resolve_step_type
-from ...invoke import STEP_INVOKE_MAP
-from ...pipeline import RunConfig
-from ...project.steps import (
+from prepare_lora_kit.pipeline import step_config_class, step_prerequisites
+from prepare_lora_kit.cli._shared import cli, cli_option_input, cli_option_output, cli_option_token
+from prepare_lora_kit.cli.step.bbox import build_bbox_interaction
+from prepare_lora_kit.cli.step.resolve import _load_project, _resolve_step_type
+from prepare_lora_kit.invoke import STEP_INVOKE_MAP
+from prepare_lora_kit.pipeline import RunConfig
+from prepare_lora_kit.project.steps import (
     default_substeps_for,
     enabled_substep_ids,
     mark_legacy_import_satisfied,
@@ -78,7 +78,7 @@ def step(ctx, step_name, project_name, input_dir, output_dir, token, force,
     working_dir = out_dir / "dataset"
 
     from prepare_lora_kit.report import reporter
-    from ...utils.state import RunState
+    from prepare_lora_kit.utils.state import RunState
 
     state = RunState(out_dir)
 

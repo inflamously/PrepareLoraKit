@@ -10,15 +10,15 @@ from pathlib import Path
 import shutil
 import numpy as np
 
-from ...cancellation import CancelCheck, CancelledRun, check_cancel
-from ...providers.interaction import InteractionProvider
-from ...utils import image as img_utils
+from prepare_lora_kit.cancellation import CancelCheck, CancelledRun, check_cancel
+from prepare_lora_kit.providers.interaction import InteractionProvider
+from prepare_lora_kit.utils import image as img_utils
 from prepare_lora_kit.report import reporter
 
-from .hf_loss import _hf_loss
-from .vae import _load_vae, _encode_decode, _to_lab_l
-from .review import _manual_flag_decision, _save_review_artifacts
 
+from prepare_lora_kit.steps.vae_gate.hf_loss import _hf_loss
+from prepare_lora_kit.steps.vae_gate.vae import _load_vae, _encode_decode, _to_lab_l
+from prepare_lora_kit.steps.vae_gate.review import _manual_flag_decision, _save_review_artifacts
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 

@@ -1,7 +1,6 @@
 import yaml
 import pytest
 
-import prepare_lora_kit_pipeline.configuration as pipeline_configuration
 from prepare_lora_kit.steps.upscale.seedvr2_catalog import (
     DEFAULT_SEEDVR2_DIT_MODEL,
     SUPPORTED_SEEDVR2_DIT_MODELS,
@@ -9,7 +8,7 @@ from prepare_lora_kit.steps.upscale.seedvr2_catalog import (
     list_seedvr2_dit_models,
 )
 from prepare_lora_kit.project.base import ProjectConfig
-from prepare_lora_kit_pipeline.configuration import (
+from prepare_lora_kit.pipeline import (
     STEP_DEFINITIONS,
     is_optional_step_type,
     is_resume_aware_step_type,
@@ -18,7 +17,7 @@ from prepare_lora_kit_pipeline.configuration import (
     step_types,
 )
 from prepare_lora_kit.project import project_registry
-from prepare_lora_kit_pipeline.configs import UpscaleConfig
+from prepare_lora_kit.pipeline.configs import UpscaleConfig
 from prepare_lora_kit_ui.runner import project_payload
 
 

@@ -1,8 +1,8 @@
 """Editable config fields for UpscaleStep."""
 from __future__ import annotations
 
-from ..fields import FieldSpec, _number, _select, _text
 
+from prepare_lora_kit.project.config_schema.fields import FieldSpec, _number, _select, _text
 STEP_TYPE = "UpscaleStep"
 
 FIELDS: list[FieldSpec] = [

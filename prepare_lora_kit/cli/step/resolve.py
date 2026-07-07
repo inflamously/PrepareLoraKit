@@ -8,9 +8,9 @@ from __future__ import annotations
 import click
 
 from prepare_lora_kit.project import project_registry
-from prepare_lora_kit_pipeline.configuration import step_types
-from ...project.steps import step_aliases
 
+from prepare_lora_kit.pipeline import step_types
+from prepare_lora_kit.project.steps import step_aliases
 _STEP_ALIASES = step_aliases()
 
 

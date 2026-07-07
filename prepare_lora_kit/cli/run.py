@@ -5,8 +5,8 @@ from pathlib import Path
 import click
 
 from prepare_lora_kit.project import project_registry
-from ._shared import cli, _default_output
-from ..pipeline import RunConfig
+from prepare_lora_kit.cli._shared import cli, _default_output
+from prepare_lora_kit.pipeline.run import RunConfig
 
 
 def _load_or_create_project(input_dir: Path, project_name: str | None):
@@ -55,8 +55,8 @@ def run(ctx, input_dir, output_dir, project_name, token, force):
     project = _load_or_create_project(input_dir, project_name)
     output_dir = output_dir or _default_output(input_dir)
 
-    from ..pipeline import run_all
-    from ..pipeline_validation import PipelineValidationError
+    from prepare_lora_kit.pipeline import run_all
+    from prepare_lora_kit.pipeline.validation import PipelineValidationError
     try:
         run_all(RunConfig(
             dataset_dir=input_dir,

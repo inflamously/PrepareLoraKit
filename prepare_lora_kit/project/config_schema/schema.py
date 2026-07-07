@@ -10,9 +10,9 @@ The per-step field lists live in :mod:`.steps`; this module assembles them into
 """
 from __future__ import annotations
 
-from .fields import FieldSpec
-from .steps import STEP_MODULES
 
+from prepare_lora_kit.project.config_schema.fields import FieldSpec
+from prepare_lora_kit.project.config_schema.steps import STEP_MODULES
 CONFIG_FIELD_SCHEMA: dict[str, list[FieldSpec]] = {
     module.STEP_TYPE: module.FIELDS for module in STEP_MODULES
 }

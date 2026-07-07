@@ -14,14 +14,14 @@ from pathlib import Path
 
 from PIL import Image
 
-from ...cancellation import CancelCheck, check_cancel
-from ...utils import image as img_utils
+from prepare_lora_kit.cancellation import CancelCheck, check_cancel
+from prepare_lora_kit.utils import image as img_utils
 from prepare_lora_kit.report import reporter
 from rich.table import Table
 from rich import box
 
-from .bucketing import _find_bucket, _suggest_crop
 
+from prepare_lora_kit.steps.bucket_pools_check.bucketing import _find_bucket, _suggest_crop
 THIN_BUCKET_THRESHOLD = 2
 
 

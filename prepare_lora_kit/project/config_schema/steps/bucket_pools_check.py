@@ -1,8 +1,8 @@
 """Editable config fields for BucketPoolsCheckStep."""
 from __future__ import annotations
 
-from ..fields import FieldSpec, _check, _number
 
+from prepare_lora_kit.project.config_schema.fields import FieldSpec, _check, _number
 STEP_TYPE = "BucketPoolsCheckStep"
 
 FIELDS: list[FieldSpec] = [

@@ -1,8 +1,8 @@
 from __future__ import annotations
 from pathlib import Path
 
-from ...utils import image as img_utils
 
+from prepare_lora_kit.utils import image as img_utils
 
 # ── thresholds (all configurable) ─────────────────────────────────────────────
 
@@ -121,8 +121,8 @@ def _score_image(src, thresholds: dict, scorers: list[dict]) -> dict:
         name = scorer["name"]
         threshold = _resolve_threshold(scorer, thresholds)
         fn = _resolve_fn(scorer)
-        optional = scorer.get("optional", False)
 
+        optional = scorer.get("optional", False)
         try:
             value = fn(src)
         except Exception:
@@ -133,8 +133,8 @@ def _score_image(src, thresholds: dict, scorers: list[dict]) -> dict:
             raise
 
         scores[name] = round(value, 3) if isinstance(value, float) else value
-        op = scorer["op"]
 
+        op = scorer["op"]
         if (op == "lt" and value < threshold) or (op == "gt" and value > threshold):
             reasons.append(f"{name} {value} {'<' if op == 'lt' else '>'} {threshold}")
 

@@ -1,8 +1,8 @@
 """Editable config fields for AuditStep."""
 from __future__ import annotations
 
-from ..fields import FieldSpec, _check, _number, _select
 
+from prepare_lora_kit.project.config_schema.fields import FieldSpec, _check, _number, _select
 STEP_TYPE = "AuditStep"
 
 FIELDS: list[FieldSpec] = [

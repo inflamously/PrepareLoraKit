@@ -4,10 +4,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Callable
 
-from ...cancellation import CancelCheck, check_cancel
 
-from .artifacts import _save_bbox_training_item
+from prepare_lora_kit.cancellation import CancelCheck, check_cancel
 
+from prepare_lora_kit.steps.caption_bbox.artifacts import _save_bbox_training_item
 
 def make_region_captioner(
     *,

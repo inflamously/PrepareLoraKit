@@ -10,14 +10,14 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Callable
 
-from .regions import make_region_captioner
-from ...cancellation import CancelCheck, check_cancel
-from ...providers.interaction import InteractionProvider
-from ...utils import image as img_utils
+from prepare_lora_kit.steps.caption_bbox.regions import make_region_captioner
+from prepare_lora_kit.cancellation import CancelCheck, check_cancel
+from prepare_lora_kit.providers.interaction import InteractionProvider
+from prepare_lora_kit.utils import image as img_utils
 from prepare_lora_kit.report import reporter
 
-from . import vlm
-from .artifacts import (
+import prepare_lora_kit.steps.caption_bbox.vlm as vlm
+from prepare_lora_kit.steps.caption_bbox.artifacts import (
     BBOX_PREFIX,
     _bbox_stem,
     _clean_bbox_artifacts,
@@ -25,9 +25,9 @@ from .artifacts import (
     _save_bbox_training_item,
     save_boxes_sidecar,
 )
-from .reports import _save_failure_report, build_success_report, save_success_report
-from .validation import render_spot_check, validate_captions
-from .workflow import CaptionWorkflowResult, gather_decisions, resolve_decision, \
+from prepare_lora_kit.steps.caption_bbox.reports import _save_failure_report, build_success_report, save_success_report
+from prepare_lora_kit.steps.caption_bbox.validation import render_spot_check, validate_captions
+from prepare_lora_kit.steps.caption_bbox.workflow import CaptionWorkflowResult, gather_decisions, resolve_decision, \
     _persist_region_caption_edits, _caption_full_image, _write_caption
 
 DEFAULT_SUBSTEPS = ["annotate_regions", "caption_images", "validate_captions"]

@@ -6,8 +6,8 @@ from pathlib import Path
 from typing import Any
 
 from prepare_lora_kit.project.base import ProjectConfig
-from .constants import MOCK_TOKEN
 
+from prepare_lora_kit_ui.e2e.constants import MOCK_TOKEN
 
 @dataclass(frozen=True)
 class MockUiFixture:

@@ -13,8 +13,8 @@ import click
 
 from prepare_lora_kit.paths import PROJECT_ROOT
 from prepare_lora_kit_ui import media
-from ._shared import cli
 
+from prepare_lora_kit.cli._shared import cli
 _IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tiff", ".tif"}
 
 
@@ -86,8 +86,8 @@ class _StaticHandler(SimpleHTTPRequestHandler):
             self.send_header("ETag", etag)
             self.send_header("Cache-Control", "private, max-age=86400")
             self.end_headers()
-            return
 
+            return
         try:
             body, content_type = media.render_variant(path, width)
         except Exception:

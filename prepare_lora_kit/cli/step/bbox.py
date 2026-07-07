@@ -47,8 +47,8 @@ def _parse_bbox(raw: str, width: int, height: int) -> dict:
 
 def _resolve_bbox_target(working_dir: Path, bbox_image: str | None) -> Path:
     """Resolve which dataset image the --bbox regions apply to."""
-    from ...utils import image as img_utils
 
+    from prepare_lora_kit.utils import image as img_utils
     if bbox_image:
         target = working_dir / bbox_image
         if not target.exists():
@@ -76,8 +76,8 @@ def build_bbox_interaction(working_dir: Path, bboxes, bbox_image: str | None):
     """
     from PIL import Image
 
-    from ...interaction import CliBboxRegionProvider
 
+    from prepare_lora_kit.interaction import CliBboxRegionProvider
     target = _resolve_bbox_target(working_dir, bbox_image)
     with Image.open(target) as im:
         width, height = im.size

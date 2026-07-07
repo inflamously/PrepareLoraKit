@@ -2,17 +2,17 @@
 from __future__ import annotations
 from pathlib import Path
 
-from prepare_lora_kit_pipeline.configs import CurateConfig
 
-from .working_dataset import _require_working_dataset
+from prepare_lora_kit.pipeline.configs import CurateConfig
 
+from prepare_lora_kit.invoke.working_dataset import _require_working_dataset
 
 def invoke_curate_step(working_dir: Path, output_dir: Path, cfg: CurateConfig,
                        **_kw) -> None:
     _require_working_dataset(working_dir)
     if _kw.get("mock_runtime"):
-        from .mock_curate import _mock_curate
-        return _mock_curate(
+        from prepare_lora_kit.invoke.mock_curate import _mock_curate
+    return _mock_curate(
             working_dir,
             output_dir,
             cfg,
@@ -21,7 +21,7 @@ def invoke_curate_step(working_dir: Path, output_dir: Path, cfg: CurateConfig,
             cancel_check=_kw.get("cancel_check"),
         )
 
-    from ..steps import curate
+    from prepare_lora_kit.steps import curate
     return curate.run(
         working_dir,
         output_dir=working_dir,

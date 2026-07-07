@@ -2,8 +2,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from prepare_lora_kit.report import reporter
-from .gallery import _gallery_review
 
+from prepare_lora_kit.steps.quality_gate.gallery import _gallery_review
 
 def _manual_review(path: Path, score_info: dict) -> str:
     """Show image + scores; return 'keep', 'reject', or 'flag'."""

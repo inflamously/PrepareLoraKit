@@ -4,10 +4,10 @@ import pytest
 
 from prepare_lora_kit.cancellation import CancelledRun
 from prepare_lora_kit.pipeline import RunConfig, run_all
-from prepare_lora_kit.pipeline_validation import validate_pipeline_selection
+from prepare_lora_kit.pipeline.validation import validate_pipeline_selection
 from prepare_lora_kit.project.base import ProjectConfig, PipelineStep
 from prepare_lora_kit.project.steps import PipelineSubstep
-from prepare_lora_kit_pipeline.configs import (
+from prepare_lora_kit.pipeline.configs import (
     AuditConfig,
     BucketPoolsCheckConfig,
     CaptionBboxConfig,

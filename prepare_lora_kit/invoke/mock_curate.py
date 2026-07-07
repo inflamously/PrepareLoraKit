@@ -3,10 +3,10 @@ from __future__ import annotations
 from pathlib import Path
 
 from prepare_lora_kit.cancellation import check_cancel
-from prepare_lora_kit_pipeline.configs import CurateConfig
 
-from .mock_embeddings import _mock_embeddings
+from prepare_lora_kit.pipeline.configs import CurateConfig
 
+from prepare_lora_kit.invoke.mock_embeddings import _mock_embeddings
 
 def _mock_curate(
         working_dir: Path,
@@ -17,9 +17,9 @@ def _mock_curate(
         enabled_substeps: list[str] | None = None,
         cancel_check=None,
 ) -> dict:
-    from ..steps.curate.coverage import _save_pca, _save_umap
-    from ..steps.curate.dedupe import _compute_hashes, _find_duplicates
-    from ..utils import image as img_utils
+    from prepare_lora_kit.steps.curate.coverage import _save_pca, _save_umap
+    from prepare_lora_kit.steps.curate.dedupe import _compute_hashes, _find_duplicates
+    from prepare_lora_kit.utils import image as img_utils
     from prepare_lora_kit.report import reporter
 
     reporter.step_header("Curation — Mock Runtime")

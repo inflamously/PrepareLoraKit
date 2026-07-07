@@ -3,11 +3,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from prepare_lora_kit_pipeline.configs import QualityGateConfig, ImportConfig, ScorerEntry, UpscaleConfig, CurateConfig, \
+from prepare_lora_kit.pipeline.configs import QualityGateConfig, ImportConfig, ScorerEntry, UpscaleConfig, CurateConfig, \
     CaptionBboxConfig, VaeGateConfig, AuditConfig, BucketPoolsCheckConfig, ExportConfig
 from prepare_lora_kit.project.base import ProjectConfig, PipelineStep
-from .constants import MOCK_PROJECT_NAME, QUALITY_GATE_MIN_SIDE
 
+from prepare_lora_kit_ui.e2e.constants import MOCK_PROJECT_NAME, QUALITY_GATE_MIN_SIDE
 
 def mock_project(input_dir: Path) -> ProjectConfig:
     return ProjectConfig(

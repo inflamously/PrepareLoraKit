@@ -4,8 +4,8 @@ from typing import Any
 import yaml
 
 from prepare_lora_kit.utils.registry import ConfigRegistry
-from .base import ProjectConfig
 
+from prepare_lora_kit.project.base import ProjectConfig
 _registry: ConfigRegistry[ProjectConfig] = ConfigRegistry(
     kind="project",
     subdir="projects",
@@ -19,8 +19,8 @@ _CONFIGS_DIR = _registry.configs_dir
 
 
 def _default_substep_data(step_type: str) -> list[dict[str, Any]]:
-    from .steps import SUBSTEP_REGISTRY
 
+    from prepare_lora_kit.project.steps import SUBSTEP_REGISTRY
     return [
         {"id": definition.id, "enabled": definition.enabled_by_default}
         for definition in SUBSTEP_REGISTRY.get(step_type, ())

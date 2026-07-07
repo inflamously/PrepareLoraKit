@@ -4,7 +4,7 @@ from __future__ import annotations
 from collections import Counter
 from pathlib import Path
 
-from ...cancellation import CancelCheck, check_cancel
+from prepare_lora_kit.cancellation import CancelCheck, check_cancel
 from prepare_lora_kit.report import reporter
 
 _LABEL_MAX = 24
@@ -34,16 +34,16 @@ def _coverage_embeddings(
     package. Each loader flattens to a 1D row so the stacked array is 2D (N, D)
     for PCA/UMAP regardless of the model's native feature shape.
     """
-    from ...embedding.loaders import embed_images
 
+    from prepare_lora_kit.embedding.loaders import embed_images
     emb = embed_images(model_id, paths, cancel_check=cancel_check)
     check_cancel(cancel_check)
     return emb
 
 
 def _embedding_meta(model_id: str) -> dict:
-    from ...embedding import catalog
 
+    from prepare_lora_kit.embedding import catalog
     spec = catalog.get(model_id)
     return {
         "embedding": spec.family if spec else "custom",

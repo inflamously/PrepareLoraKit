@@ -5,14 +5,14 @@ from pathlib import Path
 from typing import Any, Optional
 import yaml
 
-from prepare_lora_kit_pipeline.configuration import (
+from prepare_lora_kit.pipeline.configuration import (
     step_config_class,
     step_definition,
     step_prerequisites,
     step_types,
 )
-from prepare_lora_kit_pipeline.configs import ScorerEntry
-from .steps import (
+from prepare_lora_kit.pipeline.configs import ScorerEntry
+from prepare_lora_kit.project.steps import (
     PipelineSubstep,
     normalize_substeps,
 )
@@ -110,8 +110,8 @@ class ProjectConfig:
                     config=config,
                     substeps=normalize_substeps(step_type, raw_substeps, config),
                 )
-            )
 
+            )
         return cls(name=name, input_dir=input_dir, output_dir=output_dir, pipeline=pipeline)
 
 

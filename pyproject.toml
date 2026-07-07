@@ -1,20 +1,22 @@
-[build-system]
-requires = ["setuptools>=68"]
-build-backend = "setuptools.backends.legacy:build"
+[tool.ruff]
+extend-exclude = [
+    ".venv",
+    "venv",
+    "build",
+    "dist",
+    "generated",
+    "models",
+    "node_modules",
+    "outputs",
+    "third_party",
+]
 
-[project]
-name = "prepare-lora-kit"
-version = "0.1.0"
-description = "LoRA dataset preparation pipeline for Flux and similar diffusion models"
-requires-python = ">=3.10"
-dependencies = []
+[tool.ruff.lint]
+select = ["TID252"]
 
-[project.scripts]
-plk = "prepare_lora_kit.cli:cli"
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
 
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["prepare_lora_kit*"]
-
-[tool.setuptools.package-data]
-prepare_lora_kit = ["ui/static/*", "ui/static/**/*.js", "ui/static/**/*.css"]
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["TID252"]
+"__init__.py" = ["TID252"]

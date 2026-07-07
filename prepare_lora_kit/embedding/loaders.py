@@ -9,9 +9,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ..cancellation import CancelCheck, check_cancel
-from . import catalog
 
+from prepare_lora_kit.cancellation import CancelCheck, check_cancel
+from prepare_lora_kit.embedding import catalog
 
 def _resolve(model_id: str) -> catalog.EmbeddingModel:
     """Catalog entry for ``model_id``, inferring a sensible spec for custom ids."""

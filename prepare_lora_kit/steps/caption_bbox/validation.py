@@ -4,8 +4,8 @@ from __future__ import annotations
 from pathlib import Path
 import random
 
-from ...cancellation import CancelCheck, check_cancel
-from ...utils import caption as cap_utils
+from prepare_lora_kit.cancellation import CancelCheck, check_cancel
+from prepare_lora_kit.utils import caption as cap_utils
 from prepare_lora_kit.report import reporter
 
 

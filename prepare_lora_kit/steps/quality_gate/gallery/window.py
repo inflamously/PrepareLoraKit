@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .constants import _THUMB, _COLS, _PASS, _FAIL, _quality_color
-from .tooltip import HoverPreview
 
+from prepare_lora_kit.steps.quality_gate.gallery.constants import _THUMB, _COLS, _PASS, _FAIL, _quality_color
+from prepare_lora_kit.steps.quality_gate.gallery.tooltip import HoverPreview
 
 def _gallery_review(items: list[tuple[Path, dict]]) -> dict[str, str]:
     """
@@ -66,8 +66,8 @@ def _gallery_review(items: list[tuple[Path, dict]]) -> dict[str, str]:
         key = str(path)
         cell = tk.Frame(grid, bg="#1e1e1e", highlightthickness=4, bd=0)
         cell.grid(row=idx // _COLS, column=idx % _COLS, padx=6, pady=6)
-        cells[key] = cell
 
+        cells[key] = cell
         try:
             im = PILImage.open(path).convert("RGB")
             im.thumbnail((_THUMB, _THUMB))

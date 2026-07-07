@@ -8,7 +8,7 @@ from prepare_lora_kit.cancellation import CancelledRun
 from prepare_lora_kit.invoke.import_step import invoke_import_step
 from prepare_lora_kit.steps.import_step import run
 from prepare_lora_kit.steps.import_step.step import get_recursive_mirror_paths
-from prepare_lora_kit_pipeline.configs import ImportConfig
+from prepare_lora_kit.pipeline.configs import ImportConfig
 
 
 def test_import_step_copies_images_and_writes_report(tmp_path):

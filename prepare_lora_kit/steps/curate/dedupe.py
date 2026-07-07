@@ -2,7 +2,7 @@
 from __future__ import annotations
 from pathlib import Path
 
-from ...cancellation import CancelCheck, check_cancel
+from prepare_lora_kit.cancellation import CancelCheck, check_cancel
 from prepare_lora_kit.report import reporter
 
 HASH_DISTANCE = 8
@@ -48,7 +48,7 @@ def _resolve_duplicates(
     cancel_check: CancelCheck | None = None,
 ) -> set[Path]:
     """Return set of paths to drop. Auto-drops the blurrier of each pair."""
-    from ...utils.image import blur_score
+    from prepare_lora_kit.utils.image import blur_score
     to_drop: set[Path] = set()
     for a, b, dist in pairs:
         check_cancel(cancel_check)

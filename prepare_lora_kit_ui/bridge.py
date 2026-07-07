@@ -11,8 +11,8 @@ from prepare_lora_kit import caption_prompts
 from prepare_lora_kit_ui.paths import PROJECT_ROOT
 from prepare_lora_kit.project import project_registry
 from prepare_lora_kit.project.base import ProjectConfig
-from .runner import JobManager, _default_output, project_payload, project_status
 
+from prepare_lora_kit_ui.runner import JobManager, _default_output, project_payload, project_status
 
 def _initials(name: str) -> str:
     """Two-character mono badge derived from a project name."""
@@ -203,8 +203,8 @@ class UiBridge:
         p = Path(path).expanduser()
         target = p if p.exists() else p.parent
         if not target.exists():
-            return {"opened": False, "error": f"Path does not exist: {target}"}
 
+            return {"opened": False, "error": f"Path does not exist: {target}"}
         if sys.platform.startswith("win"):
             os.startfile(str(target))  # type: ignore[attr-defined]
         elif sys.platform == "darwin":

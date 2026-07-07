@@ -8,7 +8,7 @@ from __future__ import annotations
 from pathlib import Path
 from PIL import Image
 
-from ...utils import image as img_utils
+from prepare_lora_kit.utils import image as img_utils
 from prepare_lora_kit.report import reporter
 
 _IMG_EXTS = img_utils.IMAGE_EXTS

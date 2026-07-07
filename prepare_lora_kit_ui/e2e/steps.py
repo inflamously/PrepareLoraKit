@@ -1,7 +1,7 @@
 """Step selection helpers for UI end-to-end mock fixtures."""
 from __future__ import annotations
 
-from prepare_lora_kit_pipeline.configuration import step_types
+from prepare_lora_kit.pipeline import step_types
 
 
 def resolve_mock_steps(raw: str) -> list[str]:

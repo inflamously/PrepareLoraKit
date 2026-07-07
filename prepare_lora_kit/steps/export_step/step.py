@@ -14,13 +14,13 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from ...cancellation import CancelCheck, check_cancel
-from ...interaction import CliInteractionProvider
-from ...paths import PROJECT_ROOT
+from prepare_lora_kit.cancellation import CancelCheck, check_cancel
+from prepare_lora_kit.interaction import CliInteractionProvider
+from prepare_lora_kit.paths import PROJECT_ROOT
 from prepare_lora_kit.report import reporter
-from .diff import ExportDiff, compute_diff
-from .export import export_entries
 
+from prepare_lora_kit.steps.export_step.diff import ExportDiff, compute_diff
+from prepare_lora_kit.steps.export_step.export import export_entries
 
 def _resolve_target(target_dir: str | Path | None, original_dir: Path | None, dataset_dir: Path) -> Path:
     """Resolve the export destination, defaulting to ``<input>_export``."""

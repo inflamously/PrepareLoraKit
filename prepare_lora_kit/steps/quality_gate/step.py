@@ -11,13 +11,13 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from ...cancellation import CancelCheck, check_cancel
-from ...interaction import CliInteractionProvider
-from ...providers.interaction import InteractionProvider
-from ...utils import image as img_utils
+from prepare_lora_kit.cancellation import CancelCheck, check_cancel
+from prepare_lora_kit.interaction import CliInteractionProvider
+from prepare_lora_kit.providers.interaction import InteractionProvider
+from prepare_lora_kit.utils import image as img_utils
 from prepare_lora_kit.report import reporter
-from .scoring import DEFAULTS, SCORER_REGISTRY, _score_image
 
+from prepare_lora_kit.steps.quality_gate.scoring import DEFAULTS, SCORER_REGISTRY, _score_image
 
 def run(
     input_dir: Path,

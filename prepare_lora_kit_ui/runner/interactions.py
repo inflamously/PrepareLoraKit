@@ -8,9 +8,9 @@ from typing import Any
 from prepare_lora_kit.interaction import RegionCaptioner
 from prepare_lora_kit.project.config_schema import schema_payload
 from prepare_lora_kit.providers.interaction import InteractionProvider
-from .job import PipelineJob
-from .payloads import _image_payload, _jsonable
 
+from prepare_lora_kit_ui.runner.job import PipelineJob
+from prepare_lora_kit_ui.runner.payloads import _image_payload, _jsonable
 
 class UiInteractionProvider(InteractionProvider):
     """Provider that pauses a job and waits for frontend responses."""
@@ -88,8 +88,8 @@ class UiInteractionProvider(InteractionProvider):
         finally:
             with self._caption_lock:
                 self._captioner = None
-                self._batch_paths = set()
 
+                self._batch_paths = set()
         return self._parse_dataset_answer(answer)
 
     @staticmethod

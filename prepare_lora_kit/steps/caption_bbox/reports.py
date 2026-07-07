@@ -2,11 +2,12 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from prepare_lora_kit.report import reporter
 
-from . import vlm
+if TYPE_CHECKING:
+    from prepare_lora_kit.steps.caption_bbox.vlm import CaptionRuntime
 
 
 def substep_status(enabled: set[str]) -> dict[str, dict[str, bool]]:
@@ -21,7 +22,7 @@ def build_success_report(
     *,
     images: list[Path],
     captions: dict[str, str],
-    runtime: vlm.CaptionRuntime,
+    runtime: CaptionRuntime,
     skipped_annotation: list[str],
     missing_token: list[str],
     short_captions: list[str],
@@ -53,7 +54,7 @@ def _save_failure_report(
     images: list[Path],
     captions: dict[str, str],
     skipped_annotation: list[str],
-    runtime: vlm.CaptionRuntime,
+    runtime: CaptionRuntime,
     error: str,
     enabled: set[str],
 ) -> None:

@@ -10,9 +10,9 @@ import shutil
 from collections.abc import Iterable
 from pathlib import Path
 
-from ...cancellation import CancelCheck, check_cancel
-from .diff import CAPTION_SUFFIX, DiffEntry
 
+from prepare_lora_kit.cancellation import CancelCheck, check_cancel
+from prepare_lora_kit.steps.export_step.diff import CAPTION_SUFFIX, DiffEntry
 
 def export_entries(
     entries: Iterable[DiffEntry],

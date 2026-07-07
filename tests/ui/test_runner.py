@@ -10,7 +10,7 @@ import pytest
 from prepare_lora_kit.cancellation import CancelledRun
 from prepare_lora_kit.cli.ui import _static_server
 from prepare_lora_kit.project.base import ProjectConfig, PipelineStep
-from prepare_lora_kit_pipeline.configs import (
+from prepare_lora_kit.pipeline.configs import (
     AuditConfig,
     BucketPoolsCheckConfig,
     CaptionBboxConfig,

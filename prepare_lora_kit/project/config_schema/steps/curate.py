@@ -2,8 +2,8 @@
 from __future__ import annotations
 
 from prepare_lora_kit.embedding import catalog
-from ..fields import FieldSpec, _check, _number, _select
 
+from prepare_lora_kit.project.config_schema.fields import FieldSpec, _check, _number, _select
 STEP_TYPE = "CurateStep"
 
 FIELDS: list[FieldSpec] = [

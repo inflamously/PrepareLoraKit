@@ -1,4 +1,4 @@
-from prepare_lora_kit_pipeline.configs import CaptionBboxConfig
+from prepare_lora_kit.pipeline.configs import CaptionBboxConfig
 
 
 def test_caption_bbox_config_defaults_to_auto_vram():

@@ -3,15 +3,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from prepare_lora_kit_pipeline.configuration import step_prerequisites
+from prepare_lora_kit.pipeline.configuration import step_prerequisites
 
-from .project.base import ProjectConfig
-from .project.pipeline import (
+from prepare_lora_kit.project.base import ProjectConfig
+from prepare_lora_kit.project.pipeline import (
     SUBSTEP_REGISTRY,
     enabled_substep_ids,
     is_step_satisfied,
 )
-from .utils.state import RunState
+from prepare_lora_kit.utils.state import RunState
 
 
 class PipelineValidationError(ValueError):

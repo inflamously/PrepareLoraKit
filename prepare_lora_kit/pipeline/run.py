@@ -9,13 +9,13 @@ from typing import Optional
 from prepare_lora_kit.cancellation import CancelCheck, check_cancel
 from prepare_lora_kit.invoke import STEP_INVOKE_MAP
 from prepare_lora_kit.paths import PROJECT_ROOT
-from prepare_lora_kit_pipeline.configuration import is_resume_aware_step_type
+from prepare_lora_kit.pipeline.configuration import is_resume_aware_step_type
 from prepare_lora_kit.project.base import ProjectConfig
 from prepare_lora_kit.project.pipeline import (
     enabled_substep_ids,
     mark_legacy_import_satisfied,
 )
-from prepare_lora_kit.pipeline_validation import validate_pipeline_selection
+from prepare_lora_kit.pipeline.validation import validate_pipeline_selection
 from prepare_lora_kit.report import reporter
 from prepare_lora_kit.utils.state import RunState
 

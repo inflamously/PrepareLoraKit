@@ -10,8 +10,8 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from .seedvr2_catalog import DEFAULT_SEEDVR2_DIT_MODEL
 
+from prepare_lora_kit.steps.upscale.seedvr2_catalog import DEFAULT_SEEDVR2_DIT_MODEL
 DEFAULT_SEEDVR2_MODEL_DIR = "~/.cache/prepare_lora_kit/seedvr2"
 SEEDVR2_MODEL_RESIDENCY_MODES = ("auto", "gpu", "cpu")
 
@@ -155,8 +155,8 @@ class SeedVR2Upscaler:
                 _terminate_process(process)
                 raise
             finally:
-                reader.join(timeout=2)
 
+                reader.join(timeout=2)
             if process.returncode != 0:
                 response = _read_response(response_path)
                 message = str(response.get("error") or "").strip()

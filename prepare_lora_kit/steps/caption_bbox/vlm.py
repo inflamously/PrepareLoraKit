@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, Callable
 import threading
 
-from ...utils import caption as cap_utils
+from prepare_lora_kit.utils import caption as cap_utils
 from prepare_lora_kit.report import reporter
 
 CaptionStatusCallback = Callable[[dict[str, Any]], None]
@@ -173,8 +173,8 @@ def _model_kwargs(quantization: str, torch_dtype) -> dict[str, Any]:
         "low_cpu_mem_usage": True,
     }
     if quantization in {"4bit", "8bit"}:
-        from transformers import BitsAndBytesConfig
 
+        from transformers import BitsAndBytesConfig
         if quantization == "4bit":
             kwargs["quantization_config"] = BitsAndBytesConfig(
                 load_in_4bit=True,

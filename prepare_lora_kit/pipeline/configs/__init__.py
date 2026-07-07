@@ -4,7 +4,7 @@ Step config schemas — per-step configuration dataclasses.
 Each pipeline step type (e.g. "CaptionBboxStep") has a matching config dataclass
 (e.g. CaptionBboxConfig) holding its tunable fields and validation. These are
 referenced by ProjectConfig.pipeline via ``STEP_DEFINITIONS`` in
-``prepare_lora_kit_pipeline.configuration``.
+``prepare_lora_kit.pipeline.configuration``.
 
 Each config lives in its own module under this package; they are re-exported
 here so callers can keep importing from ``project.configs``.

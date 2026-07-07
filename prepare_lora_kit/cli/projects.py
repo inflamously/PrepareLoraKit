@@ -2,8 +2,8 @@
 from __future__ import annotations
 
 from prepare_lora_kit.project import project_registry
-from ._shared import cli
 
+from prepare_lora_kit.cli._shared import cli
 
 @cli.command()
 def projects():

@@ -1,8 +1,8 @@
 from __future__ import annotations
 from pathlib import Path
 
-from ...utils import image as img_utils
 
+from prepare_lora_kit.utils import image as img_utils
 HALLUCINATION_SSIM_THRESHOLD = 0.60   # low-freq SSIM; below = possible hallucination
 
 

@@ -4,8 +4,8 @@ from __future__ import annotations
 import dataclasses
 from typing import Any
 
-from .schema import CONFIG_FIELD_SCHEMA
 
+from prepare_lora_kit.project.config_schema.schema import CONFIG_FIELD_SCHEMA
 
 def has_schema(step_type: str) -> bool:
     """Return True when the step exposes editable tunables (i.e. should pause)."""

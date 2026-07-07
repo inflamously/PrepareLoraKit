@@ -2,15 +2,15 @@
 from __future__ import annotations
 from pathlib import Path
 
-from prepare_lora_kit_pipeline.configs import UpscaleConfig
 
-from .working_dataset import _require_working_dataset
+from prepare_lora_kit.pipeline.configs import UpscaleConfig
 
+from prepare_lora_kit.invoke.working_dataset import _require_working_dataset
 
 def invoke_upscale_step(working_dir: Path, output_dir: Path, cfg: UpscaleConfig,
                         **_kw) -> None:
     _require_working_dataset(working_dir)
-    from ..steps import upscale
+    from prepare_lora_kit.steps import upscale
     upscale.run(
         working_dir,
         output_dir=working_dir,
