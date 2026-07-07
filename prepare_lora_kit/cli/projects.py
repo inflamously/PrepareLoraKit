@@ -8,7 +8,7 @@ from ._shared import cli
 @cli.command()
 def projects():
     """List available project configs."""
-    from ..utils.report import console
+    from prepare_lora_kit.report import reporter
     from rich.table import Table
     from rich import box
 
@@ -17,4 +17,4 @@ def projects():
     t.add_column("Name", style="cyan")
     for n in names:
         t.add_row(n)
-    console.print(t)
+    reporter.console.print(t)

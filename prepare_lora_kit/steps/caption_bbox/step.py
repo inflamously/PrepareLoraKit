@@ -14,7 +14,7 @@ from .regions import make_region_captioner
 from ...cancellation import CancelCheck, check_cancel
 from ...providers.interaction import InteractionProvider
 from ...utils import image as img_utils
-from ...utils import report as rpt
+from prepare_lora_kit.report import reporter
 
 from . import vlm
 from .artifacts import (
@@ -66,14 +66,14 @@ def run(
         region_prompt: str | None = None,
 ) -> dict:
     style_mode = not concept_token
-    rpt.step_header(5, "Caption — Bbox Annotation + HF Captioning")
+    reporter.step_header("Caption — Bbox Annotation + HF Captioning")
     enabled = set(enabled_substeps or DEFAULT_SUBSTEPS)
     model_id = str(caption_model_id or qwen_model_id or "").strip()
 
     output_dir = _prepare_output_dir(output_dir or dataset_dir)
     all_images, images = _collect_source_images(dataset_dir)
     if not all_images:
-        rpt.warn(f"No images in {dataset_dir}")
+        reporter.warn(f"No images in {dataset_dir}")
         return {}
 
     _log_caption_mode(images, concept_token, style_mode=style_mode)
@@ -263,7 +263,7 @@ def _validate_and_save_success(
         cancel_check=cancel_check,
     )
 
-    report = build_success_report(
+    report_data = build_success_report(
         images=images,
         captions=caption_result.captions,
         runtime=runtime,
@@ -275,8 +275,8 @@ def _validate_and_save_success(
         enabled=enabled,
     )
     check_cancel(cancel_check)
-    save_success_report(report, report_path, output_dir)
-    return report
+    save_success_report(report_data, report_path, output_dir)
+    return report_data
 
 
 def _prepare_output_dir(output_dir: Path) -> Path:
@@ -324,9 +324,9 @@ def _log_caption_mode(
         style_mode: bool,
 ) -> None:
     if style_mode:
-        rpt.info(f"Captioning {len(images)} images in style mode (no concept token).")
+        reporter.info(f"Captioning {len(images)} images in style mode (no concept token).")
     else:
-        rpt.info(f"Captioning {len(images)} images. Concept token: '{concept_token}'")
+        reporter.info(f"Captioning {len(images)} images. Concept token: '{concept_token}'")
 
 
 def _require_model_for_captioning(enabled: set[str], model_id: str) -> None:

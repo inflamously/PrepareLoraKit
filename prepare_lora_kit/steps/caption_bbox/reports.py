@@ -4,7 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from ...utils import report as rpt
+from prepare_lora_kit.report import reporter
 
 from . import vlm
 
@@ -43,8 +43,8 @@ def build_success_report(
     }
 
 
-def save_success_report(report: dict[str, Any], report_path: Path | None, output_dir: Path) -> None:
-    rpt.save_report(report, report_path or (output_dir / "step5_report.json"))
+def save_success_report(report_data: dict[str, Any], report_path: Path | None, output_dir: Path) -> None:
+    reporter.save_report(report_data, report_path or (output_dir / "step5_report.json"))
 
 
 def _save_failure_report(
@@ -57,7 +57,7 @@ def _save_failure_report(
     error: str,
     enabled: set[str],
 ) -> None:
-    report = {
+    report_data = {
         "status": "failed",
         "total": len(images),
         "captioned": len(captions),
@@ -67,4 +67,4 @@ def _save_failure_report(
         "error": error,
         "substeps": substep_status(enabled),
     }
-    rpt.save_report(report, report_path)
+    reporter.save_report(report_data, report_path)

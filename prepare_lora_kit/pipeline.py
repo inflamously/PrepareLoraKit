@@ -16,7 +16,7 @@ from prepare_lora_kit.project.pipeline import (
     mark_legacy_import_satisfied,
 )
 from prepare_lora_kit.pipeline_validation import validate_pipeline_selection
-from prepare_lora_kit.utils import report
+from prepare_lora_kit.report import reporter
 from prepare_lora_kit.utils.state import RunState
 
 
@@ -65,14 +65,14 @@ def run_all(cfg: RunConfig) -> None:
         # ImportStep so a plain re-run never rmtree's the dataset (and the
         # hand-drawn boxes in it) by re-importing.
         if key == "ImportStep" and mark_legacy_import_satisfied(state, output_dir):
-            report.info("ImportStep satisfied by existing working dataset.")
+            reporter.info("ImportStep satisfied by existing working dataset.")
             return True
         # Resume-aware steps self-determine pending work each run, so they are never
         # skipped on is_done — that is what lets CaptionBboxStep resume without --force.
         if is_resume_aware_step_type(key):
             return False
         if state.is_done(key):
-            report.info(f"{key} already done — skipping (use --force to re-run).")
+            reporter.info(f"{key} already done — skipping (use --force to re-run).")
             return True
         return False
 
@@ -98,9 +98,9 @@ def run_all(cfg: RunConfig) -> None:
         )
         check_cancel(cfg.cancel_check)
         if step.type == "AuditStep" and isinstance(result, dict) and not result.get("pass"):
-            report.warn("Integrity audit found issues — review reports/AuditStep_report.json before training.")
+            reporter.warn("Integrity audit found issues — review reports/AuditStep_report.json before training.")
         for substep_id in enabled_substeps:
             state.mark_substep_done(step.type, substep_id)
         state.mark_done(step.type, {"enabled_substeps": enabled_substeps})
 
-    report.ok("Pipeline complete. Review reports and export the dataset when ready.")
+    reporter.ok("Pipeline complete. Review reports and export the dataset when ready.")

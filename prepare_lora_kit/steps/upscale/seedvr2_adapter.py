@@ -81,9 +81,9 @@ class SeedVR2Upscaler:
         request = self._build_request(outputs_by_source, sources_by_path)
         response = self._run_worker(request, cancel_check=cancel_check)
         for warning in response.get("warnings") or []:
-            from ...utils import report as rpt
+            from prepare_lora_kit.report import reporter
 
-            rpt.warn(str(warning))
+            reporter.warn(str(warning))
         failed = response.get("failed") or {}
         return {str(path): str(reason) for path, reason in failed.items()}
 

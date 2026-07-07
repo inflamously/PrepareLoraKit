@@ -8,10 +8,10 @@ from typing import Any, Callable
 from ...interaction import annotate_dataset_via_images
 from ...providers.interaction import InteractionProvider
 from ...cancellation import CancelCheck, CancelledRun, check_cancel
-from ...utils import report as rpt
+from prepare_lora_kit.report import reporter
 
 from . import vlm
-from .artifacts import _update_bbox_caption, load_boxes_sidecar, save_boxes_sidecar
+from .artifacts import _update_bbox_caption, load_boxes_sidecar
 from .reports import _save_failure_report
 from .validation import clean_caption_for_mode
 
@@ -84,7 +84,7 @@ def resolve_decision(
     existing sidecar caption is kept so reports stay complete.
     """
     if "caption_images" not in enabled:
-        rpt.info(f"Caption substep disabled for {path.name}; preserving existing sidecar if present.")
+        reporter.info(f"Caption substep disabled for {path.name}; preserving existing sidecar if present.")
         if txt_path.exists():
             result.captions[str(path)] = txt_path.read_text(encoding="utf-8").strip()
         return None
@@ -92,7 +92,7 @@ def resolve_decision(
     if decision is None or decision.get("skipped"):
         if txt_path.exists() and not overwrite:
             result.captions[str(path)] = txt_path.read_text(encoding="utf-8").strip()
-            rpt.info(f"Skip (keep existing): {path.name}")
+            reporter.info(f"Skip (keep existing): {path.name}")
         result.skipped_annotation.append(str(path))
         return None
 
@@ -187,4 +187,4 @@ def _write_caption(
     check_cancel(cancel_check)
     txt_path.write_text(caption, encoding="utf-8")
     captions[str(path)] = caption
-    rpt.ok(f"{path.name} → {caption[:80]}…" if len(caption) > 80 else f"{path.name} → {caption}")
+    reporter.ok(f"{path.name} → {caption[:80]}…" if len(caption) > 80 else f"{path.name} → {caption}")

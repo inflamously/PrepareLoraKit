@@ -13,7 +13,7 @@ import numpy as np
 from ...cancellation import CancelCheck, CancelledRun, check_cancel
 from ...providers.interaction import InteractionProvider
 from ...utils import image as img_utils
-from ...utils import report as rpt
+from prepare_lora_kit.report import reporter
 
 from .hf_loss import _hf_loss
 from .vae import _load_vae, _encode_decode, _to_lab_l
@@ -41,7 +41,7 @@ def run(
     enabled_substeps: list[str] | None = None,
     cancel_check: CancelCheck | None = None,
 ) -> dict:
-    rpt.step_header(4, "VAE Reconstruction Gate")
+    reporter.step_header("VAE Reconstruction Gate")
     enabled = set(enabled_substeps or [
         "reconstruct_images",
         "review_vae_artifacts",
@@ -53,13 +53,13 @@ def run(
 
     images = img_utils.iter_images(dataset_dir)
     if not images:
-        rpt.warn(f"No images in {dataset_dir}")
+        reporter.warn(f"No images in {dataset_dir}")
         return {}
 
     if "reconstruct_images" not in enabled:
-        rpt.info("VAE reconstruction substep disabled; passing through originals.")
+        reporter.info("VAE reconstruction substep disabled; passing through originals.")
         img_utils.materialize(images, dataset_dir, output_dir)
-        report = {
+        report_data = {
             "skipped": True,
             "reason": "reconstruct_images disabled",
             "hf_scores": {},
@@ -72,19 +72,19 @@ def run(
                 "apply_vae_decisions": {"enabled": "apply_vae_decisions" in enabled},
             },
         }
-        rpt.save_report(report, report_path or (output_dir / "step4_report.json"))
-        return report
+        reporter.save_report(report_data, report_path or (output_dir / "step4_report.json"))
+        return report_data
 
-    rpt.info(f"Loading VAE from {vae_model_id} …")
+    reporter.info(f"Loading VAE from {vae_model_id} …")
     check_cancel(cancel_check)
     try:
         vae, device, dtype = _load_vae(vae_model_id, vae_config_id)
     except Exception as exc:
-        rpt.error(f"VAE load failed: {exc}")
-        rpt.warn("Skipping VAE gate — install diffusers and a supported model first.")
+        reporter.error(f"VAE load failed: {exc}")
+        reporter.warn("Skipping VAE gate — install diffusers and a supported model first.")
         return {"skipped": True, "reason": str(exc)}
 
-    rpt.info(f"Reconstructing {len(images)} images (device={device}, max_side={max_side}) …")
+    reporter.info(f"Reconstructing {len(images)} images (device={device}, max_side={max_side}) …")
 
     hf_scores: dict[str, float] = {}
     reconstructions: dict[str, np.ndarray] = {}
@@ -128,7 +128,7 @@ def run(
         except CancelledRun:
             raise
         except Exception as exc:
-            rpt.error(f"Reconstruction failed for {path.name}: {exc}")
+            reporter.error(f"Reconstruction failed for {path.name}: {exc}")
             hf_scores[str(path)] = 0.0
         finally:
             if device == "cuda":
@@ -137,11 +137,11 @@ def run(
     values = np.array(list(hf_scores.values()))
     mean, std = values.mean(), values.std()
     threshold = mean + outlier_sigma * std
-    rpt.info(f"HF-loss  mean={mean:.4f}  std={std:.4f}  threshold={threshold:.4f}")
+    reporter.info(f"HF-loss  mean={mean:.4f}  std={std:.4f}  threshold={threshold:.4f}")
 
     flagged = [p for p, s in hf_scores.items() if s >= threshold]
     flagged_set = set(flagged)
-    rpt.warn(f"{len(flagged)} images flagged as high-frequency-loss outliers")
+    reporter.warn(f"{len(flagged)} images flagged as high-frequency-loss outliers")
 
     decisions: dict[str, str] = {}
     review_items: list[dict] = []
@@ -182,7 +182,7 @@ def run(
             else:
                 decision = "drop"
             decisions[path_str] = decision
-            rpt.info(f"  {path.name} → {decision}")
+            reporter.info(f"  {path.name} → {decision}")
 
     def decision_for(path: Path) -> str:
         default = "replace" if str(path) in flagged_set else "keep"
@@ -203,9 +203,9 @@ def run(
         decision = decision_for(path)
         reviewed.append({**item, "decision": decision})
         if decision != "keep":
-            rpt.info(f"  {path.name} → {decision}")
+            reporter.info(f"  {path.name} → {decision}")
 
-    report = {
+    report_data = {
         "hf_scores": {k: round(v, 5) for k, v in hf_scores.items()},
         "threshold": round(float(threshold), 5),
         "flagged": [
@@ -225,5 +225,5 @@ def run(
         },
     }
     check_cancel(cancel_check)
-    rpt.save_report(report, report_path or (output_dir / "step4_report.json"))
-    return report
+    reporter.save_report(report_data, report_path or (output_dir / "step4_report.json"))
+    return report_data

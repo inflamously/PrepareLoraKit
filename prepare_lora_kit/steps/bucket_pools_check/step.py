@@ -16,7 +16,7 @@ from PIL import Image
 
 from ...cancellation import CancelCheck, check_cancel
 from ...utils import image as img_utils
-from ...utils import report as rpt
+from prepare_lora_kit.report import reporter
 from rich.table import Table
 from rich import box
 
@@ -36,7 +36,7 @@ def run(
     enabled_substeps: list[str] | None = None,
     cancel_check: CancelCheck | None = None,
 ) -> dict:
-    rpt.step_header(8, "Bucket Dry-run")
+    reporter.step_header("Bucket Dry-run")
     enabled = set(enabled_substeps or ["assign_bucket_pools", "report_thin_buckets"])
 
     output_dir = output_dir or dataset_dir
@@ -44,11 +44,11 @@ def run(
 
     images = img_utils.iter_images(dataset_dir)
     if not images:
-        rpt.warn(f"No images in {dataset_dir}")
+        reporter.warn(f"No images in {dataset_dir}")
         return {}
 
     if "assign_bucket_pools" not in enabled:
-        report = {
+        report_data = {
             "skipped": True,
             "reason": "assign_bucket_pools disabled",
             "buckets": {},
@@ -60,8 +60,8 @@ def run(
                 "write_cache_info": {"enabled": "write_cache_info" in enabled},
             },
         }
-        rpt.save_report(report, report_path or (output_dir / "step8_report.json"))
-        return report
+        reporter.save_report(report_data, report_path or (output_dir / "step8_report.json"))
+        return report_data
 
     buckets = [tuple(bucket) for bucket in resolution_buckets]
     bucket_map: dict[tuple[int, int], list[str]] = {b: [] for b in buckets}
@@ -72,7 +72,7 @@ def run(
             with Image.open(path) as img:
                 iw, ih = img.size
         except Exception as exc:
-            rpt.warn(f"Could not read {path.name}: {exc}")
+            reporter.warn(f"Could not read {path.name}: {exc}")
             continue
         best = _find_bucket(iw, ih, buckets)
         bucket_map[best].append(str(path))
@@ -106,18 +106,17 @@ def run(
             suggestion = ""
         t.add_row(f"{bkt[0]}×{bkt[1]}", str(n), status, suggestion)
 
-    from ...utils.report import console
-    console.print(t)
+    reporter.console.print(t)
 
     if thin_buckets:
-        rpt.warn(f"{len(thin_buckets)} thin bucket(s) (≤ {thin_threshold} images):")
+        reporter.warn(f"{len(thin_buckets)} thin bucket(s) (≤ {thin_threshold} images):")
         for tb in thin_buckets:
             check_cancel(cancel_check)
             bkt = tb["bucket"]
-            rpt.warn(f"  {bkt[0]}×{bkt[1]}: {tb['count']} image(s) — {tb['suggestion']}")
-        rpt.info("Fix options: crop images to a more common aspect ratio, or increase `repeats` for that folder.")
+            reporter.warn(f"  {bkt[0]}×{bkt[1]}: {tb['count']} image(s) — {tb['suggestion']}")
+        reporter.info("Fix options: crop images to a more common aspect ratio, or increase `repeats` for that folder.")
     else:
-        rpt.ok("No thin buckets detected.")
+        reporter.ok("No thin buckets detected.")
 
     # ── Cache mode ────────────────────────────────────────────────────────────
     cache_info: dict | None = None
@@ -134,9 +133,9 @@ def run(
         check_cancel(cancel_check)
         with open(cache_path, "w") as f:
             json.dump(cache_info, f, indent=2)
-        rpt.ok(f"Cache info written → {cache_path}")
+        reporter.ok(f"Cache info written → {cache_path}")
 
-    report = {
+    report_data = {
         "buckets": {
             f"{bw}x{bh}": {"count": len(paths), "paths": paths}
             for (bw, bh), paths in bucket_map.items()
@@ -150,5 +149,5 @@ def run(
         },
     }
     check_cancel(cancel_check)
-    rpt.save_report(report, report_path or (output_dir / "step8_report.json"))
-    return report
+    reporter.save_report(report_data, report_path or (output_dir / "step8_report.json"))
+    return report_data

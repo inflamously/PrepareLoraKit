@@ -77,7 +77,7 @@ def step(ctx, step_name, project_name, input_dir, output_dir, token, force,
     out_dir = cfg.resolved_output_dir
     working_dir = out_dir / "dataset"
 
-    from ...utils import report as rpt
+    from prepare_lora_kit.report import reporter
     from ...utils.state import RunState
 
     state = RunState(out_dir)
@@ -87,16 +87,16 @@ def step(ctx, step_name, project_name, input_dir, output_dir, token, force,
             and step_type == "ImportStep"
             and mark_legacy_import_satisfied(state, out_dir)
     ):
-        rpt.info("ImportStep satisfied by existing working dataset.")
+        reporter.info("ImportStep satisfied by existing working dataset.")
         return
 
     if not force and state.is_done(step_type):
-        rpt.info(f"{step_type} already done — skipping (use --force to re-run).")
+        reporter.info(f"{step_type} already done — skipping (use --force to re-run).")
         return
 
     if not force:
         if mark_legacy_import_satisfied(state, out_dir):
-            rpt.info("ImportStep satisfied by existing working dataset.")
+            reporter.info("ImportStep satisfied by existing working dataset.")
         for req in step_prerequisites(step_type):
             if not state.is_done(req):
                 raise click.ClickException(f"{step_type} requires completed prerequisite {req}")
@@ -106,7 +106,7 @@ def step(ctx, step_name, project_name, input_dir, output_dir, token, force,
 
     shared_kw = dict(concept_token=token, original_dir=input_dir, force=force)
 
-    rpt.info(f"Running {step_type} for project '{project.name}'.")
+    reporter.info(f"Running {step_type} for project '{project.name}'.")
     substeps = match.substeps if match is not None else default_substeps_for(step_type, config)
     enabled_substeps = enabled_substep_ids(step_type, substeps)
 
@@ -117,14 +117,14 @@ def step(ctx, step_name, project_name, input_dir, output_dir, token, force,
         shared_kw["interaction"] = interaction
         if "annotate_regions" not in enabled_substeps:
             enabled_substeps = [*enabled_substeps, "annotate_regions"]
-        rpt.info(f"Applying {len(boxes)} bbox region(s) to {target.name}.")
+        reporter.info(f"Applying {len(boxes)} bbox region(s) to {target.name}.")
 
     invoke = STEP_INVOKE_MAP[step_type]
     result = invoke(working_dir, out_dir, config, **shared_kw, enabled_substeps=enabled_substeps)
     if step_type == "AuditStep" and isinstance(result, dict) and not result.get("pass"):
-        rpt.warn("Integrity audit found issues — review "
+        reporter.warn("Integrity audit found issues — review "
                  "reports/AuditStep_report.json before training.")
     for substep_id in enabled_substeps:
         state.mark_substep_done(step_type, substep_id)
     state.mark_done(step_type, {"enabled_substeps": enabled_substeps})
-    rpt.ok(f"{step_type} complete. Report in {out_dir / 'reports'}.")
+    reporter.ok(f"{step_type} complete. Report in {out_dir / 'reports'}.")

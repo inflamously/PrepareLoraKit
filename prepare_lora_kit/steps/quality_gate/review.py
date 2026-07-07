@@ -1,7 +1,7 @@
 from __future__ import annotations
 from pathlib import Path
 
-from ...utils import report as rpt
+from prepare_lora_kit.report import reporter
 from .gallery import _gallery_review
 
 
@@ -31,7 +31,7 @@ def _manual_review(path: Path, score_info: dict) -> str:
         return "flag"
 
     except ImportError:
-        rpt.warn(f"easygui not available. Terminal fallback: {path.name}")
+        reporter.warn(f"easygui not available. Terminal fallback: {path.name}")
         print(f"\n  {path}")
         _show_scores_terminal(score_info)
         ans = input("  [k]eep / [r]eject / [f]lag? ").strip().lower()
@@ -50,7 +50,7 @@ def _review_gallery_or_fallback(scored: list[tuple[Path, dict]]) -> dict[str, st
     try:
         return _gallery_review(scored)
     except Exception as exc:
-        rpt.warn(f"Gallery unavailable ({exc}); falling back to one-by-one review.")
+        reporter.warn(f"Gallery unavailable ({exc}); falling back to one-by-one review.")
 
     decisions: dict[str, str] = {}
     for path, info in scored:

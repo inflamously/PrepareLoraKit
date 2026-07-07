@@ -6,7 +6,7 @@ import random
 
 from ...cancellation import CancelCheck, check_cancel
 from ...utils import caption as cap_utils
-from ...utils import report as rpt
+from prepare_lora_kit.report import reporter
 
 
 def clean_caption_for_mode(
@@ -20,7 +20,7 @@ def clean_caption_for_mode(
 
     if not style_mode and concept_token:
         if not cap_utils.token_present(caption, concept_token):
-            rpt.warn(f"Concept token missing in caption for {path.name} — appending.")
+            reporter.warn(f"Concept token missing in caption for {path.name} — appending.")
             caption = f"{concept_token}, {caption}"
 
     return caption
@@ -38,10 +38,10 @@ def validate_captions(
     if "validate_captions" in enabled and not style_mode and concept_token:
         missing_token = cap_utils.verify_token_consistency(captions, concept_token)
         if missing_token:
-            rpt.warn(f"Token '{concept_token}' missing in {len(missing_token)} captions:")
+            reporter.warn(f"Token '{concept_token}' missing in {len(missing_token)} captions:")
         for p in missing_token:
             check_cancel(cancel_check)
-            rpt.warn(f"  {Path(p).name}")
+            reporter.warn(f"  {Path(p).name}")
 
     short = (
         [p for p, c in captions.items() if not cap_utils.caption_length_ok(c, min_chars=10)]
@@ -54,9 +54,9 @@ def validate_captions(
         else []
     )
     if short:
-        rpt.warn(f"{len(short)} captions suspiciously short (< 10 chars)")
+        reporter.warn(f"{len(short)} captions suspiciously short (< 10 chars)")
     if long_:
-        rpt.warn(f"{len(long_)} captions very long (> 600 chars)")
+        reporter.warn(f"{len(long_)} captions very long (> 600 chars)")
 
     return missing_token, short, long_
 
@@ -77,13 +77,11 @@ def render_spot_check(
     from rich import box
     from rich.table import Table
 
-    from ...utils.report import console
-
     t = Table(title=f"Spot-check ({n_check} / {len(captions)})", box=box.SIMPLE_HEAVY)
     t.add_column("File", style="cyan", max_width=35)
     t.add_column("Caption", style="white")
     for p, c in sample:
         check_cancel(cancel_check)
         t.add_row(Path(p).name, c[:120] + ("…" if len(c) > 120 else ""))
-    console.print(t)
+    reporter.console.print(t)
     return sample

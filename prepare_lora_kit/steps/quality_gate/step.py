@@ -15,7 +15,7 @@ from ...cancellation import CancelCheck, check_cancel
 from ...interaction import CliInteractionProvider
 from ...providers.interaction import InteractionProvider
 from ...utils import image as img_utils
-from ...utils import report as rpt
+from prepare_lora_kit.report import reporter
 from .scoring import DEFAULTS, SCORER_REGISTRY, _score_image
 
 
@@ -31,20 +31,20 @@ def run(
     enabled_substeps: list[str] | None = None,
     cancel_check: CancelCheck | None = None,
 ) -> dict:
-    rpt.step_header(1, "Source Image Quality Gates")
+    reporter.step_header("Source Image Quality Gates")
 
     enabled = set(enabled_substeps or ["score_images", "review_decisions"])
     thresholds = {**DEFAULTS, **(thresholds or {})}
     scorers = scorers if scorers is not None else SCORER_REGISTRY
     images = img_utils.iter_images(input_dir)
     if not images:
-        rpt.warn(f"No images found in {input_dir}")
+        reporter.warn(f"No images found in {input_dir}")
         return {}
 
     if "score_images" in enabled:
-        rpt.info(f"Scoring {len(images)} images …")
+        reporter.info(f"Scoring {len(images)} images …")
 
-    report: dict = {}
+    report_data: dict = {}
     kept = rejected = flagged = 0
     scored: list[tuple[Path, dict]] = []   # successfully scored → eligible for gallery
 
@@ -74,14 +74,14 @@ def run(
             check_cancel(cancel_check)
             key = str(path)
             if isinstance(result, Exception):
-                rpt.error(f"{path.name}: scoring failed — {result}")
-                report[key] = {"kept": False, "decision": "reject", "reason": str(result),
-                               "scores": {}, "quality": 0.0}
+                reporter.error(f"{path.name}: scoring failed — {result}")
+                report_data[key] = {"kept": False, "decision": "reject", "reason": str(result),
+                                    "scores": {}, "quality": 0.0}
                 rejected += 1
                 continue
             scored.append((path, result))
     else:
-        rpt.warn("Skipping source scoring substep; keeping images unless review changes them.")
+        reporter.warn("Skipping source scoring substep; keeping images unless review changes them.")
         scored = [
             (path, {"scores": {}, "quality": None, "auto_reject": False, "auto_reasons": []})
             for path in images
@@ -102,7 +102,7 @@ def run(
         decision = decisions.get(key, "reject" if info["auto_reject"] else "keep")
         kept_bool = decision == "keep"
         flag_bool = decision == "flag"
-        report[key] = {
+        report_data[key] = {
             "kept": kept_bool or flag_bool,
             "decision": decision,
             "reason": "; ".join(info["auto_reasons"]) if info["auto_reasons"] else None,
@@ -116,13 +116,13 @@ def run(
         else:
             rejected += 1
 
-    rpt.summary_counts(kept, rejected, flagged)
+    reporter.summary_counts(kept, rejected, flagged)
 
-    survivors = [path_str for path_str, info in report.items() if info.get("kept")]
+    survivors = [path_str for path_str, info in report_data.items() if info.get("kept")]
     check_cancel(cancel_check)
     img_utils.materialize(survivors, input_dir, output_dir)
 
     report_path = report_path or (output_dir / "step1_report.json")
     check_cancel(cancel_check)
-    rpt.save_report(report, report_path)
-    return report
+    reporter.save_report(report_data, report_path)
+    return report_data

@@ -11,7 +11,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from ...cancellation import CancelCheck, check_cancel
-from ...utils import report as rpt
+from prepare_lora_kit.report import reporter
 
 from .checks import (
     collect_stems,
@@ -30,7 +30,7 @@ def run(
     enabled_substeps: list[str] | None = None,
     cancel_check: CancelCheck | None = None,
 ) -> dict:
-    rpt.step_header(6, "Pairing & Integrity Audit")
+    reporter.step_header("Pairing & Integrity Audit")
     enabled = set(enabled_substeps or [
         "check_pairing",
         "check_corrupt_files",
@@ -72,11 +72,11 @@ def run(
     issues = len(orphan_images) + len(orphan_txts) + len(corrupt) + len(empty_captions) + len(undersized)
 
     if issues == 0:
-        rpt.ok(f"All {len(paired_stems)} pairs passed integrity audit.")
+        reporter.ok(f"All {len(paired_stems)} pairs passed integrity audit.")
     else:
-        rpt.warn(f"{issues} issue(s) found across {len(paired_stems)} pairs.")
+        reporter.warn(f"{issues} issue(s) found across {len(paired_stems)} pairs.")
 
-    report = {
+    report_data = {
         "paired": len(paired_stems),
         "orphan_images": orphan_images,
         "orphan_txts": orphan_txts,
@@ -96,5 +96,5 @@ def run(
         },
     }
     check_cancel(cancel_check)
-    rpt.save_report(report, report_path or (dataset_dir / "step6_report.json"))
-    return report
+    reporter.save_report(report_data, report_path or (dataset_dir / "step6_report.json"))
+    return report_data

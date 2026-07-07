@@ -17,7 +17,7 @@ def _mock_caption(
         interaction=None,
 ) -> dict:
     from ..utils import image as img_utils
-    from ..utils import report as rpt
+    from prepare_lora_kit.report import reporter
     from ..interaction import annotate_dataset_via_images
     from ..steps.caption_bbox.artifacts import (
         _is_bbox_artifact,
@@ -26,7 +26,7 @@ def _mock_caption(
         save_boxes_sidecar,
     )
 
-    rpt.step_header(5, "Caption — Mock Runtime")
+    reporter.step_header("Caption — Mock Runtime")
     enabled = set(enabled_substeps or ["annotate_regions", "caption_images", "validate_captions"])
     working_dir.mkdir(parents=True, exist_ok=True)
     images = [p for p in img_utils.iter_images(working_dir) if not _is_bbox_artifact(p)]
@@ -102,7 +102,7 @@ def _mock_caption(
         if decision is None or decision.get("skipped"):
             if txt_path.exists() and not force:
                 captions[str(path)] = txt_path.read_text(encoding="utf-8").strip()
-                rpt.info(f"Skip (keep existing): {path.name}")
+                reporter.info(f"Skip (keep existing): {path.name}")
             skipped_annotation.append(str(path))
             continue
 
@@ -115,9 +115,9 @@ def _mock_caption(
         caption = f"{token_prefix}mock caption for {path.stem}".strip()
         txt_path.write_text(caption, encoding="utf-8")
         captions[str(path)] = caption
-        rpt.ok(f"{path.name} -> {caption}")
+        reporter.ok(f"{path.name} -> {caption}")
 
-    report = {
+    report_data = {
         "mock_runtime": True,
         "total": len(images),
         "captioned": len(captions),
@@ -134,5 +134,5 @@ def _mock_caption(
         },
     }
     check_cancel(cancel_check)
-    rpt.save_report(report, output_dir / "reports" / "CaptionBboxStep_report.json")
-    return report
+    reporter.save_report(report_data, output_dir / "reports" / "CaptionBboxStep_report.json")
+    return report_data

@@ -656,10 +656,10 @@ def test_ui_job_uses_plain_rich_console(monkeypatch):
     job = PipelineJob(manager, "test-job")
 
     def fake_execute(job_arg, request):
-        from prepare_lora_kit.utils import report as rpt
+        from prepare_lora_kit.report import reporter
 
-        rpt.step_header(4, "VAE Reconstruction Gate")
-        rpt.info("Loading VAE from black-forest-labs/FLUX.2-klein-base-9B ...")
+        reporter.step_header("VAE Reconstruction Gate")
+        reporter.info("Loading VAE from black-forest-labs/FLUX.2-klein-base-9B ...")
         print("\x1b[31mexternal framework warning\x1b[0m")
 
     monkeypatch.setattr(manager, "_execute", fake_execute)

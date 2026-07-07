@@ -25,7 +25,7 @@ from typing import Callable
 from ...cancellation import CancelCheck, CancelledRun, check_cancel
 from ...providers.interaction import InteractionProvider
 from ...utils import image as img_utils
-from ...utils import report as rpt
+from prepare_lora_kit.report import reporter
 from .hallucination import HALLUCINATION_SSIM_THRESHOLD, _hallucination_check
 from .jpeg_cleanup import _is_jpeg, _write_downscaled_copy
 from .seedvr2_adapter import (
@@ -87,7 +87,7 @@ def run(
     enabled_substeps: list[str] | None = None,
     cancel_check: CancelCheck | None = None,
 ) -> dict:
-    rpt.step_header(3, "Upscale (optional)")
+    reporter.step_header("Upscale (optional)")
     check_cancel(cancel_check)
     enabled = set(enabled_substeps or [
         "select_upscale_candidates",
@@ -137,7 +137,7 @@ def run(
 
     flagged = [info for info in partitions.images if info.flagged]
     if flagged:
-        rpt.warn(
+        reporter.warn(
             f"{len(flagged)} images flagged (<= {upscale_highlight_threshold}px min-side, "
             "or a JPEG due for artifact cleanup)."
         )
@@ -155,7 +155,7 @@ def run(
         _pass_through(context, info.path)
 
     if "upscale_images" not in enabled:
-        rpt.info("Upscale substep disabled; passing through originals.")
+        reporter.info("Upscale substep disabled; passing through originals.")
         actionable = partitions.with_action("upscale") + partitions.with_action("jpeg_cleanup")
         results["skipped"] = [
             {"path": str(info.path), "reason": "upscale_images disabled"} for info in actionable
@@ -169,7 +169,7 @@ def run(
     cleanup_candidates = partitions.with_action("jpeg_cleanup")
 
     if not candidates and not cleanup_candidates:
-        rpt.ok(f"All images already >= {upscale_target}px - skipping upscale.")
+        reporter.ok(f"All images already >= {upscale_target}px - skipping upscale.")
         results["skipped"] = [str(info.path) for info in partitions.images]
         return _save_report(results, context)
 
@@ -177,7 +177,7 @@ def run(
         scratch_dir = Path(scratch_dir_str)
 
         if candidates:
-            rpt.info(f"{len(candidates)} images below {upscale_target}px min-side will be upscaled.")
+            reporter.info(f"{len(candidates)} images below {upscale_target}px min-side will be upscaled.")
             check_cancel(cancel_check)
             resolved, skip_reason = _resolve_upscaler(
                 upscale_model=upscale_model,
@@ -258,7 +258,7 @@ def _normalize_upscale_model(upscale_model: str, use_seedvr: bool | None) -> str
 
 def _warn_deprecated(message: str) -> None:
     warnings.warn(message, DeprecationWarning, stacklevel=3)
-    rpt.warn(message)
+    reporter.warn(message)
 
 
 def _prepare_output_context(
@@ -351,7 +351,7 @@ def _resolve_destination_collisions(partitions: ImagePartitions, context: Output
             and info.planned_action != "pass_through"
             and dest_counts[dest_by_path[info.path]] > 1
         ):
-            rpt.warn(
+            reporter.warn(
                 f"Destination collision for {info.path.name}: another image already targets "
                 f"{dest_by_path[info.path].name}; leaving it untouched to avoid overwrite."
             )
@@ -415,7 +415,7 @@ def _resolve_upscaler(
     if upscaler is not None:
         return upscaler, None
     if upscale_model == "lanczos":
-        rpt.info("Using Lanczos upscaler.")
+        reporter.info("Using Lanczos upscaler.")
         return lambda p, o: _lanczos_upscale(p, o, upscale_target), None
     if upscale_model == "custom":
         return None, "configured upscale_model=custom but no custom upscaler was provided"
@@ -423,7 +423,7 @@ def _resolve_upscaler(
     seedvr2, skip_reason = _build_seedvr2(resolution=upscale_target, **seedvr2_kwargs)
     if skip_reason is not None:
         return None, skip_reason
-    rpt.info("Using SeedVR2 upscaler.")
+    reporter.info("Using SeedVR2 upscaler.")
     return seedvr2, None
 
 
@@ -506,7 +506,7 @@ def _process_seedvr2_candidates(
         raise
     except Exception as exc:
         reason = _format_exception(exc)
-        rpt.error(f"SeedVR2 upscale failed: {reason} - keeping originals.")
+        reporter.error(f"SeedVR2 upscale failed: {reason} - keeping originals.")
         for path, tmp_path in tmp_by_source.items():
             tmp_path.unlink(missing_ok=True)
             results["skipped"].append({"path": str(path), "reason": reason})
@@ -517,14 +517,14 @@ def _process_seedvr2_candidates(
         check_cancel(cancel_check)
         reason = failures.get(str(path))
         if reason is not None:
-            rpt.error(f"Upscale failed for {path.name}: {reason} - keeping original.")
+            reporter.error(f"Upscale failed for {path.name}: {reason} - keeping original.")
             results["skipped"].append({"path": str(path), "reason": reason})
             tmp_path.unlink(missing_ok=True)
             _pass_through(context, path)
             continue
         if not tmp_path.exists():
             reason = f"SeedVR2 did not write expected output: {tmp_path}"
-            rpt.error(f"Upscale failed for {path.name}: {reason} - keeping original.")
+            reporter.error(f"Upscale failed for {path.name}: {reason} - keeping original.")
             results["skipped"].append({"path": str(path), "reason": reason})
             _pass_through(context, path)
             continue
@@ -552,7 +552,7 @@ def _process_jpeg_cleanup_candidates(
 ) -> None:
     _probe, skip_reason = _build_seedvr2(resolution=upscale_target, **seedvr2_kwargs)
     if skip_reason is not None:
-        rpt.warn(f"SeedVR2 unavailable for JPEG cleanup ({skip_reason}) - leaving large JPEGs untouched.")
+        reporter.warn(f"SeedVR2 unavailable for JPEG cleanup ({skip_reason}) - leaving large JPEGs untouched.")
         for info in infos:
             check_cancel(cancel_check)
             results["skipped"].append({
@@ -562,7 +562,7 @@ def _process_jpeg_cleanup_candidates(
             _pass_through(context, info.path)
         return
 
-    rpt.info(f"{len(infos)} large JPEG(s) will be cleaned up via SeedVR2 (downscale then re-upscale).")
+    reporter.info(f"{len(infos)} large JPEG(s) will be cleaned up via SeedVR2 (downscale then re-upscale).")
     # Each image is re-upscaled to its own min-side so it never ends up smaller
     # than it started. Group by that target so same-size images share one worker
     # (the model is loaded once per group, not once per image).
@@ -600,7 +600,7 @@ def _skip_candidates(
     reason: str,
     cancel_check: CancelCheck | None = None,
 ) -> dict:
-    rpt.warn(f"{reason} - skipping upscale candidates.")
+    reporter.warn(f"{reason} - skipping upscale candidates.")
     for path in candidates:
         check_cancel(cancel_check)
         _pass_through(context, path)
@@ -630,7 +630,7 @@ def _process_candidate(
         raise
     except Exception as exc:
         reason = _format_exception(exc)
-        rpt.error(f"Upscale failed for {path.name}: {reason} - keeping original.")
+        reporter.error(f"Upscale failed for {path.name}: {reason} - keeping original.")
         results["skipped"].append({"path": str(path), "reason": reason})
         tmp_path.unlink(missing_ok=True)
         _pass_through(context, path)
@@ -658,13 +658,13 @@ def _accept_candidate(
     out_path = _processed_dest_for(context, path)
     hall_ssim = _hallucination_check(path, tmp_path) if hallucination_check_enabled else 1.0
     if hallucination_check_enabled and hall_ssim < hallucination_ssim_threshold:
-        rpt.warn(f"REJECT upscale {path.name} (SSIM={hall_ssim:.3f}) - keeping original size.")
+        reporter.warn(f"REJECT upscale {path.name} (SSIM={hall_ssim:.3f}) - keeping original size.")
         results["rejected_post"].append({"path": str(path), "hall_ssim": hall_ssim})
         tmp_path.unlink(missing_ok=True)
         _pass_through(context, path)
         return
 
-    rpt.ok(f"Upscaled {path.name} -> {out_path.name} (hall_ssim={hall_ssim:.3f})")
+    reporter.ok(f"Upscaled {path.name} -> {out_path.name} (hall_ssim={hall_ssim:.3f})")
     os.replace(tmp_path, out_path)
     if context.in_place and out_path != path:
         # The original sat at the same path/dir as out_path under a different
@@ -689,7 +689,7 @@ def _pass_through(context: OutputContext, path: Path) -> None:
 
 
 def _save_report(results: dict, context: OutputContext) -> dict:
-    rpt.save_report(results, context.report_path)
+    reporter.save_report(results, context.report_path)
     return results
 
 

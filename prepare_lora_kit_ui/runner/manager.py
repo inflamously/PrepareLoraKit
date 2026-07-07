@@ -24,7 +24,8 @@ from prepare_lora_kit.project.pipeline import (
     mark_legacy_import_satisfied,
     normalize_substeps,
 )
-from prepare_lora_kit.utils import report
+
+from prepare_lora_kit.report import reporter
 from prepare_lora_kit.utils.state import RunState
 from . import UiInteractionProvider
 
@@ -118,9 +119,9 @@ class JobManager:
 
     def _run_job(self, job: PipelineJob, request: dict[str, Any]) -> None:
         stream = _LogStream(job)
-        old_console = report.console
+        old_console = reporter.console
         try:
-            report.console = Console(
+            reporter.console = Console(
                 file=stream,
                 force_terminal=False,
                 no_color=True,
@@ -139,7 +140,7 @@ class JobManager:
             job.set_status("cancelled" if job.cancel_requested else "failed")
         finally:
             stream.flush()
-            report.console = old_console
+            reporter.console = old_console
 
     def _execute(self, job: PipelineJob, request: dict[str, Any]) -> None:
         job.set_status("running")

@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from ...cancellation import CancelCheck, check_cancel
-from ...utils import report as rpt
+from prepare_lora_kit.report import reporter
 
 HASH_DISTANCE = 8
 
@@ -17,7 +17,7 @@ def _compute_hashes(paths: list[Path], cancel_check: CancelCheck | None = None) 
         try:
             hashes[p] = imagehash.phash(Image.open(p).convert("RGB"))
         except Exception as exc:
-            rpt.warn(f"Hash failed for {p.name}: {exc}")
+            reporter.warn(f"Hash failed for {p.name}: {exc}")
     return hashes
 
 
@@ -60,7 +60,7 @@ def _resolve_duplicates(
         keep = b if drop is a else a
         if auto_drop:
             to_drop.add(drop)
-            rpt.warn(f"DEDUPE drop {drop.name} (blur={blur_a if drop==a else blur_b:.1f}) "
+            reporter.warn(f"DEDUPE drop {drop.name} (blur={blur_a if drop == a else blur_b:.1f}) "
                      f"← dupe of {keep.name} (dist={dist})")
         else:
             # easygui tie-break

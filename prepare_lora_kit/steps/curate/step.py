@@ -9,7 +9,7 @@ from pathlib import Path
 
 from ...cancellation import CancelCheck, CancelledRun, check_cancel
 from ...utils import image as img_utils
-from ...utils import report as rpt
+from prepare_lora_kit.report import reporter
 
 from .dedupe import _compute_hashes, _find_duplicates, _resolve_duplicates
 from .coverage import _coverage_embeddings, _save_umap, _save_pca
@@ -37,7 +37,7 @@ def run(
     dedup_hamming_distance: int = 3,
     pca_umap_switch_threshold: int = 30,
 ) -> dict:
-    rpt.step_header(2, "Curation — Dedupe + Coverage")
+    reporter.step_header("Curation — Dedupe + Coverage")
     enabled = set(enabled_substeps or ["duplicate_check", "clip_scan", "drop_images"])
 
     output_dir = output_dir or dataset_dir
@@ -50,33 +50,33 @@ def run(
 
     images = img_utils.iter_images(dataset_dir)
     if not images:
-        rpt.warn(f"No images in {dataset_dir}")
+        reporter.warn(f"No images in {dataset_dir}")
         return {}
 
     pairs = []
     to_drop: set[Path] = set()
     if "duplicate_check" in enabled:
-        rpt.info(f"Found {len(images)} images. Computing perceptual hashes …")
+        reporter.info(f"Found {len(images)} images. Computing perceptual hashes …")
         hashes = _compute_hashes(images, cancel_check=cancel_check)
 
         pairs = _find_duplicates(
             hashes, max_distance=dedup_hamming_distance, cancel_check=cancel_check
         )
-        rpt.info(f"Near-duplicate pairs: {len(pairs)}")
+        reporter.info(f"Near-duplicate pairs: {len(pairs)}")
         to_drop = _resolve_duplicates(
             pairs,
             auto_drop=auto_dedupe,
             cancel_check=cancel_check,
         ) if pairs else set()
     else:
-        rpt.warn("Skipping duplicate check substep.")
+        reporter.warn("Skipping duplicate check substep.")
 
     apply_drops = "drop_images" in enabled
     kept_images = [p for p in images if apply_drops and p not in to_drop or not apply_drops]
     if apply_drops:
-        rpt.ok(f"After dedupe: {len(kept_images)} images ({len(to_drop)} dropped)")
+        reporter.ok(f"After dedupe: {len(kept_images)} images ({len(to_drop)} dropped)")
     else:
-        rpt.info(f"Drop-images substep disabled; retaining all {len(images)} image(s).")
+        reporter.info(f"Drop-images substep disabled; retaining all {len(images)} image(s).")
 
     # Resolve embedding model selection once for the clipscan substep.
     coverage_model = _resolve_coverage_model(coverage_embedding_model)
@@ -86,7 +86,7 @@ def run(
     coverage_metadata: dict | None = None
     if not skip_clip and "clip_scan" in enabled:
         try:
-            rpt.info(f"Computing coverage embeddings ({coverage_model}) …")
+            reporter.info(f"Computing coverage embeddings ({coverage_model}) …")
             emb = _coverage_embeddings(kept_images, coverage_model, cancel_check=cancel_check)
             if len(kept_images) > pca_umap_switch_threshold:
                 coverage_path = artifact_dir / "coverage_umap.png"
@@ -99,12 +99,12 @@ def run(
         except Exception as exc:
             coverage_path = None
             coverage_metadata = None
-            rpt.warn(f"Coverage visualisation failed: {exc}")
+            reporter.warn(f"Coverage visualisation failed: {exc}")
 
     check_cancel(cancel_check)
     img_utils.materialize(kept_images, dataset_dir, output_dir)
 
-    report = {
+    report_data = {
         "duplicate_pairs": [(str(a), str(b), d) for a, b, d in pairs],
         "dropped_duplicates": [str(p) for p in to_drop] if apply_drops else [],
         "duplicate_drop_candidates": [str(p) for p in to_drop],
@@ -118,5 +118,5 @@ def run(
         },
     }
     check_cancel(cancel_check)
-    rpt.save_report(report, report_path)
-    return report
+    reporter.save_report(report_data, report_path)
+    return report_data

@@ -7,7 +7,7 @@ from typing import Any, Callable
 import threading
 
 from ...utils import caption as cap_utils
-from ...utils import report as rpt
+from prepare_lora_kit.report import reporter
 
 CaptionStatusCallback = Callable[[dict[str, Any]], None]
 
@@ -81,7 +81,7 @@ def _resolve_quantization(quantization: str, torch) -> str:
     if not torch.cuda.is_available():
         return "none"
     if not _bitsandbytes_available():
-        rpt.warn("bitsandbytes unavailable; auto VLM quantization selecting unquantized CPU/GPU load.")
+        reporter.warn("bitsandbytes unavailable; auto VLM quantization selecting unquantized CPU/GPU load.")
         return "none"
     total_gb = _cuda_total_vram_gb(torch)
     if total_gb and total_gb <= 16:
@@ -438,7 +438,7 @@ class CaptionRuntime:
         self._emit_status("loading", f"Loading caption model {self.model_id}")
         import torch
 
-        rpt.info(
+        reporter.info(
             "Caption model load: "
             f"{self.model_id} (task={self.task}, quant={self.quantization}, dtype={self.dtype}, "
             f"cuda={torch.cuda.is_available()}, total_vram_gb={_cuda_total_vram_gb(torch):.1f}, "
@@ -459,7 +459,7 @@ class CaptionRuntime:
             "ready",
             f"Caption model ready: {self.model_id} ({self._loaded.adapter}, {self._loaded.device})",
         )
-        rpt.info(
+        reporter.info(
             "Caption model ready: "
             f"adapter={self._loaded.adapter}, device={self._loaded.device}, "
             f"quant={self._loaded.quantization}, dtype={self._loaded.dtype}"

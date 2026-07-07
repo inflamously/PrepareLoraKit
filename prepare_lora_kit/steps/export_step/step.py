@@ -17,7 +17,7 @@ from typing import Any
 from ...cancellation import CancelCheck, check_cancel
 from ...interaction import CliInteractionProvider
 from ...paths import PROJECT_ROOT
-from ...utils import report as rpt
+from prepare_lora_kit.report import reporter
 from .diff import ExportDiff, compute_diff
 from .export import export_entries
 
@@ -72,7 +72,7 @@ def run(
     enabled_substeps: list[str] | None = None,
     cancel_check: CancelCheck | None = None,
 ) -> dict:
-    rpt.step_header(9, "Export finalized dataset")
+    reporter.step_header("Export finalized dataset")
     enabled = set(enabled_substeps or ["preview_export_diff", "copy_export"])
     dataset_dir = Path(dataset_dir)
     output_dir = Path(output_dir) if output_dir else dataset_dir
@@ -81,8 +81,8 @@ def run(
     check_cancel(cancel_check)
     diff = compute_diff(dataset_dir, resolved_target)
     counts = diff.counts()
-    rpt.info(f"Export target: {resolved_target}")
-    rpt.info(
+    reporter.info(f"Export target: {resolved_target}")
+    reporter.info(
         f"Diff — added {counts['added']}, modified {counts['modified']}, "
         f"unchanged {counts['unchanged']}, orphaned {counts['orphaned']}"
     )
@@ -98,7 +98,7 @@ def run(
     copied: list[dict] = []
     exported = False
     if not confirmed:
-        rpt.warn("Export cancelled — nothing written.")
+        reporter.warn("Export cancelled — nothing written.")
     elif "copy_export" in enabled:
         check_cancel(cancel_check)
         copied = export_entries(
@@ -108,9 +108,9 @@ def run(
             cancel_check=cancel_check,
         )
         exported = True
-        rpt.ok(f"Exported {len(copied)} file group(s) → {resolved_target}")
+        reporter.ok(f"Exported {len(copied)} file group(s) → {resolved_target}")
 
-    report = {
+    report_data = {
         "target_dir": str(resolved_target),
         "counts": counts,
         "confirmed": confirmed,
@@ -124,5 +124,5 @@ def run(
         },
     }
     check_cancel(cancel_check)
-    rpt.save_report(report, report_path or (output_dir / "reports" / "ExportStep_report.json"))
-    return report
+    reporter.save_report(report_data, report_path or (output_dir / "reports" / "ExportStep_report.json"))
+    return report_data

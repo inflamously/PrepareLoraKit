@@ -1,12 +1,11 @@
 """CLIP coverage visualisation for Step 2 curation."""
 from __future__ import annotations
 
-import random
 from collections import Counter
 from pathlib import Path
 
 from ...cancellation import CancelCheck, check_cancel
-from ...utils import report as rpt
+from prepare_lora_kit.report import reporter
 
 _LABEL_MAX = 24
 
@@ -97,7 +96,7 @@ def _save_umap(embeddings, paths: list[Path], out_path: Path, model_id: str = ""
     points = _scatter_points(fig, ax, coords, paths)
     plt.savefig(out_path, dpi=150)
     plt.close()
-    rpt.ok(f"Coverage UMAP saved → {out_path}")
+    reporter.ok(f"Coverage UMAP saved → {out_path}")
     return {
         "method": "umap",
         **_embedding_meta(model_id),
@@ -122,7 +121,7 @@ def _save_pca(embeddings, paths: list[Path], out_path: Path, model_id: str = "")
     points = _scatter_points(fig, ax, coords, paths)
     plt.savefig(out_path, dpi=150)
     plt.close()
-    rpt.ok(f"Coverage PCA saved → {out_path}")
+    reporter.ok(f"Coverage PCA saved → {out_path}")
     return {
         "method": "pca",
         **_embedding_meta(model_id),

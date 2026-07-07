@@ -6,7 +6,7 @@ import shutil
 from pathlib import Path
 
 from prepare_lora_kit.cancellation import CancelCheck, CancelledRun, check_cancel
-from prepare_lora_kit.utils.report import save_report, info, step_header, warn
+from prepare_lora_kit.report import reporter
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tiff", ".tif"}
 
@@ -24,10 +24,10 @@ def run(
 ) -> dict:
     """Copy source images into the working dataset directory."""
 
-    step_header(0, "Import Source Images")
+    reporter.step_header("Import Source Images")
     image_paths = _iter_images(input_dir)
     if not image_paths:
-        warn(f"No images found in {input_dir}")
+        reporter.warn(f"No images found in {input_dir}")
 
     try:
         check_cancel(cancel_check)
@@ -46,7 +46,7 @@ def run(
         shutil.rmtree(output_dir, ignore_errors=True)
         raise
 
-    report = {
+    report_data = {
         "input_dir": str(input_dir),
         "output_dir": str(output_dir),
         "imported": imported,
@@ -55,10 +55,10 @@ def run(
             "import_images": {"enabled": "import_images" in set(enabled_substeps or ["import_images"])},
         },
     }
-    info(f"Imported {len(imported)} image(s) into {output_dir}.")
+    reporter.info(f"Imported {len(imported)} image(s) into {output_dir}.")
     check_cancel(cancel_check)
-    save_report(report, report_path or (output_dir / "ImportStep_report.json"))
-    return report
+    reporter.save_report(report_data, report_path or (output_dir / "ImportStep_report.json"))
+    return report_data
 
 
 def _iter_images(folder: Path) -> list[Path]:

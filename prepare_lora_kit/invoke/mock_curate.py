@@ -20,16 +20,16 @@ def _mock_curate(
     from ..steps.curate.coverage import _save_pca, _save_umap
     from ..steps.curate.dedupe import _compute_hashes, _find_duplicates
     from ..utils import image as img_utils
-    from ..utils import report as rpt
+    from prepare_lora_kit.report import reporter
 
-    rpt.step_header(2, "Curation — Mock Runtime")
+    reporter.step_header("Curation — Mock Runtime")
     reports_dir = output_dir / "reports"
     reports_dir.mkdir(parents=True, exist_ok=True)
     report_path = reports_dir / "CurateStep_report.json"
 
     images = img_utils.iter_images(working_dir)
     if not images:
-        rpt.warn(f"No images in {working_dir}")
+        reporter.warn(f"No images in {working_dir}")
         return {}
 
     check_cancel(cancel_check)
@@ -61,7 +61,7 @@ def _mock_curate(
             coverage_path = reports_dir / "coverage_pca.png"
             coverage_metadata = _save_pca(embeddings, kept_images, coverage_path)
 
-    report = {
+    report_data = {
         "mock_runtime": True,
         "duplicate_pairs": [(str(a), str(b), d) for a, b, d in pairs],
         "dropped_duplicates": [str(p) for p in to_drop],
@@ -74,7 +74,7 @@ def _mock_curate(
             "drop_images",
         ]},
     }
-    rpt.info(f"Mock runtime: curated {len(kept_images)} image(s).")
+    reporter.info(f"Mock runtime: curated {len(kept_images)} image(s).")
     check_cancel(cancel_check)
-    rpt.save_report(report, report_path)
-    return report
+    reporter.save_report(report_data, report_path)
+    return report_data

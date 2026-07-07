@@ -14,12 +14,12 @@ def _mock_vae_gate(
         cancel_check=None,
 ) -> dict:
     from ..utils import image as img_utils
-    from ..utils import report as rpt
+    from prepare_lora_kit.report import reporter
     from ..steps.vae_gate.review import _save_review_artifacts
     import numpy as np
     from PIL import Image, ImageFilter
 
-    rpt.step_header(4, "VAE Reconstruction Gate")
+    reporter.step_header("VAE Reconstruction Gate")
     enabled = set(enabled_substeps or ["reconstruct_images", "review_vae_artifacts", "apply_vae_decisions"])
     images = img_utils.iter_images(working_dir)
     scores = {str(path): 0.0 for path in images}
@@ -57,7 +57,7 @@ def _mock_vae_gate(
            or decisions.get(str(path), decisions.get(str(path.resolve()), "keep")) != "drop"
     ]
     img_utils.materialize(survivors, working_dir, working_dir)
-    report = {
+    report_data = {
         "mock_runtime": True,
         "hf_scores": scores,
         "threshold": 0.0,
@@ -83,7 +83,7 @@ def _mock_vae_gate(
             "apply_vae_decisions": {"enabled": "apply_vae_decisions" in enabled},
         },
     }
-    rpt.info(f"Mock runtime: recorded deterministic VAE pass for {len(images)} image(s).")
+    reporter.info(f"Mock runtime: recorded deterministic VAE pass for {len(images)} image(s).")
     check_cancel(cancel_check)
-    rpt.save_report(report, output_dir / "reports" / "VaeGateStep_report.json")
-    return report
+    reporter.save_report(report_data, output_dir / "reports" / "VaeGateStep_report.json")
+    return report_data
