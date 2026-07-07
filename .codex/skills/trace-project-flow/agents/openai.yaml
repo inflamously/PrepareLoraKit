@@ -1,0 +1,4 @@
+interface:
+  display_name: "Trace Project Flow"
+  short_description: "Trace features across a codebase"
+  default_prompt: "Use $trace-project-flow to explain how this feature works across the project."
