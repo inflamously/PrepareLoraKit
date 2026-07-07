@@ -1,4 +1,4 @@
-"""Step package — see step.py for implementation."""
+"""Bucket pool dry-run step package."""
 from __future__ import annotations
 
 from typing import Any
