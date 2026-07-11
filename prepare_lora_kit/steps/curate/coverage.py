@@ -10,6 +10,15 @@ from prepare_lora_kit.report import reporter
 _LABEL_MAX = 24
 
 
+def _new_agg_figure(figsize: tuple[int, int]):
+    from matplotlib.backends.backend_agg import FigureCanvasAgg
+    from matplotlib.figure import Figure
+
+    fig = Figure(figsize=figsize)
+    FigureCanvasAgg(fig)
+    return fig, fig.subplots()
+
+
 def _point_labels(paths: list[Path]) -> list[str]:
     """Per-point scatter labels, prefixing the parent dir only when a bare
     filename is shared by more than one path so collisions stay distinguishable."""
@@ -71,7 +80,6 @@ def _scatter_points(fig, ax, coords, paths: list[Path]) -> list[dict]:
 def _save_umap(embeddings, paths: list[Path], out_path: Path, model_id: str = "") -> dict:
     import warnings
 
-    import matplotlib.pyplot as plt
     from sklearn.decomposition import PCA
     from umap import UMAP
 
@@ -87,15 +95,15 @@ def _save_umap(embeddings, paths: list[Path], out_path: Path, model_id: str = ""
         reducer = UMAP(n_components=2, random_state=42)
         coords = reducer.fit_transform(reduced)
 
-    fig, ax = plt.subplots(figsize=(10, 8))
+    fig, ax = _new_agg_figure(figsize=(10, 8))
     ax.scatter(coords[:, 0], coords[:, 1], alpha=0.7, s=60)
     for i, label in enumerate(_point_labels(paths)):
         ax.annotate(label, (coords[i, 0], coords[i, 1]), fontsize=6, alpha=0.6)
     ax.set_title("Dataset Coverage — UMAP")
-    plt.tight_layout()
+    fig.tight_layout()
     points = _scatter_points(fig, ax, coords, paths)
-    plt.savefig(out_path, dpi=150)
-    plt.close()
+    fig.savefig(out_path, dpi=150)
+    fig.clear()
     reporter.ok(f"Coverage UMAP saved → {out_path}")
     return {
         "method": "umap",
@@ -107,20 +115,19 @@ def _save_umap(embeddings, paths: list[Path], out_path: Path, model_id: str = ""
 
 
 def _save_pca(embeddings, paths: list[Path], out_path: Path, model_id: str = "") -> dict:
-    import matplotlib.pyplot as plt
     from sklearn.decomposition import PCA
 
     coords = PCA(n_components=2, random_state=42).fit_transform(embeddings)
 
-    fig, ax = plt.subplots(figsize=(8, 6))
+    fig, ax = _new_agg_figure(figsize=(8, 6))
     ax.scatter(coords[:, 0], coords[:, 1], alpha=0.8, s=60)
     for i, label in enumerate(_point_labels(paths)):
         ax.annotate(label, (coords[i, 0], coords[i, 1]), fontsize=6, alpha=0.6)
     ax.set_title("Dataset Coverage — PCA")
-    plt.tight_layout()
+    fig.tight_layout()
     points = _scatter_points(fig, ax, coords, paths)
-    plt.savefig(out_path, dpi=150)
-    plt.close()
+    fig.savefig(out_path, dpi=150)
+    fig.clear()
     reporter.ok(f"Coverage PCA saved → {out_path}")
     return {
         "method": "pca",

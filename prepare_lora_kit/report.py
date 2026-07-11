@@ -10,6 +10,11 @@ from rich.console import Console
 from rich.table import Table
 
 
+def load_report(path: Path) -> Any:
+    with open(path) as f:
+        return json.load(f)
+
+
 class Reporter:
     """Console reporter and JSON report persistence helper."""
     console: Console
@@ -37,10 +42,6 @@ class Reporter:
         with open(path, "w") as f:
             json.dump(data, f, indent=2, default=str)
         self.info(f"Report saved → {path}")
-
-    def load_report(self, path: Path) -> Any:
-        with open(path) as f:
-            return json.load(f)
 
     def image_table(self, rows: list[dict], title: str = "") -> None:
         """Print a table of image results. Each row: {path, status, reason}."""
