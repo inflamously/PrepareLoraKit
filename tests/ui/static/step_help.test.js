@@ -22,6 +22,8 @@ describe("VAE step help", () => {
     assert.match(layer.textContent, /never used as a training replacement/);
     assert.match(layer.textContent, /matching \.txt caption/);
     assert.match(layer.textContent, /excluded from statistics/);
+    assert.match(layer.textContent, /white means the area changed/);
+    assert.match(layer.textContent, /Black is not the original image/);
   });
 
   it("escapes help text", () => {
