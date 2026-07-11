@@ -1,7 +1,7 @@
 import json
 
 from prepare_lora_kit_ui.e2e import create_mock_ui_fixture
-from prepare_lora_kit_ui.runner import JobManager, PipelineJob
+from prepare_lora_kit_ui.runner import JobManager, PipelineJob, UiPipelineExecutor
 
 
 def test_mock_project_quality_gate_runs_with_good_and_bad_images(tmp_path):
@@ -22,8 +22,12 @@ def test_mock_project_quality_gate_runs_with_good_and_bad_images(tmp_path):
         interaction_provider_cls=FakeInteractionProvider,
     )
     job = PipelineJob(manager, "mock-job")
+    executor = UiPipelineExecutor(
+        projects={fixture.project.name: fixture.project},
+        interaction_provider_cls=FakeInteractionProvider,
+    )
 
-    manager._execute(
+    executor.execute(
         job,
         {
             "input_dir": str(fixture.input_dir),

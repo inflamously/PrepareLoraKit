@@ -1,38 +1,25 @@
-"""Pipeline job manager and execution orchestration."""
+"""Pipeline job registration and thread lifecycle management."""
 from __future__ import annotations
 
 import contextlib
 import threading
 import traceback
 import uuid
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from rich.console import Console
 
 from prepare_lora_kit.cancellation import CancelledRun
-from prepare_lora_kit.invoke import STEP_INVOKE_MAP
-from prepare_lora_kit.pipeline import RunConfig
-from prepare_lora_kit.pipeline.validation import validate_pipeline_selection
-from prepare_lora_kit.pipeline import is_resume_aware_step_type
-from prepare_lora_kit.project import project_registry
 from prepare_lora_kit.project.base import ProjectConfig
-from prepare_lora_kit.project.config_schema import has_schema, apply_overrides
-from prepare_lora_kit.project.pipeline import (
-    SUBSTEP_REGISTRY,
-    enabled_substep_ids,
-    mark_legacy_import_satisfied,
-    normalize_substeps,
-)
-
 from prepare_lora_kit.report import reporter
-from prepare_lora_kit.utils.state import RunState
 
 from prepare_lora_kit_ui.runner.constants import TERMINAL_STATUSES
-from prepare_lora_kit_ui.runner.interactions import UiInteractionProvider
+from prepare_lora_kit_ui.runner.executor import UiPipelineExecutor
 from prepare_lora_kit_ui.runner.job import PipelineJob
 from prepare_lora_kit_ui.runner.logging import _LogStream
-from prepare_lora_kit_ui.runner.payloads import _default_output
+
+if TYPE_CHECKING:
+    from prepare_lora_kit_ui.runner.interactions import UiInteractionProvider
 
 class JobManager:
     """Starts and tracks one pipeline job at a time."""
@@ -46,9 +33,11 @@ class JobManager:
         self._jobs: dict[str, PipelineJob] = {}
         self._job_projects: dict[str, str] = {}
         self._active_job_id: str | None = None
-        self._media_base_url = media_base_url
-        self._projects = projects or {}
-        self._interaction_provider_cls = interaction_provider_cls
+        self._executor = UiPipelineExecutor(
+            media_base_url=media_base_url,
+            projects=projects,
+            interaction_provider_cls=interaction_provider_cls,
+        )
         self._lock = threading.Lock()
 
     def start_run(self, request: dict[str, Any]) -> str:
@@ -131,7 +120,7 @@ class JobManager:
                 width=120,
             )
             with contextlib.redirect_stdout(stream), contextlib.redirect_stderr(stream):
-                self._execute(job, request)
+                self._executor.execute(job, request)
         except CancelledRun as exc:
             job.error = str(exc)
             job.set_status("cancelled")
@@ -142,190 +131,3 @@ class JobManager:
         finally:
             stream.flush()
             reporter.console = old_console
-
-    def _execute(self, job: PipelineJob, request: dict[str, Any]) -> None:
-        job.set_status("running")
-
-        input_dir = Path(str(request["input_dir"])).expanduser()
-        output_dir_raw = request.get("output_dir")
-        output_dir = Path(str(output_dir_raw)).expanduser() if output_dir_raw else _default_output(input_dir)
-        project_name = str(request["project"])
-        token = request.get("token") or None
-        selected_steps = [str(s) for s in request.get("steps", [])]
-        requested_substeps = {
-            str(step_type): [str(substep_id) for substep_id in substeps]
-            for step_type, substeps in (request.get("substeps") or {}).items()
-            if isinstance(substeps, list)
-        }
-        force = bool(request.get("force", False))
-        pause_for_config = bool(request.get("pause_for_config", False))
-
-        project = self._load_project(project_name)
-        selected_substeps = self._resolve_selected_substeps(project, selected_steps, requested_substeps)
-        self._validate_selection(project, selected_steps, output_dir, selected_substeps)
-        state = RunState(output_dir)
-        if force:
-            # --force is a full reset: clear the manifest so every selected step
-            # re-runs, including ImportStep, which re-seeds the working dataset
-            # from the original (discarding any prior working dataset).
-            state.reset()
-
-        interaction_provider_cls = self._interaction_provider_cls
-        if interaction_provider_cls is None:
-            import prepare_lora_kit_ui.runner as runner
-            interaction_provider_cls = runner.UiInteractionProvider
-        interaction = interaction_provider_cls(job, self._media_base_url)
-        job.interaction_provider = interaction
-
-        cfg = RunConfig(
-            dataset_dir=input_dir,
-            project=project,
-            concept_token=token,
-            output_dir=output_dir,
-            force=force,
-            cancel_check=job.raise_if_cancelled,
-        )
-        working_dir = cfg.resolved_output_dir / "dataset"
-        shared_kw = dict(
-            concept_token=token,
-            original_dir=input_dir,
-            interaction=interaction,
-            force=force,
-            caption_runtime={
-                "model_id": request.get("caption_model_id") or None,
-                "vram_mode": request.get("caption_vram_mode") or None,
-                "task": request.get("caption_model_task") or None,
-            },
-            caption_status_callback=job.set_caption_status,
-            mock_runtime=bool(request.get("mock_runtime", False)),
-            mock_curate_coverage=str(request.get("mock_curate_coverage") or "auto"),
-            cancel_check=job.raise_if_cancelled,
-        )
-
-        selected = set(selected_steps)
-        for step in project.pipeline:
-            if step.type not in selected:
-                continue
-            if job.cancel_requested:
-                raise CancelledRun("Run cancelled")
-            enabled_substeps = selected_substeps.get(step.type, enabled_substep_ids(step.type, step.substeps))
-            job.set_status(
-                "running",
-                current_step=step.type,
-                current_substep=enabled_substeps[0] if enabled_substeps else None,
-            )
-            # Without --force, honor an existing working dataset that predates the
-            # ImportStep so a plain re-run never rmtree's it (and the hand-drawn
-            # boxes it holds) by re-importing. --force re-imports.
-            if not force and step.type == "ImportStep" and mark_legacy_import_satisfied(
-                    state, cfg.resolved_output_dir
-            ):
-                job.skipped_steps.append(step.type)
-                job.skipped_substeps[step.type] = enabled_substeps
-                job.add_log("ImportStep satisfied by existing working dataset")
-                continue
-            # Resume-aware steps (e.g. CaptionBboxStep) self-determine pending work, so
-            # they are never skipped on is_done — re-running them resumes instead of
-            # redoing everything, without needing --force.
-            if (
-                    not force
-                    and not is_resume_aware_step_type(step.type)
-                    and state.is_done(step.type)
-            ):
-                job.skipped_steps.append(step.type)
-                job.skipped_substeps[step.type] = enabled_substeps
-                job.add_log(f"{step.type} already done; skipping")
-                continue
-
-            effective_config = step.config
-            if pause_for_config and has_schema(step.type):
-                effective_config = self._resolve_step_config(job, interaction, step)
-
-            invoke = STEP_INVOKE_MAP[step.type]
-            result = invoke(
-                working_dir,
-                cfg.resolved_output_dir,
-                effective_config,
-                **shared_kw,
-                enabled_substeps=enabled_substeps,
-            )
-            job.raise_if_cancelled()
-            if step.type == "AuditStep" and isinstance(result, dict) and not result.get("pass"):
-                job.add_log("AuditStep found issues; review reports/AuditStep_report.json")
-            if step.type == "CurateStep" and isinstance(result, dict):
-                job.raise_if_cancelled()
-                interaction.curate_details(
-                    result,
-                    cfg.resolved_output_dir / "reports" / "CurateStep_report.json",
-                )
-                job.raise_if_cancelled()
-            for substep_id in enabled_substeps:
-                state.mark_substep_done(step.type, substep_id)
-            state.mark_done(step.type, {"enabled_substeps": enabled_substeps})
-            job.completed_steps.append(step.type)
-            job.completed_substeps[step.type] = enabled_substeps
-
-        job.result = {
-            "output_dir": str(cfg.resolved_output_dir),
-            "reports_dir": str(cfg.resolved_output_dir / "reports"),
-        }
-        job.set_status("completed", current_step=None, current_substep=None)
-
-    def _resolve_step_config(self, job: PipelineJob, interaction, step):
-        """Pause for frontend config edits and return the validated step config.
-
-        Re-prompts (with the validation error) until the overrides apply cleanly
-        or the run is cancelled.
-        """
-        error: str | None = None
-        while True:
-            overrides = interaction.step_config(step.type, step.config, error=error)
-            try:
-                return apply_overrides(step.type, step.config, overrides)
-            except ValueError as exc:
-                error = str(exc)
-                job.add_log(f"{step.type} config rejected: {exc}")
-
-    def _resolve_selected_substeps(
-            self,
-            project: ProjectConfig,
-            selected_steps: list[str],
-            requested_substeps: dict[str, list[str]],
-    ) -> dict[str, list[str]]:
-        selected = set(selected_steps)
-        resolved: dict[str, list[str]] = {}
-        for step in project.pipeline:
-            if step.type not in selected:
-                continue
-            raw = requested_substeps.get(step.type)
-            if raw is None:
-                resolved[step.type] = enabled_substep_ids(step.type, step.substeps)
-                continue
-            known = {definition.id for definition in SUBSTEP_REGISTRY.get(step.type, ())}
-            unknown = [substep_id for substep_id in raw if substep_id not in known]
-            if unknown:
-                raise ValueError(
-                    f"Selected substep is not in {step.type}: {', '.join(unknown)}"
-                )
-            substeps = normalize_substeps(
-                step.type,
-                [{"id": definition.id, "enabled": definition.id in set(raw)}
-                 for definition in SUBSTEP_REGISTRY.get(step.type, ())],
-                step.config,
-            )
-            resolved[step.type] = enabled_substep_ids(step.type, substeps)
-        return resolved
-
-    def _validate_selection(
-            self,
-            project: ProjectConfig,
-            selected_steps: list[str],
-            output_dir: Path,
-            selected_substeps: dict[str, list[str]] | None = None,
-    ) -> None:
-        validate_pipeline_selection(project, selected_steps, output_dir, selected_substeps)
-
-    def _load_project(self, name: str) -> ProjectConfig:
-        if name in self._projects:
-            return self._projects[name]
-        return project_registry.load(name)

@@ -29,6 +29,10 @@ functions.
 Use idiomatic Python with 4-space indentation, clear function names, and small
 modules grouped by domain. Keep step implementations in named stage packages and
 name new step classes with the `*Step` suffix, for example `CaptionBboxStep`.
+Prefer focused classes for non-trivial functions and use cases, especially when
+logic coordinates multiple operations, dependencies, or mutable state. Avoid
+long functions: keep functions small and single-purpose, and extract substantial
+workflows into cohesive classes with clearly named methods.
 Tests should be named `test_<behavior>` and organized as
 `tests/<domain>/test_<area>.py`. Prefer `pathlib.Path` for filesystem paths and
 structured YAML parsing over ad hoc string handling.

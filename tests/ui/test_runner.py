@@ -9,6 +9,8 @@ import pytest
 
 from prepare_lora_kit.cancellation import CancelledRun
 from prepare_lora_kit.cli.ui import _static_server
+from prepare_lora_kit.pipeline.execution import resolve_selected_substeps
+from prepare_lora_kit.pipeline.validation import validate_pipeline_selection
 from prepare_lora_kit.project.base import ProjectConfig, PipelineStep
 from prepare_lora_kit.pipeline.configs import (
     AuditConfig,
@@ -25,6 +27,7 @@ from prepare_lora_kit_ui.runner import (
     JobManager,
     PipelineJob,
     UiInteractionProvider,
+    UiPipelineExecutor,
     _LogStream,
     _image_payload,
     project_payload,
@@ -86,10 +89,8 @@ def _invoke_map(calls: list[str]) -> dict[str, MagicMock]:
 
 
 def test_validate_selection_requires_vae_gate_for_audit(tmp_path):
-    manager = JobManager()
-
     with pytest.raises(ValueError, match="AuditStep requires"):
-        manager._validate_selection(_project(), ["AuditStep"], tmp_path / "out")
+        validate_pipeline_selection(_project(), ["AuditStep"], tmp_path / "out")
 
 
 def test_validate_selection_accepts_completed_prerequisite(tmp_path):
@@ -97,23 +98,19 @@ def test_validate_selection_accepts_completed_prerequisite(tmp_path):
     (out / "dataset").mkdir(parents=True)
     RunState(out).mark_done("VaeGateStep")
 
-    manager = JobManager()
-    manager._validate_selection(_project(), ["AuditStep"], out)
+    validate_pipeline_selection(_project(), ["AuditStep"], out)
 
 
 def test_validate_selection_requires_import_for_quality_gate(tmp_path):
-    manager = JobManager()
-
     with pytest.raises(ValueError, match="QualityGateStep requires"):
-        manager._validate_selection(_project(), ["QualityGateStep"], tmp_path / "out")
+        validate_pipeline_selection(_project(), ["QualityGateStep"], tmp_path / "out")
 
 
 def test_validate_selection_accepts_existing_dataset_for_import_prerequisite(tmp_path):
     out = tmp_path / "out"
     (out / "dataset").mkdir(parents=True)
 
-    manager = JobManager()
-    manager._validate_selection(_project(), ["QualityGateStep"], out)
+    validate_pipeline_selection(_project(), ["QualityGateStep"], out)
 
 
 def test_validate_selection_allows_caption_without_optional_upscale_when_curate_done(tmp_path):
@@ -124,8 +121,7 @@ def test_validate_selection_allows_caption_without_optional_upscale_when_curate_
     state.mark_done("QualityGateStep")
     state.mark_done("CurateStep")
 
-    manager = JobManager()
-    manager._validate_selection(_project(), ["CaptionBboxStep"], out)
+    validate_pipeline_selection(_project(), ["CaptionBboxStep"], out)
 
 
 def test_project_payload_includes_run_state(tmp_path):
@@ -213,10 +209,8 @@ def test_project_payload_prefers_working_dataset_over_input(tmp_path):
 
 
 def test_validate_selection_rejects_substep_without_local_prerequisite(tmp_path):
-    manager = JobManager()
-
     with pytest.raises(ValueError, match="review_decisions requires"):
-        manager._validate_selection(
+        validate_pipeline_selection(
             _project(),
             ["ImportStep", "QualityGateStep"],
             tmp_path / "out",
@@ -225,9 +219,7 @@ def test_validate_selection_rejects_substep_without_local_prerequisite(tmp_path)
 
 
 def test_resolve_selected_substeps_accepts_request_override(tmp_path):
-    manager = JobManager()
-
-    resolved = manager._resolve_selected_substeps(
+    resolved = resolve_selected_substeps(
         _project(),
         ["CurateStep"],
         {"CurateStep": ["duplicate_check", "drop_images"]},
@@ -245,9 +237,10 @@ def test_ui_run_starts_at_first_pending_active_step(tmp_path):
     invoke_map = _invoke_map(calls)
     manager = JobManager(projects={"test": _project()})
     job = PipelineJob(manager, "test-job")
+    executor = UiPipelineExecutor(projects={"test": _project()})
 
     with patch.dict("prepare_lora_kit_ui.runner.STEP_INVOKE_MAP", invoke_map, clear=True):
-        manager._execute(job, _run_request(tmp_path, out))
+        executor.execute(job, _run_request(tmp_path, out))
 
     assert calls == ["CurateStep", "CaptionBboxStep", "VaeGateStep", "AuditStep", "BucketPoolsCheckStep"]
     assert job.snapshot()["skipped_steps"] == ["ImportStep", "QualityGateStep"]
@@ -263,9 +256,10 @@ def test_ui_force_run_starts_active_pipeline_from_beginning(tmp_path):
     invoke_map = _invoke_map(calls)
     manager = JobManager(projects={"test": _project()})
     job = PipelineJob(manager, "test-job")
+    executor = UiPipelineExecutor(projects={"test": _project()})
 
     with patch.dict("prepare_lora_kit_ui.runner.STEP_INVOKE_MAP", invoke_map, clear=True):
-        manager._execute(job, _run_request(tmp_path, out, force=True))
+        executor.execute(job, _run_request(tmp_path, out, force=True))
 
     assert calls == _active_step_types()
     assert job.snapshot()["skipped_steps"] == []
@@ -281,9 +275,10 @@ def test_ui_force_run_reimports_existing_working_dataset(tmp_path):
     invoke_map = _invoke_map(calls)
     manager = JobManager(projects={"test": _project()})
     job = PipelineJob(manager, "test-job")
+    executor = UiPipelineExecutor(projects={"test": _project()})
 
     with patch.dict("prepare_lora_kit_ui.runner.STEP_INVOKE_MAP", invoke_map, clear=True):
-        manager._execute(job, _run_request(tmp_path, out, force=True))
+        executor.execute(job, _run_request(tmp_path, out, force=True))
 
     # --force re-imports even when a working dataset already exists.
     assert calls == _active_step_types()
@@ -319,6 +314,7 @@ def test_ui_run_pauses_for_step_config_and_applies_overrides(tmp_path):
 
     manager = JobManager(projects={"test": project})
     job = PipelineJob(manager, "test-job")
+    executor = UiPipelineExecutor(projects={"test": project})
     request = _run_request(tmp_path, out)
     request["steps"] = ["ImportStep", "QualityGateStep"]
     request["pause_for_config"] = True
@@ -328,7 +324,7 @@ def test_ui_run_pauses_for_step_config_and_applies_overrides(tmp_path):
     def run():
         try:
             with patch.dict("prepare_lora_kit_ui.runner.STEP_INVOKE_MAP", invoke_map, clear=True):
-                manager._execute(job, request)
+                executor.execute(job, request)
         except Exception as exc:  # pragma: no cover - surfaced via assertion
             errors.append(exc)
 
@@ -349,10 +345,8 @@ def test_ui_run_pauses_for_step_config_and_applies_overrides(tmp_path):
 
 
 def test_validate_selection_rejects_deactivated_unmet_prerequisite(tmp_path):
-    manager = JobManager()
-
     with pytest.raises(ValueError, match="CurateStep requires"):
-        manager._validate_selection(
+        validate_pipeline_selection(
             _project(),
             ["ImportStep", "CurateStep"],
             tmp_path / "out",
@@ -371,12 +365,13 @@ def test_ui_run_failure_stops_before_downstream_steps(tmp_path):
     invoke_map["QualityGateStep"].side_effect = fail_quality_gate
     manager = JobManager(projects={"test": _project()})
     job = PipelineJob(manager, "test-job")
+    executor = UiPipelineExecutor(projects={"test": _project()})
     request = _run_request(tmp_path, out)
     request["steps"] = ["ImportStep", "QualityGateStep", "CurateStep"]
 
     with patch.dict("prepare_lora_kit_ui.runner.STEP_INVOKE_MAP", invoke_map, clear=True), \
             pytest.raises(RuntimeError, match="quality failed"):
-        manager._execute(job, request)
+        executor.execute(job, request)
 
     assert calls == ["ImportStep", "QualityGateStep"]
     run_state = RunState(out)
@@ -662,7 +657,7 @@ def test_ui_job_uses_plain_rich_console(monkeypatch):
         reporter.info("Loading VAE from black-forest-labs/FLUX.2-klein-base-9B ...")
         print("\x1b[31mexternal framework warning\x1b[0m")
 
-    monkeypatch.setattr(manager, "_execute", fake_execute)
+    monkeypatch.setattr(manager._executor, "execute", fake_execute)
 
     manager._run_job(job, {})
 
@@ -679,7 +674,7 @@ def test_cancelled_run_sets_clean_cancelled_status_without_traceback(monkeypatch
     def fake_execute(job_arg, request):
         raise CancelledRun("Run cancelled")
 
-    monkeypatch.setattr(manager, "_execute", fake_execute)
+    monkeypatch.setattr(manager._executor, "execute", fake_execute)
 
     manager._run_job(job, {})
 

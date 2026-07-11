@@ -12,7 +12,7 @@ from prepare_lora_kit_ui.runner.constants import TERMINAL_STATUSES
 class PipelineJob:
     """Mutable job state guarded by a condition variable."""
 
-    def __init__(self, manager: "JobManager", job_id: str) -> None:
+    def __init__(self, manager, job_id: str) -> None:
         self.manager = manager
         self.id = job_id
         self.status = "queued"

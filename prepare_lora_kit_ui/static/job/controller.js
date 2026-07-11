@@ -33,7 +33,7 @@ export async function startRun() {
     const result = await api().start_run(request);
     state.jobId = result.job_id;
     state.handledRequestId = null;
-    pollJob();
+    await pollJob();
   } catch (err) {
     state.runStarting = false;
     if (state.job?.status === "queued" && !state.jobId) {

@@ -48,12 +48,13 @@ each step up in registries and dispatches. Adding a step touches several registr
 not a single switch.
 
 **Flow:** `cli/` (Click commands) -> loads `ProjectConfig` (`project/project_registry.py`)
--> `pipeline.run_all(RunConfig)` iterates `project.pipeline`, skipping done steps via
-`utils/state.RunState` (`.plk_state.json`) ->
+-> `pipeline.run_all(RunConfig)` delegates to `pipeline/execution/`, which iterates
+`project.pipeline` and skips done steps via `utils/state.RunState` (`.plk_state.json`) ->
 for each step calls `STEP_INVOKE_MAP[step.type]` in `invoke/` → the adapter imports the
 matching named `steps/*/` module and calls its `run()`. The original dataset is never mutated;
-only `output_dir/dataset/` is. The UI runs the same pipeline through `prepare_lora_kit_ui/runner/`
-and `prepare_lora_kit_ui/bridge.py` instead of the CLI.
+only `output_dir/dataset/` is. The UI's `runner/executor.py` coordinates typed requests from
+`runner/run_request.py` with job hooks from `runner/execution_hooks.py`; `runner/manager.py`
+only manages job lifecycle and thread error handling.
 
 **Pipeline stages** (named packages, each `step.py` + helpers): `import_step` (ImportStep),
 `quality_gate` (QualityGateStep), `curate` (CurateStep), `upscale` (UpscaleStep, optional),

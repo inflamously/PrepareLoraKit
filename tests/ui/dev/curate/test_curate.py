@@ -3,7 +3,7 @@ import json
 import pytest
 
 from prepare_lora_kit_ui.e2e import create_mock_ui_fixture
-from prepare_lora_kit_ui.runner import JobManager, PipelineJob
+from prepare_lora_kit_ui.runner import JobManager, PipelineJob, UiPipelineExecutor
 from prepare_lora_kit.utils import image as img_utils
 
 
@@ -16,8 +16,12 @@ def test_mock_project_curate_runs_through_job_manager(
         interaction_provider_cls=recording_curate_provider,
     )
     job = PipelineJob(manager, "mock-job")
+    executor = UiPipelineExecutor(
+        projects={fixture.project.name: fixture.project},
+        interaction_provider_cls=recording_curate_provider,
+    )
 
-    manager._execute(
+    executor.execute(
         job,
         {
             "input_dir": str(fixture.input_dir),
@@ -67,8 +71,12 @@ def test_mock_project_curate_writes_requested_coverage_plot(
         interaction_provider_cls=recording_curate_provider,
     )
     job = PipelineJob(manager, "mock-job")
+    executor = UiPipelineExecutor(
+        projects={fixture.project.name: fixture.project},
+        interaction_provider_cls=recording_curate_provider,
+    )
 
-    manager._execute(
+    executor.execute(
         job,
         {
             "input_dir": str(fixture.input_dir),
@@ -107,8 +115,12 @@ def test_mock_project_curate_auto_uses_umap_above_threshold(
         interaction_provider_cls=recording_curate_provider,
     )
     job = PipelineJob(manager, "mock-job")
+    executor = UiPipelineExecutor(
+        projects={fixture.project.name: fixture.project},
+        interaction_provider_cls=recording_curate_provider,
+    )
 
-    manager._execute(
+    executor.execute(
         job,
         {
             "input_dir": str(fixture.input_dir),

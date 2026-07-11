@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from prepare_lora_kit.pipeline.configuration import StepDefinition
-    from prepare_lora_kit.pipeline.run import RunConfig
+    from prepare_lora_kit.pipeline.execution import ExecutionHooks, ExecutionResult, RunConfig
     from prepare_lora_kit.pipeline.validation import PipelineValidationError
 
 
@@ -23,10 +23,14 @@ def __getattr__(name: str) -> Any:
         from prepare_lora_kit.pipeline import configuration
 
         return getattr(configuration, name)
-    if name in {"RunConfig", "run_all"}:
-        from prepare_lora_kit.pipeline.run import RunConfig, run_all
+    if name == "run_all":
+        from prepare_lora_kit.pipeline.run import run_all
 
-        return {"RunConfig": RunConfig, "run_all": run_all}[name]
+        return run_all
+    if name in {"ExecutionHooks", "ExecutionResult", "RunConfig", "execute_pipeline"}:
+        from prepare_lora_kit.pipeline import execution
+
+        return getattr(execution, name)
     if name in {"PipelineValidationError", "validate_pipeline_selection"}:
         from prepare_lora_kit.pipeline.validation import (
             PipelineValidationError,
@@ -45,6 +49,8 @@ def __getattr__(name: str) -> Any:
 
 __all__ = [
     "RunConfig",
+    "ExecutionHooks",
+    "ExecutionResult",
     "STEP_DEFINITIONS",
     "STEP_INVOKE_MAP",
     "PipelineValidationError",
@@ -52,6 +58,7 @@ __all__ = [
     "is_optional_step_type",
     "is_resume_aware_step_type",
     "run_all",
+    "execute_pipeline",
     "step_config_class",
     "step_definition",
     "step_prerequisites",
