@@ -77,3 +77,35 @@ describe("step list attention highlight", () => {
     assert.equal(upscale.getAttribute("title"), null);
   });
 });
+
+describe("live job completion state", () => {
+  it("renders done steps and substeps before the project is reloaded", () => {
+    state.project = {
+      name: "sample",
+      steps: [
+        step("QualityGateStep", {
+          substeps: [
+            { id: "score_images", label: "Score", enabled: true, status: "pending" },
+            { id: "review_decisions", label: "Review", enabled: true, status: "pending" },
+          ],
+        }),
+      ],
+    };
+    state.job = {
+      status: "running",
+      current_step: null,
+      current_substep: null,
+      completed_steps: ["QualityGateStep"],
+      completed_substeps: {
+        QualityGateStep: ["score_images", "review_decisions"],
+      },
+    };
+
+    renderSteps();
+
+    const statuses = [...document.querySelectorAll(".step-status")].map(
+      (element) => element.textContent,
+    );
+    assert.deepEqual(statuses, ["done", "done", "done"]);
+  });
+});

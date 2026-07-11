@@ -168,11 +168,16 @@ class PipelineExecutor:
             step: PipelineStep,
             substeps: list[str],
     ) -> None:
+        # Step invokers currently run their selected substeps as one transaction.
+        # Publish their individual completion only after that invocation succeeds.
+        completed_substeps = context.result.completed_substeps.setdefault(step.type, [])
         for substep_id in substeps:
             context.state.mark_substep_done(step.type, substep_id)
+            completed_substeps.append(substep_id)
+            if self._hooks.substep_complete is not None:
+                self._hooks.substep_complete(step, substep_id)
         context.state.mark_done(step.type, {"enabled_substeps": substeps})
         context.result.completed_steps.append(step.type)
-        context.result.completed_substeps[step.type] = list(substeps)
         if self._hooks.step_complete is not None:
             self._hooks.step_complete(step, substeps)
 

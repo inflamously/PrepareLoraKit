@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from prepare_lora_kit.pipeline.configs import CurateConfig, ImportConfig, QualityGateConfig
-from prepare_lora_kit.pipeline.execution import RunConfig, execute_pipeline
+from prepare_lora_kit.pipeline.execution import ExecutionHooks, RunConfig, execute_pipeline
 from prepare_lora_kit.project.base import PipelineStep, ProjectConfig
 from prepare_lora_kit.utils.state import RunState
 
@@ -42,6 +42,39 @@ def test_selected_execution_uses_project_order_and_collects_result(tmp_path):
     assert result.skipped_steps == []
     assert result.output_dir == tmp_path / "out"
     assert result.reports_dir == tmp_path / "out" / "reports"
+
+
+def test_completion_hooks_report_substeps_before_parent_step(tmp_path):
+    events: list[tuple[str, str]] = []
+    output_dir = tmp_path / "out"
+    (output_dir / "dataset").mkdir(parents=True)
+    RunState(output_dir).mark_done("ImportStep")
+    cfg = RunConfig(
+        dataset_dir=tmp_path / "input",
+        output_dir=output_dir,
+        project=_project(),
+        selected_steps=["QualityGateStep"],
+        requested_substeps={"QualityGateStep": ["score_images", "review_decisions"]},
+    )
+    hooks = ExecutionHooks(
+        substep_complete=lambda step, substep_id: events.append(
+            ("substep", f"{step.type}:{substep_id}")
+        ),
+        step_complete=lambda step, _substeps: events.append(("step", step.type)),
+    )
+
+    with patch.dict(
+        "prepare_lora_kit.pipeline.STEP_INVOKE_MAP",
+        {"QualityGateStep": MagicMock()},
+        clear=True,
+    ):
+        execute_pipeline(cfg, hooks)
+
+    assert events == [
+        ("substep", "QualityGateStep:score_images"),
+        ("substep", "QualityGateStep:review_decisions"),
+        ("step", "QualityGateStep"),
+    ]
 
 
 def test_requested_substeps_are_resolved_before_validation(tmp_path):

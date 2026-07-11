@@ -1,4 +1,5 @@
 """Pipeline execution hooks that project engine events onto a UI job."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -34,20 +35,22 @@ class UiJobHooks:
     """Handle shared execution lifecycle events for one desktop UI job."""
 
     def __init__(
-            self,
-            job: PipelineJob,
-            interaction: Any,
-            pause_for_config: bool,
+        self,
+        job: PipelineJob,
+        interaction: Any,
+        pause_for_config: bool,
     ) -> None:
         self._job = job
         self._interaction = interaction
         self._pause_for_config = pause_for_config
         self._config_resolver = StepConfigResolver(job, interaction)
+        self._active_substeps: dict[str, list[str]] = {}
 
     def to_execution_hooks(self) -> ExecutionHooks:
         return ExecutionHooks(
             step_start=self.step_start,
             step_skip=self.step_skip,
+            substep_complete=self.substep_complete,
             resolve_config=self.resolve_config,
             post_step=self.post_step,
             step_complete=self.step_complete,
@@ -55,15 +58,29 @@ class UiJobHooks:
         )
 
     def step_start(self, step: PipelineStep, substeps: list[str]) -> None:
+        self._active_substeps[step.type] = list(substeps)
         self._job.set_status(
             "running",
             current_step=step.type,
             current_substep=substeps[0] if substeps else None,
         )
 
-    def step_skip(
-            self, step: PipelineStep, substeps: list[str], reason: str
-    ) -> None:
+    def substep_complete(self, step: PipelineStep, substep_id: str) -> None:
+        completed = self._job.completed_substeps.setdefault(step.type, [])
+        if substep_id not in completed:
+            completed.append(substep_id)
+        remaining = [
+            candidate
+            for candidate in self._active_substeps.get(step.type, [])
+            if candidate not in completed
+        ]
+        self._job.set_status(
+            "running",
+            current_step=step.type,
+            current_substep=remaining[0] if remaining else None,
+        )
+
+    def step_skip(self, step: PipelineStep, substeps: list[str], reason: str) -> None:
         self._job.skipped_steps.append(step.type)
         self._job.skipped_substeps[step.type] = list(substeps)
         if reason == "legacy_import":
@@ -76,10 +93,12 @@ class UiJobHooks:
             return step.config
         return self._config_resolver.resolve(step)
 
-    def post_step(
-            self, step: PipelineStep, result: Any, output_dir: Path
-    ) -> None:
-        if step.type == "AuditStep" and isinstance(result, dict) and not result.get("pass"):
+    def post_step(self, step: PipelineStep, result: Any, output_dir: Path) -> None:
+        if (
+            step.type == "AuditStep"
+            and isinstance(result, dict)
+            and not result.get("pass")
+        ):
             self._job.add_log(
                 "AuditStep found issues; review reports/AuditStep_report.json"
             )
@@ -90,11 +109,11 @@ class UiJobHooks:
 
     def step_complete(self, step: PipelineStep, substeps: list[str]) -> None:
         self._job.completed_steps.append(step.type)
-        self._job.completed_substeps[step.type] = list(substeps)
+        self._job.set_status("running", current_step=None, current_substep=None)
 
     def complete(self, result: ExecutionResult) -> None:
         self._job.result = {
             "output_dir": str(result.output_dir),
             "reports_dir": str(result.reports_dir),
         }
-        self._job.set_status("completed", current_step=None, current_substep=None)
+        self._job.set_status("done", current_step=None, current_substep=None)

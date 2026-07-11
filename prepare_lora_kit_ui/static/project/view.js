@@ -33,7 +33,8 @@ function renderStep(step) {
   const row = document.createElement("div");
   const disabled = isActiveJob() ? "disabled" : "";
   const running = state.job?.current_step === step.type;
-  const status = running ? "running" : step.status;
+  const completed = state.job?.completed_steps?.includes(step.type);
+  const status = completed ? "done" : running ? "running" : step.status;
   const prereq = step.prerequisites?.length
     ? `Requires ${step.prerequisites.join(", ")}`
     : "No special prerequisites";
@@ -115,7 +116,10 @@ function renderStep(step) {
 
 function renderSubstep(step, substep, disabled) {
   const running = state.job?.current_substep === substep.id;
-  const status = running
+  const completed = state.job?.completed_substeps?.[step.type]?.includes(substep.id);
+  const status = completed
+    ? "done"
+    : running
     ? "running"
     : substep.enabled === false
       ? "disabled"

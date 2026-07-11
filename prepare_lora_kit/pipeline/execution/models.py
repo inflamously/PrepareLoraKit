@@ -43,6 +43,7 @@ class ExecutionResult:
 
 StepStartHook = Callable[[PipelineStep, list[str]], None]
 StepSkipHook = Callable[[PipelineStep, list[str], str], None]
+SubstepCompleteHook = Callable[[PipelineStep, str], None]
 ConfigResolver = Callable[[PipelineStep], Any]
 PostStepHook = Callable[[PipelineStep, Any, Path], None]
 StepCompleteHook = Callable[[PipelineStep, list[str]], None]
@@ -55,6 +56,7 @@ class ExecutionHooks:
 
     step_start: StepStartHook | None = None
     step_skip: StepSkipHook | None = None
+    substep_complete: SubstepCompleteHook | None = None
     resolve_config: ConfigResolver | None = None
     post_step: PostStepHook | None = None
     step_complete: StepCompleteHook | None = None

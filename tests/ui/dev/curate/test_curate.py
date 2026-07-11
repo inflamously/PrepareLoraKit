@@ -35,7 +35,7 @@ def test_mock_project_curate_runs_through_job_manager(
     )
 
     snapshot = job.snapshot()
-    assert snapshot["status"] == "completed"
+    assert snapshot["status"] == "done"
     assert snapshot["completed_steps"] == ["CurateStep"]
     report_path = fixture.output_dir / "reports" / "CurateStep_report.json"
     report = json.loads(report_path.read_text(encoding="utf-8"))
@@ -94,7 +94,7 @@ def test_mock_project_curate_writes_requested_coverage_plot(
     report = json.loads(report_path.read_text(encoding="utf-8"))
     coverage_path = fixture.output_dir / "reports" / f"coverage_{expected_method}.png"
 
-    assert job.snapshot()["status"] == "completed"
+    assert job.snapshot()["status"] == "done"
     assert report["coverage"]["method"] == expected_method
     assert report["coverage_image"] == str(coverage_path)
     assert coverage_path.exists()
@@ -141,7 +141,7 @@ def test_mock_project_curate_auto_uses_umap_above_threshold(
         step.config for step in fixture.project.pipeline if step.type == "CurateStep"
     )
 
-    assert job.snapshot()["status"] == "completed"
+    assert job.snapshot()["status"] == "done"
     assert report["dropped_duplicates"] == []
     assert len(report["kept_images"]) == initial_image_count
     assert len(img_utils.iter_images(fixture.output_dir / "dataset")) == initial_image_count

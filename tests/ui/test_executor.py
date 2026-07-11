@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 from prepare_lora_kit.pipeline.configs import ImportConfig, QualityGateConfig
 from prepare_lora_kit.project.base import PipelineStep, ProjectConfig
 from prepare_lora_kit_ui.runner import JobManager, PipelineJob, UiPipelineExecutor
+from prepare_lora_kit_ui.runner.execution_hooks import UiJobHooks
 
 
 def _project() -> ProjectConfig:
@@ -51,7 +52,7 @@ def test_executor_maps_engine_result_and_runtime_options_to_job(tmp_path):
         executor.execute(job, request)
 
     snapshot = job.snapshot()
-    assert snapshot["status"] == "completed"
+    assert snapshot["status"] == "done"
     assert snapshot["completed_steps"] == ["ImportStep"]
     assert snapshot["completed_substeps"] == {"ImportStep": ["import_images"]}
     assert snapshot["result"] == {
@@ -91,3 +92,24 @@ def test_invalid_config_override_reprompts_with_error():
     assert interaction.errors[0] is None
     assert "mutually exclusive" in interaction.errors[1]
     assert any("config rejected" in line for line in job.snapshot()["logs"])
+
+
+def test_ui_hooks_keep_job_running_while_marking_step_and_substeps_complete():
+    manager = JobManager()
+    job = PipelineJob(manager, "test-job")
+    step = _project().pipeline[1]
+    hooks = UiJobHooks(job, interaction=object(), pause_for_config=False)
+
+    hooks.step_start(step, ["score_images", "review_decisions"])
+    hooks.substep_complete(step, "score_images")
+    snapshot = job.snapshot()
+    assert snapshot["status"] == "running"
+    assert snapshot["current_substep"] == "review_decisions"
+    assert snapshot["completed_substeps"] == {"QualityGateStep": ["score_images"]}
+
+    hooks.substep_complete(step, "review_decisions")
+    hooks.step_complete(step, ["score_images", "review_decisions"])
+    snapshot = job.snapshot()
+    assert snapshot["status"] == "running"
+    assert snapshot["current_step"] is None
+    assert snapshot["completed_steps"] == ["QualityGateStep"]
