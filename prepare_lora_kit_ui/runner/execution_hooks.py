@@ -106,6 +106,22 @@ class UiJobHooks:
             self._interaction.curate_details(
                 result, output_dir / "reports" / "CurateStep_report.json"
             )
+        if step.type == "BucketPoolsCheckStep" and self._has_bucket_assignments(result):
+            self._interaction.bucket_pool_details(
+                result, output_dir / "reports" / "BucketPoolsCheckStep_report.json"
+            )
+
+    @staticmethod
+    def _has_bucket_assignments(result: Any) -> bool:
+        if not isinstance(result, dict) or result.get("skipped"):
+            return False
+        buckets = result.get("buckets")
+        if not isinstance(buckets, dict):
+            return False
+        return any(
+            isinstance(bucket, dict) and int(bucket.get("count", 0)) > 0
+            for bucket in buckets.values()
+        )
 
     def step_complete(self, step: PipelineStep, substeps: list[str]) -> None:
         self._job.completed_steps.append(step.type)
@@ -116,4 +132,4 @@ class UiJobHooks:
             "output_dir": str(result.output_dir),
             "reports_dir": str(result.reports_dir),
         }
-        self._job.set_status("done", current_step=None, current_substep=None)
+        self._job.set_status("completed", current_step=None, current_substep=None)

@@ -38,6 +38,9 @@ class InteractionProvider(Protocol):
     def upscale_review(self, items: list[dict]) -> dict[str, str]:
         """Return per-original Step 3 decisions for flagged images: upscale or skip."""
 
+    def bucket_pool_details(self, report: dict[str, Any], report_path: Path) -> bool:
+        """Show read-only bucket assignments and wait for confirmation."""
+
     def export_review(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Preview the ExportStep diff and return ``{confirmed, excluded}``.
 

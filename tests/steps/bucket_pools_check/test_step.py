@@ -2,6 +2,8 @@ import json
 
 from PIL import Image
 
+from prepare_lora_kit.invoke.bucket_pools_check_step import invoke_bucket_pools_check_step
+from prepare_lora_kit.pipeline.configs import BucketPoolsCheckConfig
 from prepare_lora_kit.steps.bucket_pools_check import run
 
 
@@ -36,6 +38,7 @@ def test_bucket_pools_check_assigns_buckets_reports_thin_and_writes_cache(tmp_pa
     assert report["buckets"]["512x512"]["count"] == 2
     assert report["buckets"]["768x512"]["count"] == 1
     assert report["cache_mode"] is True
+    assert report["thin_threshold"] == 1
     assert report["substeps"]["write_cache_info"]["enabled"] is True
     assert report["thin_buckets"][0]["bucket"] == [768, 512]
     assert report["thin_buckets"][0]["count"] == 1
@@ -74,6 +77,7 @@ def test_bucket_pools_check_disabled_assignment_writes_skipped_report(tmp_path):
         "reason": "assign_bucket_pools disabled",
         "buckets": {},
         "thin_buckets": [],
+        "thin_threshold": 2,
         "cache_mode": False,
         "substeps": {
             "assign_bucket_pools": {"enabled": False},
@@ -83,3 +87,20 @@ def test_bucket_pools_check_disabled_assignment_writes_skipped_report(tmp_path):
     }
     assert json.loads(report_path.read_text(encoding="utf-8")) == report
     assert not (output_dir / "cache_info.json").exists()
+
+
+def test_bucket_pools_invoke_returns_report_for_post_step_interactions(tmp_path):
+    working_dir = tmp_path / "dataset"
+    output_dir = tmp_path / "output"
+    working_dir.mkdir()
+    _save_image(working_dir / "square.png", (64, 64))
+
+    report = invoke_bucket_pools_check_step(
+        working_dir,
+        output_dir,
+        BucketPoolsCheckConfig(resolution_buckets=[(512, 512)]),
+        enabled_substeps=["assign_bucket_pools", "report_thin_buckets"],
+    )
+
+    assert report["buckets"]["512x512"]["count"] == 1
+    assert report["thin_threshold"] == 2

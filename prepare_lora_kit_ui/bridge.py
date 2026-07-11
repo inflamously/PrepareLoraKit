@@ -170,8 +170,8 @@ class UiBridge:
         return {"accepted": accepted}
 
     def cancel_job(self, job_id: str) -> dict[str, Any]:
-        self.jobs.get(job_id).cancel()
-        return {"cancel_requested": True}
+        requested = self.jobs.get(job_id).cancel()
+        return {"cancel_requested": requested}
 
     def shutdown(self, *_args) -> dict[str, Any]:
         return {"cancel_requested": self.jobs.cancel_active()}

@@ -98,12 +98,14 @@ class PipelineJob:
             self._condition.notify_all()
             return True
 
-    def cancel(self) -> None:
+    def cancel(self) -> bool:
         with self._condition:
+            if self.status in TERMINAL_STATUSES:
+                return False
             self.cancel_requested = True
-            if self.status not in TERMINAL_STATUSES:
-                self.status = "cancelling"
+            self.status = "cancelling"
             self._condition.notify_all()
+            return True
 
     def raise_if_cancelled(self) -> None:
         with self._condition:

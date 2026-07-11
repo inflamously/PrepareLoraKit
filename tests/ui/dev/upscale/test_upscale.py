@@ -44,7 +44,7 @@ def test_mock_upscale_review_flags_and_converts_jpeg_to_png(tmp_path, monkeypatc
         },
     )
 
-    assert job.snapshot()["status"] == "done"
+    assert job.snapshot()["status"] == "completed"
 
     # The mock project upscales with Lanczos (no SeedVR2 needed in CI). The JPEG
     # is flagged, upscaled, and converted to a clean PNG.

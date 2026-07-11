@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock, patch
 
-from prepare_lora_kit.pipeline.configs import ImportConfig, QualityGateConfig
+from prepare_lora_kit.pipeline.configs import BucketPoolsCheckConfig, ImportConfig, QualityGateConfig
 from prepare_lora_kit.project.base import PipelineStep, ProjectConfig
 from prepare_lora_kit_ui.runner import JobManager, PipelineJob, UiPipelineExecutor
 from prepare_lora_kit_ui.runner.execution_hooks import UiJobHooks
@@ -52,7 +52,7 @@ def test_executor_maps_engine_result_and_runtime_options_to_job(tmp_path):
         executor.execute(job, request)
 
     snapshot = job.snapshot()
-    assert snapshot["status"] == "done"
+    assert snapshot["status"] == "completed"
     assert snapshot["completed_steps"] == ["ImportStep"]
     assert snapshot["completed_substeps"] == {"ImportStep": ["import_images"]}
     assert snapshot["result"] == {
@@ -113,3 +113,25 @@ def test_ui_hooks_keep_job_running_while_marking_step_and_substeps_complete():
     assert snapshot["status"] == "running"
     assert snapshot["current_step"] is None
     assert snapshot["completed_steps"] == ["QualityGateStep"]
+
+
+def test_ui_hooks_open_bucket_details_only_for_populated_report(tmp_path):
+    interaction = MagicMock()
+    hooks = UiJobHooks(PipelineJob(JobManager(), "test-job"), interaction, pause_for_config=False)
+    step = PipelineStep("BucketPoolsCheckStep", BucketPoolsCheckConfig())
+    populated = {
+        "buckets": {"1024x1024": {"count": 1, "paths": ["image.png"]}},
+        "thin_buckets": [],
+    }
+
+    hooks.post_step(step, populated, tmp_path)
+
+    interaction.bucket_pool_details.assert_called_once_with(
+        populated,
+        tmp_path / "reports" / "BucketPoolsCheckStep_report.json",
+    )
+
+    interaction.reset_mock()
+    hooks.post_step(step, {"buckets": {"1024x1024": {"count": 0}}}, tmp_path)
+    hooks.post_step(step, {"skipped": True, "buckets": {}}, tmp_path)
+    interaction.bucket_pool_details.assert_not_called()

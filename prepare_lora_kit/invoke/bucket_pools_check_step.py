@@ -8,10 +8,10 @@ from prepare_lora_kit.pipeline.configs import BucketPoolsCheckConfig
 from prepare_lora_kit.invoke.working_dataset import _require_working_dataset
 
 def invoke_bucket_pools_check_step(working_dir: Path, output_dir: Path, cfg: BucketPoolsCheckConfig,
-                                   **_kw) -> None:
+                                   **_kw) -> dict:
     _require_working_dataset(working_dir)
     from prepare_lora_kit.steps import bucket_pools_check
-    bucket_pools_check.run(
+    return bucket_pools_check.run(
         working_dir,
         resolution_buckets=cfg.resolution_buckets,
         display_name="configured bucket pools",

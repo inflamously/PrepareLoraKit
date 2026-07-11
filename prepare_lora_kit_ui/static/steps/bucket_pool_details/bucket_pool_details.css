@@ -1,0 +1,353 @@
+.bucket-pool-workspace {
+  display: grid;
+  grid-template-columns: 250px 270px minmax(0, 1fr);
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.bucket-pool-panel,
+.bucket-image-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border-right: 1px solid var(--hairline);
+  background: rgba(7, 10, 24, 0.72);
+}
+
+.bucket-panel-heading {
+  display: grid;
+  flex: 0 0 auto;
+  gap: 3px;
+  border-bottom: 1px solid var(--hairline);
+  padding: 12px;
+}
+
+.bucket-panel-heading strong {
+  font-size: 13px;
+}
+
+.bucket-panel-heading span {
+  color: var(--caption);
+  font-size: 11px;
+}
+
+.bucket-pool-grid {
+  display: grid;
+  align-content: start;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  min-height: 0;
+  overflow: auto;
+  padding: 10px;
+}
+
+.bucket-pool-card {
+  display: flex;
+  min-width: 0;
+  min-height: 84px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 7px;
+  border-color: rgba(56, 214, 160, 0.32);
+  background: rgba(11, 16, 36, 0.72);
+  padding: 8px;
+}
+
+.bucket-pool-card.thin {
+  border-color: rgba(255, 196, 0, 0.62);
+  background: rgba(255, 196, 0, 0.08);
+}
+
+.bucket-pool-card.empty {
+  opacity: 0.42;
+}
+
+.bucket-pool-card.selected {
+  outline: 2px solid rgba(255, 224, 0, 0.78);
+  outline-offset: -3px;
+  box-shadow: 0 0 18px rgba(255, 224, 0, 0.12);
+}
+
+.bucket-card-shape {
+  display: block;
+  width: min(56px, 100%);
+  max-height: 36px;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted);
+}
+
+.bucket-card-copy {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+  text-align: center;
+}
+
+.bucket-card-copy strong {
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.bucket-card-copy small {
+  color: var(--caption);
+  font-size: 9px;
+}
+
+.bucket-image-grid {
+  display: grid;
+  align-content: start;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+  min-height: 0;
+  overflow: auto;
+  padding: 10px;
+}
+
+.bucket-image-card {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+  border-color: var(--hairline);
+  background: rgba(11, 16, 36, 0.72);
+  padding: 6px;
+  text-align: left;
+}
+
+.bucket-image-card.selected {
+  border-color: rgba(255, 224, 0, 0.72);
+  box-shadow: 0 0 0 1px rgba(255, 224, 0, 0.18);
+}
+
+.bucket-image-card img {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: var(--radius-sm);
+  background: var(--night-990);
+  object-fit: cover;
+}
+
+.bucket-image-card span,
+.bucket-image-card small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bucket-image-card span {
+  font-size: 11px;
+}
+
+.bucket-image-card small {
+  color: var(--caption);
+  font-size: 10px;
+}
+
+.bucket-panel-empty,
+.bucket-detail-empty {
+  color: var(--caption);
+  font-size: 12px;
+  text-align: center;
+}
+
+.bucket-panel-empty {
+  grid-column: 1 / -1;
+  padding: 24px 10px;
+}
+
+.bucket-pool-detail {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  background: rgba(5, 7, 15, 0.7);
+}
+
+.bucket-detail-empty {
+  display: grid;
+  min-height: 100%;
+  place-content: center;
+  gap: 5px;
+  padding: 24px;
+}
+
+.bucket-detail-empty strong {
+  color: var(--text);
+}
+
+.bucket-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  border-bottom: 1px solid var(--hairline);
+  background: var(--hairline);
+}
+
+.bucket-preview-grid figure {
+  display: grid;
+  min-width: 0;
+  grid-template-rows: 310px auto;
+  gap: 7px;
+  background: rgba(5, 7, 15, 0.94);
+  padding: 10px;
+}
+
+.bucket-original-frame,
+.bucket-crop-stage {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  place-items: center;
+  overflow: hidden;
+}
+
+.bucket-original-frame img {
+  display: block;
+  max-width: 100%;
+  max-height: 300px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  object-fit: contain;
+}
+
+.bucket-crop-shape {
+  max-width: 100%;
+  max-height: 300px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 224, 0, 0.42);
+  border-radius: var(--radius-md);
+  background: var(--night-990);
+}
+
+.bucket-crop-shape img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.bucket-preview-grid figcaption {
+  color: var(--caption);
+  font-size: 10px;
+  text-align: center;
+}
+
+.bucket-detail-copy {
+  display: grid;
+  gap: 11px;
+  padding: 14px;
+}
+
+.bucket-detail-title {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.bucket-detail-title > div {
+  min-width: 0;
+}
+
+.bucket-detail-title strong,
+.bucket-detail-title small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bucket-detail-title small {
+  margin-top: 3px;
+  color: var(--caption);
+  font-size: 10px;
+}
+
+.bucket-status-pill {
+  flex: 0 0 auto;
+  border: 1px solid rgba(56, 214, 160, 0.42);
+  border-radius: var(--radius-pill);
+  background: var(--success-bg);
+  color: var(--success-500);
+  padding: 4px 9px;
+  font-size: 10px;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+.bucket-status-pill.thin {
+  border-color: rgba(255, 196, 0, 0.5);
+  background: var(--warning-bg);
+  color: var(--warning-500);
+}
+
+.bucket-detail-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.bucket-detail-metrics > div {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  background: rgba(11, 16, 36, 0.58);
+  padding: 8px;
+}
+
+.bucket-detail-metrics dt {
+  color: var(--caption);
+  font-size: 10px;
+}
+
+.bucket-detail-metrics dd {
+  margin: 3px 0 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.bucket-detail-copy p {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.bucket-detail-copy .bucket-suggestion {
+  border-left: 2px solid var(--warning-500);
+  background: rgba(255, 196, 0, 0.07);
+  padding: 8px 10px;
+}
+
+.bucket-preview-note {
+  color: var(--caption) !important;
+}
+
+.bucket-pool-footer {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  border-top: 1px solid var(--hairline);
+  padding: 7px 12px;
+  color: var(--caption);
+  font-size: 10px;
+}
+
+.bucket-pool-footer code {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 940px) {
+  .bucket-pool-workspace {
+    grid-template-columns: 210px 230px minmax(360px, 1fr);
+    overflow: auto;
+  }
+}

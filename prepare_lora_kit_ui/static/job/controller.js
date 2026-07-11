@@ -2,6 +2,7 @@ import { api } from "../core/api.js";
 import { $, setText } from "../core/dom.js";
 import { state } from "../+state/index.js";
 import { showAnnotator } from "../steps/bbox_annotation/bbox_annotation.js";
+import { showBucketPoolDetails } from "../steps/bucket_pool_details/bucket_pool_details.js";
 import { showCurateDetails } from "../steps/curate_details/curate_details.js";
 import { showExportReview } from "../steps/export_review/export_review.js";
 import { showSourceReview } from "../steps/source_review/source_review.js";
@@ -144,6 +145,10 @@ function handlePendingInput(pending) {
 
   if (pending.kind === "curate_details") {
     showCurateDetails(pending, { onSubmitted: pollJob });
+  }
+
+  if (pending.kind === "bucket_pool_details") {
+    showBucketPoolDetails(pending, { onSubmitted: pollJob });
   }
 
   if (pending.kind === "bbox_annotation") {

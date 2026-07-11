@@ -624,6 +624,54 @@ def test_ui_interaction_provider_resolves_coverage_points_to_media_uris(tmp_path
     assert points[0]["y_pct"] == 87.25
 
 
+def test_ui_interaction_provider_emits_bucket_pool_details_payload(tmp_path):
+    wide = tmp_path / "wide.png"
+    _png(wide, (1600, 900))
+    report = {
+        "thin_threshold": 2,
+        "buckets": {
+            "1024x1024": {"count": 0, "paths": []},
+            "1344x768": {"count": 1, "paths": [str(wide)]},
+        },
+        "thin_buckets": [{
+            "bucket": [1344, 768],
+            "count": 1,
+            "paths": [str(wide)],
+            "suggestion": "increase repeats",
+        }],
+    }
+    report_path = tmp_path / "BucketPoolsCheckStep_report.json"
+
+    class FakeJob:
+        def request_input(self, kind, payload):
+            self.kind = kind
+            self.payload = payload
+            return {"confirmed": True}
+
+    job = FakeJob()
+    provider = UiInteractionProvider(job, media_base_url="http://127.0.0.1:9999/media")
+
+    assert provider.bucket_pool_details(report, report_path) is True
+
+    assert job.kind == "bucket_pool_details"
+    assert [(bucket["width"], bucket["height"]) for bucket in job.payload["buckets"]] == [
+        (1024, 1024),
+        (1344, 768),
+    ]
+    assert job.payload["buckets"][0]["status"] == "empty"
+    thin = job.payload["buckets"][1]
+    assert thin["status"] == "thin"
+    assert thin["suggestion"] == "increase repeats"
+    assert thin["images"][0]["width"] == 1600
+    assert thin["images"][0]["height"] == 900
+    assert thin["images"][0]["thumb_uri"].endswith("&w=384")
+    assert job.payload["summary"] == {
+        "total_images": 1,
+        "populated_buckets": 1,
+        "thin_buckets": 1,
+    }
+
+
 def test_log_stream_accepts_unicode_output():
     job = PipelineJob(JobManager(), "test-job")
     stream = _LogStream(job)
@@ -694,6 +742,17 @@ def test_cancel_updates_visible_job_status():
     assert snapshot["cancel_requested"] is True
     assert snapshot["status"] == "cancelling"
     assert snapshot["current_step"] == "CaptionBboxStep"
+
+
+def test_cancel_completed_job_is_a_noop():
+    job = PipelineJob(JobManager(), "test-job")
+    job.set_status("completed")
+
+    assert job.cancel() is False
+
+    snapshot = job.snapshot()
+    assert snapshot["status"] == "completed"
+    assert snapshot["cancel_requested"] is False
 
 
 def test_job_snapshot_includes_caption_status():

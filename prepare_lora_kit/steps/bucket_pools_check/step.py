@@ -55,7 +55,7 @@ def run(
         return {}
 
     if "assign_bucket_pools" not in enabled:
-        report_data = build_skipped_report(enabled)
+        report_data = build_skipped_report(enabled, thin_threshold=thin_threshold)
         reporter.save_report(report_data, report_path or (output_dir / "step8_report.json"))
         return report_data
 
@@ -79,6 +79,7 @@ def run(
     report_data = build_success_report(
         bucket_map,
         thin_buckets=thin_buckets,
+        thin_threshold=thin_threshold,
         cache_mode=cache_mode,
         enabled=enabled,
     )

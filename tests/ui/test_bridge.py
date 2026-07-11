@@ -90,3 +90,13 @@ def test_bridge_shutdown_cancels_active_job():
 
     assert result == {"cancel_requested": True}
     assert job.snapshot()["status"] == "cancelling"
+
+
+def test_bridge_does_not_cancel_completed_job():
+    bridge = UiBridge()
+    job = PipelineJob(bridge.jobs, "completed-job")
+    job.set_status("completed")
+    bridge.jobs._jobs[job.id] = job
+
+    assert bridge.cancel_job(job.id) == {"cancel_requested": False}
+    assert job.snapshot()["status"] == "completed"

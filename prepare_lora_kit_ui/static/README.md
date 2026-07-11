@@ -46,6 +46,8 @@ components must follow (e.g. the gold-glow transition) — is documented in
 | `steps/bbox_annotation/canvas.js` | Handles annotation canvas drawing, pointer events, normalized box coordinates, resizing, and cleanup. |
 | `steps/curate_details/curate_details.css` | Styles the curate-details modal, coverage image area, summary metrics, and report path display. |
 | `steps/curate_details/curate_details.js` | Shows curation coverage and summary metrics before submitting confirmation to continue. |
+| `steps/bucket_pool_details/bucket_pool_details.css` | Styles the configured-bucket grid, assigned-image browser, and crop comparison detail pane. |
+| `steps/bucket_pool_details/bucket_pool_details.js` | Shows bucket assignments and an approximate center-crop training preview before continuing. |
 | `steps/source_review/card.js` | Builds source-review cards with image thumbnails, quality metadata, and keep/reject/flag controls. |
 | `steps/source_review/decisions.js` | Defines source-review decision options and normalizes decision values. |
 | `steps/source_review/detail.js` | Renders the selected source-review image, quality summary, score rows, gate findings, and current decision. |

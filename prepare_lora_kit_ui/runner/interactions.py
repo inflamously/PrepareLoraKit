@@ -12,6 +12,53 @@ from prepare_lora_kit.providers.interaction import InteractionProvider
 from prepare_lora_kit_ui.runner.job import PipelineJob
 from prepare_lora_kit_ui.runner.payloads import _image_payload, _jsonable
 
+
+def _image_size(path: Path) -> tuple[int | None, int | None]:
+    try:
+        from PIL import Image
+
+        with Image.open(path) as image:
+            return image.size
+    except (OSError, ValueError):
+        return None, None
+
+
+def _bucket_dimensions(name: str) -> tuple[int, int]:
+    width, height = name.lower().split("x", 1)
+    return int(width), int(height)
+
+
+def _bucket_payload(
+        name: str,
+        raw_bucket: dict[str, Any],
+        thin_by_bucket: dict[tuple[int, ...], dict],
+        thin_threshold: int,
+        media_base_url: str | None,
+) -> dict[str, Any]:
+    width, height = _bucket_dimensions(name)
+    paths = raw_bucket.get("paths", [])
+    paths = paths if isinstance(paths, list) else []
+    images = []
+    for raw_path in paths:
+        path = Path(str(raw_path))
+        image = _image_payload(path, media_base_url)
+        image_width, image_height = _image_size(path)
+        image.update({"width": image_width, "height": image_height})
+        images.append(image)
+
+    count = int(raw_bucket.get("count", len(paths)))
+    status = "empty" if count == 0 else "thin" if count <= thin_threshold else "healthy"
+    thin = thin_by_bucket.get((width, height))
+    return {
+        "width": width,
+        "height": height,
+        "count": count,
+        "status": status,
+        "suggestion": str(thin.get("suggestion") or "") if thin else "",
+        "images": images,
+    }
+
+
 class UiInteractionProvider(InteractionProvider):
     """Provider that pauses a job and waits for frontend responses."""
 
@@ -159,6 +206,36 @@ class UiInteractionProvider(InteractionProvider):
         answer = self._job.request_input("upscale_review", {"items": payload_items})
         decisions = answer.get("decisions", {}) if isinstance(answer, dict) else {}
         return {str(k): str(v) for k, v in decisions.items()}
+
+    def bucket_pool_details(self, report: dict[str, Any], report_path: Path) -> bool:
+        """Pause after bucket assignment for a read-only visual explanation."""
+
+        thin_threshold = int(report.get("thin_threshold", 0))
+        thin_by_bucket = {
+            tuple(item.get("bucket", [])): item
+            for item in report.get("thin_buckets", [])
+            if isinstance(item, dict)
+        }
+        buckets = [
+            _bucket_payload(
+                str(name), raw_bucket, thin_by_bucket, thin_threshold, self._media_base_url
+            )
+            for name, raw_bucket in report.get("buckets", {}).items()
+            if isinstance(raw_bucket, dict)
+        ]
+
+        payload = {
+            "report_path": str(report_path.resolve()),
+            "thin_threshold": thin_threshold,
+            "summary": {
+                "total_images": sum(bucket["count"] for bucket in buckets),
+                "populated_buckets": sum(bucket["count"] > 0 for bucket in buckets),
+                "thin_buckets": sum(bucket["status"] == "thin" for bucket in buckets),
+            },
+            "buckets": buckets,
+        }
+        answer = self._job.request_input("bucket_pool_details", payload)
+        return bool(answer.get("confirmed", False)) if isinstance(answer, dict) else False
 
     def export_review(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Pause the job and show the ExportStep diff for confirmation.

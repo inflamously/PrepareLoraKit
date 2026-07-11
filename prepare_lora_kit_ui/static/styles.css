@@ -11,6 +11,7 @@
 @import "./components/modal.css";
 @import "./steps/source_review/source_review.css";
 @import "./steps/curate_details/curate_details.css";
+@import "./steps/bucket_pool_details/bucket_pool_details.css";
 @import "./steps/vae_review/vae_review.css";
 @import "./steps/upscale_review/upscale_review.css";
 @import "./steps/export_review/export_review.css";

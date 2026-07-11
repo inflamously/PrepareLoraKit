@@ -99,8 +99,7 @@ class JobManager:
             return False
         if job.snapshot()["status"] in TERMINAL_STATUSES:
             return False
-        job.cancel()
-        return True
+        return job.cancel()
 
     def active_interaction_provider(self, job_id: str) -> UiInteractionProvider | None:
         job = self.get(job_id)

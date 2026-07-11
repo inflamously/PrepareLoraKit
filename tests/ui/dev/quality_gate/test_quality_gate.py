@@ -48,7 +48,7 @@ def test_mock_project_quality_gate_runs_with_good_and_bad_images(tmp_path):
         if path.endswith("mock_bad_too_small.png")
     )
 
-    assert job.snapshot()["status"] == "done"
+    assert job.snapshot()["status"] == "completed"
     assert {entry["decision"] for entry in report.values()} == {"keep", "reject"}
     assert bad_entry["kept"] is False
     assert "min_side" in bad_entry["reason"]

@@ -10,12 +10,13 @@ def substep_status(enabled: set[str]) -> dict[str, dict[str, bool]]:
     }
 
 
-def build_skipped_report(enabled: set[str]) -> dict:
+def build_skipped_report(enabled: set[str], *, thin_threshold: int) -> dict:
     return {
         "skipped": True,
         "reason": "assign_bucket_pools disabled",
         "buckets": {},
         "thin_buckets": [],
+        "thin_threshold": thin_threshold,
         "cache_mode": False,
         "substeps": {
             "assign_bucket_pools": {"enabled": False},
@@ -29,6 +30,7 @@ def build_success_report(
     bucket_map: dict[tuple[int, int], list[str]],
     *,
     thin_buckets: list[dict],
+    thin_threshold: int,
     cache_mode: bool,
     enabled: set[str],
 ) -> dict:
@@ -38,6 +40,7 @@ def build_success_report(
             for (bw, bh), paths in bucket_map.items()
         },
         "thin_buckets": thin_buckets,
+        "thin_threshold": thin_threshold,
         "cache_mode": cache_mode and "write_cache_info" in enabled,
         "substeps": substep_status(enabled),
     }

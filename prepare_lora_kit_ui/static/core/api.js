@@ -156,6 +156,24 @@
  */
 
 /**
+ * @typedef {ImagePayload & {width: number | null, height: number | null}} BucketPoolImage
+ *
+ * @typedef {Object} BucketPool
+ * @property {number} width
+ * @property {number} height
+ * @property {number} count
+ * @property {"empty" | "thin" | "healthy"} status
+ * @property {string} suggestion
+ * @property {BucketPoolImage[]} images
+ *
+ * @typedef {Object} BucketPoolDetailsPayload
+ * @property {string} report_path
+ * @property {number} thin_threshold
+ * @property {{total_images: number, populated_buckets: number, thin_buckets: number}} summary
+ * @property {BucketPool[]} buckets Configured buckets in project order.
+ */
+
+/**
  * @typedef {Object} ExportReviewEntry
  * @property {string} rel Target-relative image path (posix), e.g. "subject/image_01.png".
  * @property {string} path Absolute source image path in the working dataset.
@@ -195,8 +213,8 @@
  *
  * @typedef {Object} PendingInput
  * @property {string} id
- * @property {"source_review" | "bbox_annotation" | "vae_review" | "upscale_review" | "curate_details" | "export_review" | "step_config"} kind
- * @property {ImagePayload | {items: SourceReviewItem[]} | {items: VaeReviewItem[]} | {items: UpscaleReviewItem[]} | CurateDetailsPayload | ExportReviewPayload | StepConfigPayload} payload
+ * @property {"source_review" | "bbox_annotation" | "vae_review" | "upscale_review" | "curate_details" | "bucket_pool_details" | "export_review" | "step_config"} kind
+ * @property {ImagePayload | {items: SourceReviewItem[]} | {items: VaeReviewItem[]} | {items: UpscaleReviewItem[]} | CurateDetailsPayload | BucketPoolDetailsPayload | ExportReviewPayload | StepConfigPayload} payload
  */
 
 /**
