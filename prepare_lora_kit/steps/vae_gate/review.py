@@ -22,6 +22,9 @@ def _save_review_artifacts(
     gaussian_blur_sigma: float = 2.0,
     gaussian_blur_kernel: int = 21,
     otsu_enabled: bool = True,
+    output_preview: bool = True,
+    output_silhouette: bool = True,
+    output_hard_silhouette: bool = True,
 ) -> dict:
     """Write review-only VAE artifacts and return their paths and metadata."""
     from PIL import Image
@@ -45,20 +48,26 @@ def _save_review_artifacts(
     vae_path = artifact_dir / "vae.png"
     diff_path = artifact_dir / "diff.png"
     hard_path = artifact_dir / "hard.png"
-    Image.fromarray(recon_uint).save(vae_path)
-    Image.fromarray(diff_arr).save(diff_path)
-    Image.fromarray(hard_arr).save(hard_path)
+    if output_preview:
+        Image.fromarray(recon_uint).save(vae_path)
+    if output_silhouette:
+        Image.fromarray(diff_arr).save(diff_path)
+    if output_hard_silhouette:
+        Image.fromarray(hard_arr).save(hard_path)
+
+    views = {"original": str(original)}
+    if output_preview:
+        views["vae"] = str(vae_path)
+    if output_silhouette:
+        views["diff"] = str(diff_path)
+    if output_hard_silhouette:
+        views["hard"] = str(hard_path)
 
     return {
         "width": width,
         "height": height,
         "diff_threshold": round(float(diff_threshold), 5),
-        "views": {
-            "original": str(original),
-            "vae": str(vae_path),
-            "diff": str(diff_path),
-            "hard": str(hard_path),
-        },
+        "views": views,
     }
 
 
@@ -115,11 +124,11 @@ def _review_artifact_decisions(items: list[dict]) -> dict[str, str]:
         print(f"    vae:      {item.get('views', {}).get('vae')}")
         print(f"    diff:     {item.get('views', {}).get('diff')}")
         print(f"    hard:     {item.get('views', {}).get('hard')}")
-        ans = input(f"  [k]eep / [d]rop / [r]eplace? [{initial[0]}] ").strip().lower()
+        ans = input(f"  [k]eep / [d]rop? [{initial[0]}] ").strip().lower()
         if not ans:
-            decisions[path] = initial if initial in {"keep", "drop", "replace"} else "keep"
+            decisions[path] = initial if initial in {"keep", "drop"} else "keep"
             continue
-        decisions[path] = {"k": "keep", "d": "drop", "r": "replace"}.get(ans[0], "keep")
+        decisions[path] = {"k": "keep", "d": "drop"}.get(ans[0], "keep")
     return decisions
 
 
@@ -146,12 +155,12 @@ def _manual_flag_decision(original: Path, recon_arr: np.ndarray, hf_score: float
             "Left = original | Right = VAE reconstruction\n\n"
             "• Keep: silhouette / outline still carries the concept\n"
             "• Drop: concept lives in the lost detail\n"
-            "• Replace: add to needs-replacement list",
+            "The reconstruction is diagnostic only and never replaces the input.",
             title="Step 4 — VAE Gate",
-            choices=["Keep", "Drop", "Replace"],
+            choices=["Keep", "Drop"],
         )
         return (choice or "keep").lower()
     except ImportError:
         print(f"\n  {original.name}  HF-loss={hf_score:.4f}")
-        ans = input("  [k]eep / [d]rop / [r]eplace? ").strip().lower()
-        return {"k": "keep", "d": "drop", "r": "replace"}.get(ans[0] if ans else "k", "keep")
+        ans = input("  [k]eep / [d]rop? ").strip().lower()
+        return {"k": "keep", "d": "drop"}.get(ans[0] if ans else "k", "keep")

@@ -47,7 +47,14 @@ def _load_vae(model_id: str, config_id: str | None = None):
     return vae, device, dtype
 
 
-def _encode_decode(vae, device, dtype, path: Path, max_side: int = 2048) -> np.ndarray:
+def _encode_decode(
+    vae,
+    device,
+    dtype,
+    path: Path,
+    max_side: int | None = None,
+    seed: int = 42,
+) -> np.ndarray:
     import torch
     from PIL import Image
     import torchvision.transforms as T
@@ -55,18 +62,18 @@ def _encode_decode(vae, device, dtype, path: Path, max_side: int = 2048) -> np.n
     img = Image.open(path).convert("RGB")
     w, h = img.size
     # Cap longest side to max_side before encoding
-    if max(w, h) > max_side:
+    if max_side is not None and max(w, h) > max_side:
         scale = max_side / max(w, h)
         w, h = int(w * scale), int(h * scale)
     # Snap to multiple of 8 (VAE requirement)
-    w = (w // 8) * 8
-    h = (h // 8) * 8
+    w = max(8, (w // 8) * 8)
+    h = max(8, (h // 8) * 8)
     img = img.resize((w, h), Image.LANCZOS)
 
     tensor = T.ToTensor()(img).unsqueeze(0).to(device, dtype=dtype) * 2 - 1  # [-1, 1]
     with torch.no_grad():
         latent = vae.encode(tensor).latent_dist.sample(
-            generator=torch.Generator(device=device).manual_seed(42)
+            generator=torch.Generator(device=device).manual_seed(seed)
         )
         recon = vae.decode(latent).sample
 

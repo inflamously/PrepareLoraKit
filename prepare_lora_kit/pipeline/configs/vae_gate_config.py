@@ -24,9 +24,15 @@ class VaeGateConfig:
     def __post_init__(self) -> None:
         if not self.vae_model_id:
             raise ValueError("VaeGateStep: vae_model_id is required")
-        if self.gaussian_blur_kernel % 2 == 0:
-            raise ValueError("VaeGateStep: gaussian_blur_kernel must be odd")
+        if self.diff_amplification < 0:
+            raise ValueError("VaeGateStep: diff_amplification must be >= 0")
+        if self.gaussian_blur_sigma < 0:
+            raise ValueError("VaeGateStep: gaussian_blur_sigma must be >= 0")
+        if self.gaussian_blur_kernel < 1 or self.gaussian_blur_kernel % 2 == 0:
+            raise ValueError("VaeGateStep: gaussian_blur_kernel must be a positive odd number")
+        if self.outlier_sigma < 0:
+            raise ValueError("VaeGateStep: outlier_sigma must be >= 0")
         if not (0.0 < self.hf_cutoff_fraction < 0.5):
             raise ValueError("VaeGateStep: hf_cutoff_fraction must be in (0, 0.5)")
-        if self.max_side is not None and self.max_side < 1:
-            raise ValueError("VaeGateStep: max_side must be >= 1 when set")
+        if self.max_side is not None and self.max_side < 8:
+            raise ValueError("VaeGateStep: max_side must be >= 8 when set")

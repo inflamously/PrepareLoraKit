@@ -11,7 +11,7 @@ export function vaeReviewCard(
   decisions,
   { onSelect, onDecisionChange } = {},
 ) {
-  return reviewCard(item, decisions, {
+  const card = reviewCard(item, decisions, {
     className: "vae-review-card",
     title: "Left-click card to show details; right-click card to cycle decision",
     decisionOptions: VAE_DECISIONS,
@@ -20,6 +20,8 @@ export function vaeReviewCard(
     onSelect,
     onDecisionChange,
   });
+  card.classList.toggle("flagged", Boolean(item.flagged));
+  return card;
 }
 
 export function syncVaeCards(cardsByPath, decisions) {
@@ -31,6 +33,7 @@ export function syncVaeCards(cardsByPath, decisions) {
 
 function renderVaeReviewCardBody(item) {
   return `
+    ${item.flagged ? '<div class="vae-flag-indicator">Above HF-loss threshold</div>' : ""}
     <div class="vae-card-views">
       ${VAE_VIEWS.map((view) => renderVaeThumb(item, view)).join("")}
     </div>

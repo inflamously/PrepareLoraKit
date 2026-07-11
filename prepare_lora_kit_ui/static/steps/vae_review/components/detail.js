@@ -35,6 +35,7 @@ export function renderVaeDetail(detail, item, decisions, selectedView, onChange)
         <div>
           <strong title="${escapeText(item.name)}">${escapeText(item.name)}</strong>
           <small title="${escapeText(item.path)}">${escapeText(item.path)}</small>
+          ${item.flagged ? '<span class="vae-flag-indicator vae-flag-indicator--detail">Above HF-loss threshold</span>' : ""}
         </div>
         <span class="vae-decision-pill ${escapeText(decision)}">${escapeText(option.label)}</span>
       </div>
@@ -61,6 +62,7 @@ export function renderVaeDetail(detail, item, decisions, selectedView, onChange)
         <div><dt>HF loss</dt><dd>${escapeText(formatNumber(item.hf_loss))}</dd></div>
         <div><dt>Gate threshold</dt><dd>${escapeText(formatNumber(item.threshold))}</dd></div>
         <div><dt>Diff threshold</dt><dd>${escapeText(formatNumber(item.diff_threshold))}</dd></div>
+        <div><dt>Gate result</dt><dd>${item.flagged ? "Above threshold" : "Within dataset range"}</dd></div>
       </dl>
     </div>
   `;

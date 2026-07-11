@@ -33,7 +33,7 @@ class InteractionProvider(Protocol):
         """
 
     def vae_review(self, items: list[dict]) -> dict[str, str]:
-        """Return per-original VAE gate decisions: keep, drop, or replace."""
+        """Return per-original VAE gate decisions: keep or drop."""
 
     def upscale_review(self, items: list[dict]) -> dict[str, str]:
         """Return per-original Step 3 decisions for flagged images: upscale or skip."""

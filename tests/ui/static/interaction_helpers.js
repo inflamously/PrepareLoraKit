@@ -172,7 +172,7 @@ export function vaeReviewPending() {
           threshold: 0.2,
           diff_threshold: 18,
           flagged: true,
-          initial_decision: "replace",
+          initial_decision: "keep",
           views: {
             original: imagePayload("second-original"),
             vae: imagePayload("second-vae"),

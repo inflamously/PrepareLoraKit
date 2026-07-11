@@ -29,12 +29,20 @@ export function showStepHelp(stepType) {
 
   const substeps = help.substeps || [];
   const params = help.params || [];
+  const process = help.process || [];
+  const guidance = help.guidance || [];
 
   // Build the sections that actually have content. Each becomes a tab panel when
   // tabs are shown, or a stacked section otherwise.
   const panels = [
     { key: "overview", label: "Overview", html: overviewPanel(help) },
   ];
+  if (process.length) {
+    panels.push({ key: "process", label: "Process", html: defListPanel(process, false) });
+  }
+  if (guidance.length) {
+    panels.push({ key: "guidance", label: "Review Guide", html: defListPanel(guidance, false) });
+  }
   if (substeps.length) {
     panels.push({ key: "substeps", label: "Substeps", html: defListPanel(substeps, true) });
   }

@@ -524,7 +524,7 @@ def test_ui_interaction_provider_emits_vae_review_payload(tmp_path):
             "threshold": 0.2,
             "diff_threshold": 12.0,
             "flagged": True,
-            "initial_decision": "replace",
+            "initial_decision": "keep",
             "views": {
                 "original": str(original),
                 "vae": str(vae),

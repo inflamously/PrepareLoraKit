@@ -32,7 +32,8 @@ describe("vae review interaction", () => {
       ["Original", "VAE", "Diff", "Hard Mask"],
     );
     assert.equal(cards[0].classList.contains("keep"), true);
-    assert.equal(cards[1].classList.contains("replace"), true);
+    assert.equal(cards[1].classList.contains("keep"), true);
+    assert.match(cards[1].textContent, /Above HF-loss threshold/);
     assert.equal(cards[0].classList.contains("selected"), true);
 
     layer
@@ -55,8 +56,13 @@ describe("vae review interaction", () => {
     cards[1].dispatchEvent(
       new window.MouseEvent("contextmenu", { bubbles: true, cancelable: true }),
     );
+    assert.equal(cards[1].classList.contains("drop"), true);
+    assertPressed(layer.querySelector(".vae-detail-actions"), "drop");
+
+    cards[1].dispatchEvent(
+      new window.MouseEvent("contextmenu", { bubbles: true, cancelable: true }),
+    );
     assert.equal(cards[1].classList.contains("keep"), true);
-    assertPressed(layer.querySelector(".vae-detail-actions"), "keep");
 
     layer
       .querySelector('.vae-detail-actions [data-decision="drop"]')
@@ -118,7 +124,7 @@ describe("vae review interaction", () => {
               hf_loss: 1,
               threshold: 2,
               flagged: true,
-              initial_decision: "replace",
+              initial_decision: "keep",
               views: {
                 original: {
                   path: "/images/escaped.png",

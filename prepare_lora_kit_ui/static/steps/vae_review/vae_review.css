@@ -17,6 +17,7 @@
 }
 
 .vae-review-card {
+  position: relative;
   border: 3px solid rgba(56, 214, 160, 0.52);
   border-radius: var(--radius-lg);
   background: rgba(7, 10, 24, 0.86);
@@ -30,10 +31,6 @@
 
 .vae-review-card.drop {
   border-color: rgba(255, 92, 106, 0.68);
-}
-
-.vae-review-card.replace {
-  border-color: rgba(255, 196, 0, 0.74);
 }
 
 .vae-card-views {
@@ -201,17 +198,31 @@
   color: #ffd7dc;
 }
 
-.vae-decision-pill.replace {
-  border-color: rgba(255, 196, 0, 0.5);
-  background: var(--warning-bg);
-  color: var(--warning-500);
-}
-
 .vae-view-tabs {
   grid-template-columns: repeat(auto-fit, minmax(82px, 1fr));
   overflow: hidden;
   border: 1px solid var(--hairline);
   border-radius: var(--radius-md);
+}
+
+.vae-flag-indicator {
+  display: block;
+  border-bottom: 1px solid rgba(255, 196, 0, 0.4);
+  background: var(--warning-bg);
+  color: var(--warning-500);
+  padding: 5px 8px;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.vae-flag-indicator--detail {
+  width: fit-content;
+  margin-top: 8px;
+  border: 1px solid rgba(255, 196, 0, 0.4);
+  border-radius: var(--radius-pill);
+  padding: 3px 8px;
 }
 
 .vae-detail-actions {

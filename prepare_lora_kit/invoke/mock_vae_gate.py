@@ -16,6 +16,7 @@ def _mock_vae_gate(
     from prepare_lora_kit.utils import image as img_utils
     from prepare_lora_kit.report import reporter
     from prepare_lora_kit.steps.vae_gate.review import _save_review_artifacts
+    from prepare_lora_kit.steps.vae_gate.step import _materialize_with_captions
     import numpy as np
     from PIL import Image, ImageFilter
 
@@ -50,18 +51,32 @@ def _mock_vae_gate(
         if "review_vae_artifacts" in enabled and interaction and review_items
         else {}
     )
+    decisions = {
+        str(path): decision if decision in {"keep", "drop"} else "keep"
+        for path, decision in decisions.items()
+    }
     check_cancel(cancel_check)
     survivors = [
         path for path in images
         if "apply_vae_decisions" not in enabled
            or decisions.get(str(path), decisions.get(str(path.resolve()), "keep")) != "drop"
     ]
-    img_utils.materialize(survivors, working_dir, working_dir)
+    _materialize_with_captions(images, survivors, working_dir, working_dir)
     report_data = {
         "mock_runtime": True,
         "hf_scores": scores,
         "threshold": 0.0,
+        "statistics": {
+            "successful": len(images),
+            "failed": 0,
+            "mean": 0.0,
+            "std": 0.0,
+            "threshold": 0.0,
+            "outlier_sigma": 2.0,
+            "comparison": ">",
+        },
         "flagged": [],
+        "failures": [],
         "review_items": [
             {
                 **item,
@@ -71,11 +86,6 @@ def _mock_vae_gate(
                 ),
             }
             for item in review_items
-        ],
-        "needs_replacement": [
-            str(path)
-            for path in images
-            if decisions.get(str(path), decisions.get(str(path.resolve()), "keep")) == "replace"
         ],
         "substeps": {
             "reconstruct_images": {"enabled": "reconstruct_images" in enabled},

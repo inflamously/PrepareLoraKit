@@ -114,7 +114,7 @@
  * @property {number | null} threshold
  * @property {number | null} diff_threshold
  * @property {boolean} flagged
- * @property {"keep" | "drop" | "replace"} initial_decision Decision for the original input image.
+ * @property {"keep" | "drop"} initial_decision Decision for the original input image.
  * @property {VaeReviewViews} views Review-only Original/VAE/Diff/Hard Mask images.
  */
 
