@@ -1,6 +1,6 @@
 import { init } from "./core/app.js";
+import { bootOnPywebviewReady } from "./core/boot.js";
 import { installErrorSurface, runBoot } from "./core/errors.js";
 
 installErrorSurface();
-
-globalThis.addEventListener("pywebviewready", () => runBoot(init));
+bootOnPywebviewReady(() => runBoot(init));

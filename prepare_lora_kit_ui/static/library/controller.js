@@ -19,8 +19,8 @@ export function showShellView() {
 
 // ── data ──────────────────────────────────────────────────────────────────
 
-export async function loadLibrary() {
-  const result = await api().list_projects();
+export async function loadLibrary(projectList = null) {
+  const result = projectList ?? await api().list_projects();
   state.libraryProjects = result.projects || [];
   if (
     state.librarySelected &&

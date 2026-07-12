@@ -13,7 +13,7 @@ export async function init() {
   const info = await api().app_info();
   setText("rootLabel", info.project_root);
 
-  await loadProjects();
+  const projectList = await loadProjects();
   bindEvents();
   bindLibraryEvents();
 
@@ -22,7 +22,7 @@ export async function init() {
     await applyBootstrap(info.bootstrap);
     showShellView();
   } else {
-    await loadLibrary();
+    await loadLibrary(projectList);
     render();
   }
 }

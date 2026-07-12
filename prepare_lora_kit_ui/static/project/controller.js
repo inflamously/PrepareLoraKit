@@ -12,6 +12,7 @@ export async function loadProjects() {
   state.projects = (result.projects || []).map((p) =>
     typeof p === "string" ? p : p.name,
   );
+  return result;
 }
 
 export async function applyBootstrap(bootstrap) {
