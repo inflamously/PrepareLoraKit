@@ -1,10 +1,11 @@
 """Pipeline run-state manifest (JSON) for step tracking and resume."""
 from __future__ import annotations
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any
 import json
 import time
+from collections.abc import Iterable
+from pathlib import Path
+from typing import Any
 
 _STEP_MIGRATIONS: dict[str, str | None] = {
     "CaptionStep": "CaptionBboxStep",
@@ -214,4 +215,11 @@ class RunState:
             self._data.steps.pop(step, None)
         else:
             self._data.steps = {}
+        self.save()
+
+    def reset_steps(self, steps: Iterable[str]) -> None:
+        """Remove several step records while persisting the manifest once."""
+
+        for step in set(steps):
+            self._data.steps.pop(step, None)
         self.save()

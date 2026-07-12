@@ -71,18 +71,16 @@ def project_status(
 ) -> str:
     """Derive a coarse library badge status for a project.
 
-    Live job status (when supplied) wins; otherwise the persisted RunState is
-    inspected: a project whose non-optional pipeline steps are all ``done`` is
-    ``completed``, anything else is ``draft``. Persisted state has no failure
-    marker, so ``failed`` is only reported from a live/terminal job this session.
+    Active and failed live job statuses win. A successful job may represent only
+    a selected slice, so project completion is always derived from RunState: a
+    project whose non-optional pipeline steps are all ``done`` is ``completed``,
+    anything else is ``draft``.
     """
     if live_status:
         if live_status in _RUNNING_JOB_STATUSES:
             return "running"
         if live_status == "failed":
             return "failed"
-        if live_status == "completed":
-            return "completed"
 
     if output_dir is None:
         return "draft"

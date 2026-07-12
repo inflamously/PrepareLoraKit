@@ -31,6 +31,7 @@ from prepare_lora_kit_ui.runner import (
     _LogStream,
     _image_payload,
     project_payload,
+    project_status,
 )
 from prepare_lora_kit.utils.state import RunState
 
@@ -64,14 +65,20 @@ def _active_step_types() -> list[str]:
     ]
 
 
-def _run_request(tmp_path, output_dir, *, force: bool = False) -> dict:
+def _run_request(
+        tmp_path,
+        output_dir,
+        *,
+        force: bool = False,
+        steps: list[str] | None = None,
+) -> dict:
     return {
         "input_dir": str(tmp_path / "input"),
         "output_dir": str(output_dir),
         "project": "test",
         "token": "sks",
         "force": force,
-        "steps": _active_step_types(),
+        "steps": steps if steps is not None else _active_step_types(),
         "substeps": {},
     }
 
@@ -135,6 +142,23 @@ def test_project_payload_includes_run_state(tmp_path):
     assert statuses["ImportStep"] == "done"
     assert statuses["QualityGateStep"] == "done"
     assert statuses["CaptionBboxStep"] == "pending"
+
+
+def test_completed_live_job_still_uses_persisted_project_completion(tmp_path):
+    out = tmp_path / "out"
+    state = RunState(out)
+    required = [
+        step.type
+        for step in _project().pipeline
+        if step.type not in {"UpscaleStep", "ExportStep"}
+    ]
+    for step_type in required[:-1]:
+        state.mark_done(step_type)
+
+    assert project_status(_project(), out, live_status="completed") == "draft"
+
+    state.mark_done(required[-1])
+    assert project_status(_project(), out, live_status="completed") == "completed"
 
 
 def test_project_payload_includes_optional_step_metadata(tmp_path):
@@ -263,6 +287,39 @@ def test_ui_force_run_starts_active_pipeline_from_beginning(tmp_path):
 
     assert calls == _active_step_types()
     assert job.snapshot()["skipped_steps"] == []
+
+
+def test_ui_force_run_only_executes_selected_and_invalidates_later_state(tmp_path):
+    out = tmp_path / "out"
+    (out / "dataset").mkdir(parents=True)
+    project = _project()
+    state = RunState(out)
+    for step in project.pipeline:
+        state.mark_done(step.type)
+    calls: list[str] = []
+    invoke_map = _invoke_map(calls)
+    job = PipelineJob(JobManager(projects={"test": project}), "test-job")
+    executor = UiPipelineExecutor(projects={"test": project})
+
+    with patch.dict("prepare_lora_kit_ui.runner.STEP_INVOKE_MAP", invoke_map, clear=True):
+        executor.execute(
+            job,
+            _run_request(
+                tmp_path,
+                out,
+                force=True,
+                steps=["QualityGateStep"],
+            ),
+        )
+
+    persisted = RunState(out)
+    assert calls == ["QualityGateStep"]
+    assert persisted.is_done("ImportStep")
+    assert persisted.is_done("QualityGateStep")
+    assert not persisted.is_done("CurateStep")
+    assert job.snapshot()["invalidated_steps"] == [
+        step.type for step in project.pipeline[1:]
+    ]
 
 
 def test_ui_force_run_reimports_existing_working_dataset(tmp_path):

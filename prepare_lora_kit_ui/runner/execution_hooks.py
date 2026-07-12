@@ -54,8 +54,12 @@ class UiJobHooks:
             resolve_config=self.resolve_config,
             post_step=self.post_step,
             step_complete=self.step_complete,
+            steps_invalidated=self.steps_invalidated,
             complete=self.complete,
         )
+
+    def steps_invalidated(self, steps: list[str]) -> None:
+        self._job.set_invalidated_steps(steps)
 
     def step_start(self, step: PipelineStep, substeps: list[str]) -> None:
         self._active_substeps[step.type] = list(substeps)

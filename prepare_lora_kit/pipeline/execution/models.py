@@ -48,6 +48,7 @@ ConfigResolver = Callable[[PipelineStep], Any]
 PostStepHook = Callable[[PipelineStep, Any, Path], None]
 StepCompleteHook = Callable[[PipelineStep, list[str]], None]
 CompletionHook = Callable[[ExecutionResult], None]
+StepsInvalidatedHook = Callable[[list[str]], None]
 
 
 @dataclass
@@ -60,4 +61,5 @@ class ExecutionHooks:
     resolve_config: ConfigResolver | None = None
     post_step: PostStepHook | None = None
     step_complete: StepCompleteHook | None = None
+    steps_invalidated: StepsInvalidatedHook | None = None
     complete: CompletionHook | None = None

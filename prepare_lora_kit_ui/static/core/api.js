@@ -230,6 +230,7 @@
  * @property {string | null} current_step
  * @property {string | null} current_substep
  * @property {string[]} completed_steps
+ * @property {string[]} invalidated_steps Steps whose persisted completion state was cleared for a forced run.
  * @property {string[]} skipped_steps
  * @property {Record<string, string[]>} completed_substeps
  * @property {Record<string, string[]>} skipped_substeps

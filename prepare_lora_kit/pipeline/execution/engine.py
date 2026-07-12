@@ -8,6 +8,7 @@ from typing import Any
 from prepare_lora_kit.cancellation import check_cancel
 from prepare_lora_kit.invoke import STEP_INVOKE_MAP
 from prepare_lora_kit.pipeline.configuration import is_resume_aware_step_type
+from prepare_lora_kit.pipeline.execution.invalidation import resolve_force_invalidated_steps
 from prepare_lora_kit.pipeline.execution.models import (
     ExecutionHooks,
     ExecutionResult,
@@ -86,12 +87,23 @@ class PipelineExecutor:
         selected_substeps = resolve_selected_substeps(
             self._cfg.project, selected_steps, self._cfg.requested_substeps
         )
+        invalidated_steps = (
+            resolve_force_invalidated_steps(self._cfg.project, selected_steps)
+            if self._cfg.force
+            else []
+        )
         validate_pipeline_selection(
-            self._cfg.project, selected_steps, output_dir, selected_substeps
+            self._cfg.project,
+            selected_steps,
+            output_dir,
+            selected_substeps,
+            invalidated_steps=invalidated_steps,
         )
         state = RunState(output_dir)
         if self._cfg.force:
-            state.reset()
+            state.reset_steps(invalidated_steps)
+            if self._hooks.steps_invalidated is not None:
+                self._hooks.steps_invalidated(invalidated_steps)
         return _ExecutionContext(
             output_dir=output_dir,
             working_dir=output_dir / "dataset",

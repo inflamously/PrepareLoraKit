@@ -19,6 +19,7 @@ class PipelineJob:
         self.current_step: str | None = None
         self.current_substep: str | None = None
         self.completed_steps: list[str] = []
+        self.invalidated_steps: list[str] = []
         self.skipped_steps: list[str] = []
         self.completed_substeps: dict[str, list[str]] = {}
         self.skipped_substeps: dict[str, list[str]] = {}
@@ -47,6 +48,11 @@ class PipelineJob:
     def set_caption_status(self, status: dict[str, Any] | None) -> None:
         with self._condition:
             self.caption_status = dict(status) if status is not None else None
+            self._condition.notify_all()
+
+    def set_invalidated_steps(self, steps: list[str]) -> None:
+        with self._condition:
+            self.invalidated_steps = list(steps)
             self._condition.notify_all()
 
     def set_status(
@@ -120,6 +126,7 @@ class PipelineJob:
                 "current_step": self.current_step,
                 "current_substep": self.current_substep,
                 "completed_steps": list(self.completed_steps),
+                "invalidated_steps": list(self.invalidated_steps),
                 "skipped_steps": list(self.skipped_steps),
                 "completed_substeps": {
                     step: list(substeps)

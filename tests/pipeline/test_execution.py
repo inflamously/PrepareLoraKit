@@ -2,6 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from prepare_lora_kit.cancellation import CancelledRun
 from prepare_lora_kit.pipeline.configs import CurateConfig, ImportConfig, QualityGateConfig
 from prepare_lora_kit.pipeline.execution import ExecutionHooks, RunConfig, execute_pipeline
 from prepare_lora_kit.project.base import PipelineStep, ProjectConfig
@@ -123,3 +124,89 @@ def test_failed_step_is_not_persisted_as_done(tmp_path):
         execute_pipeline(cfg)
 
     assert not RunState(output_dir).is_done("ImportStep")
+
+
+def test_force_selected_step_preserves_earlier_state_and_invalidates_downstream(tmp_path):
+    output_dir = tmp_path / "out"
+    (output_dir / "dataset").mkdir(parents=True)
+    state = RunState(output_dir)
+    for step_type in ("ImportStep", "QualityGateStep", "CurateStep"):
+        state.mark_done(step_type)
+
+    cfg = RunConfig(
+        dataset_dir=tmp_path / "input",
+        output_dir=output_dir,
+        project=_project(),
+        selected_steps=["QualityGateStep"],
+        force=True,
+    )
+    invoke = MagicMock()
+
+    with patch.dict(
+            "prepare_lora_kit.pipeline.STEP_INVOKE_MAP",
+            {"QualityGateStep": invoke},
+            clear=True,
+    ):
+        result = execute_pipeline(cfg)
+
+    persisted = RunState(output_dir)
+    assert result.completed_steps == ["QualityGateStep"]
+    assert persisted.is_done("ImportStep")
+    assert persisted.is_done("QualityGateStep")
+    assert not persisted.is_done("CurateStep")
+
+
+@pytest.mark.parametrize("error_type", [RuntimeError, CancelledRun])
+def test_force_error_leaves_selected_and_downstream_state_invalidated(
+        tmp_path, error_type
+):
+    output_dir = tmp_path / "out"
+    (output_dir / "dataset").mkdir(parents=True)
+    state = RunState(output_dir)
+    for step_type in ("ImportStep", "QualityGateStep", "CurateStep"):
+        state.mark_done(step_type)
+
+    cfg = RunConfig(
+        dataset_dir=tmp_path / "input",
+        output_dir=output_dir,
+        project=_project(),
+        selected_steps=["QualityGateStep"],
+        force=True,
+    )
+
+    with patch.dict(
+            "prepare_lora_kit.pipeline.STEP_INVOKE_MAP",
+            {"QualityGateStep": MagicMock(side_effect=error_type("stopped"))},
+            clear=True,
+    ), pytest.raises(error_type, match="stopped"):
+        execute_pipeline(cfg)
+
+    persisted = RunState(output_dir)
+    assert persisted.is_done("ImportStep")
+    assert not persisted.is_done("QualityGateStep")
+    assert not persisted.is_done("CurateStep")
+
+
+def test_force_validation_uses_projected_state_without_mutating_manifest(tmp_path):
+    output_dir = tmp_path / "out"
+    (output_dir / "dataset").mkdir(parents=True)
+    state = RunState(output_dir)
+    for step_type in ("ImportStep", "QualityGateStep", "CurateStep"):
+        state.mark_done(step_type)
+
+    cfg = RunConfig(
+        dataset_dir=tmp_path / "input",
+        output_dir=output_dir,
+        project=_project(),
+        selected_steps=["ImportStep", "CurateStep"],
+        force=True,
+    )
+
+    with pytest.raises(ValueError, match="CurateStep requires"):
+        execute_pipeline(cfg)
+
+    persisted = RunState(output_dir)
+    assert all(
+        persisted.is_done(step_type)
+        for step_type in ("ImportStep", "QualityGateStep", "CurateStep")
+    )

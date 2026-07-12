@@ -115,6 +115,15 @@ def test_ui_hooks_keep_job_running_while_marking_step_and_substeps_complete():
     assert snapshot["completed_steps"] == ["QualityGateStep"]
 
 
+def test_ui_hooks_publish_force_invalidated_steps():
+    job = PipelineJob(JobManager(), "test-job")
+    hooks = UiJobHooks(job, interaction=object(), pause_for_config=False)
+
+    hooks.steps_invalidated(["QualityGateStep", "CurateStep"])
+
+    assert job.snapshot()["invalidated_steps"] == ["QualityGateStep", "CurateStep"]
+
+
 def test_ui_hooks_open_bucket_details_only_for_populated_report(tmp_path):
     interaction = MagicMock()
     hooks = UiJobHooks(PipelineJob(JobManager(), "test-job"), interaction, pause_for_config=False)

@@ -108,4 +108,34 @@ describe("live job completion state", () => {
     );
     assert.deepEqual(statuses, ["done", "done", "done"]);
   });
+
+  it("renders invalidated steps and enabled substeps pending", () => {
+    state.project = {
+      name: "sample",
+      steps: [
+        step("QualityGateStep", {
+          status: "done",
+          substeps: [
+            { id: "score_images", label: "Score", enabled: true, status: "done" },
+            { id: "review_decisions", label: "Review", enabled: false, status: "done" },
+          ],
+        }),
+      ],
+    };
+    state.job = {
+      status: "running",
+      current_step: null,
+      current_substep: null,
+      completed_steps: [],
+      completed_substeps: {},
+      invalidated_steps: ["QualityGateStep"],
+    };
+
+    renderSteps();
+
+    const statuses = [...document.querySelectorAll(".step-status")].map(
+      (element) => element.textContent,
+    );
+    assert.deepEqual(statuses, ["pending", "pending", "disabled"]);
+  });
 });

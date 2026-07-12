@@ -1,6 +1,7 @@
 """Shared runtime validation for pipeline step selections."""
 from __future__ import annotations
 
+from collections.abc import Collection
 from pathlib import Path
 
 from prepare_lora_kit.pipeline.configuration import step_prerequisites
@@ -23,6 +24,7 @@ def validate_pipeline_selection(
         selected_steps: list[str],
         output_dir: Path,
         selected_substeps: dict[str, list[str]] | None = None,
+        invalidated_steps: Collection[str] | None = None,
 ) -> None:
     """Validate selected steps and substeps before invoking any pipeline work."""
 
@@ -37,6 +39,7 @@ def validate_pipeline_selection(
 
     state = RunState(output_dir)
     selected = set(selected_steps)
+    invalidated = set(invalidated_steps or ())
     for step_type in selected_steps:
         enabled_substeps = _enabled_substeps(project, step_type, selected_substeps)
         if enabled_substeps == []:
@@ -44,7 +47,13 @@ def validate_pipeline_selection(
         _validate_substep_prerequisites(step_type, enabled_substeps)
 
         for req in step_prerequisites(step_type):
-            if req not in selected and not is_step_satisfied(req, state, output_dir):
+            if (
+                    req not in selected
+                    and (
+                        req in invalidated
+                        or not is_step_satisfied(req, state, output_dir)
+                    )
+            ):
                 raise PipelineValidationError(
                     f"{step_type} requires completed or selected prerequisite {req}"
                 )
