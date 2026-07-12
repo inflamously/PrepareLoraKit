@@ -170,6 +170,22 @@ def _get_clip():
     return _clip_model, _clip_processor, _clip_device
 
 
+def unload_watermark_model() -> None:
+    """Release the cached watermark CLIP model and its CUDA allocations."""
+    global _clip_model, _clip_processor, _clip_device
+
+    with _clip_lock:
+        used_cuda = _clip_device == "cuda"
+        _clip_model = None
+        _clip_processor = None
+        _clip_device = None
+
+    if used_cuda:
+        import torch
+
+        torch.cuda.empty_cache()
+
+
 def watermark_score(src) -> float:
     """
     CLIP zero-shot score for 'photo with visible watermark'.

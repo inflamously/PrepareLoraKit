@@ -552,6 +552,27 @@ def test_static_server_uses_fast_shutdown_thread_settings(tmp_path):
         server.server_close()
 
 
+def test_job_manager_diagnostic_snapshot_reports_thread_lifecycle():
+    manager = JobManager()
+    job = PipelineJob(manager, "diagnostic-job")
+    job.set_status("completed")
+    manager._jobs[job.id] = job
+    manager._active_job_id = job.id
+
+    snapshot = manager.diagnostic_snapshot()
+
+    assert snapshot == {
+        "active_job_id": job.id,
+        "jobs": [{
+            "id": job.id,
+            "status": "completed",
+            "thread_name": None,
+            "thread_alive": False,
+            "thread_daemon": None,
+        }],
+    }
+
+
 def test_ui_interaction_provider_emits_vae_review_payload(tmp_path):
     original = tmp_path / "input.png"
     vae = tmp_path / "vae.png"

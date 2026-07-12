@@ -140,6 +140,7 @@ class SeedVR2Upscaler:
             reader = threading.Thread(
                 target=_forward_output,
                 args=(process.stdout, output_tail),
+                name="plk-seedvr2-output",
                 daemon=True,
             )
             reader.start()

@@ -6,7 +6,9 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from mimetypes import guess_type
 from pathlib import Path
 import shutil
+import sys
 from threading import Thread
+from time import perf_counter
 from urllib.parse import parse_qs, urlparse
 
 import click
@@ -107,13 +109,22 @@ class _StaticHandler(SimpleHTTPRequestHandler):
 def _static_server(static_dir):
     handler = partial(_StaticHandler, directory=str(static_dir))
     server = _StaticServer(("127.0.0.1", 0), handler)
-    thread = Thread(target=partial(server.serve_forever, poll_interval=0.1), daemon=True)
+    thread = Thread(
+        target=partial(server.serve_forever, poll_interval=0.1),
+        name="plk-static-server",
+        daemon=True,
+    )
     thread.start()
     return server
 
 
 @cli.command()
 @click.option("--debug", is_flag=True, help="Open webview developer tools where supported.")
+@click.option(
+    "--diagnose-shutdown",
+    is_flag=True,
+    help="Record shutdown timings and thread dumps under outputs/.",
+)
 @click.option(
     "--mock",
     "mock_step",
@@ -135,6 +146,7 @@ def _static_server(static_dir):
 )
 def ui(
         debug: bool,
+        diagnose_shutdown: bool,
         mock_step: str | None,
         mock_output: Path | None,
         mock_curate_coverage: str,
@@ -149,6 +161,15 @@ def ui(
 
     from prepare_lora_kit_ui.dev_fixture import create_mock_ui_fixture
     from prepare_lora_kit_ui.bridge import UiBridge
+    from prepare_lora_kit_ui.shutdown_diagnostics import ShutdownDiagnostics
+
+    diagnostics = (
+        ShutdownDiagnostics(PROJECT_ROOT / "outputs" / "shutdown-diagnostics.log")
+        if diagnose_shutdown
+        else None
+    )
+    if diagnostics is not None:
+        diagnostics.mark("UI initialization started")
 
     projects = None
     bootstrap = None
@@ -186,15 +207,75 @@ def ui(
     )
 
     def _shutdown_on_close(*_args) -> None:
-        bridge.shutdown()
+        if diagnostics is not None:
+            diagnostics.begin_shutdown("window closing event")
+            diagnostics.mark(
+                "closing handler started",
+                jobs=bridge.jobs.diagnostic_snapshot(),
+            )
+        started = perf_counter()
+        result = bridge.shutdown()
+        if diagnostics is not None:
+            diagnostics.mark(
+                "closing handler completed",
+                duration=perf_counter() - started,
+                result=result,
+            )
 
     try:
         window.events.closing += _shutdown_on_close
     except AttributeError:
         pass
     try:
+        if diagnostics is not None:
+            diagnostics.mark("webview.start entering")
         webview.start(debug=debug)
     finally:
-        bridge.shutdown()
+        if diagnostics is not None:
+            diagnostics.begin_shutdown("webview.start exited before closing event")
+            diagnostics.mark("webview.start returned")
+
+        started = perf_counter()
+        result = bridge.shutdown()
+        if diagnostics is not None:
+            diagnostics.mark(
+                "final bridge shutdown completed",
+                duration=perf_counter() - started,
+                result=result,
+            )
+
+        started = perf_counter()
         server.shutdown()
+        if diagnostics is not None:
+            diagnostics.mark(
+                "static server shutdown completed",
+                duration=perf_counter() - started,
+            )
+
+        started = perf_counter()
         server.server_close()
+        jobs = bridge.jobs.diagnostic_snapshot()
+        pipeline_alive = any(job["thread_alive"] for job in jobs["jobs"])
+        netfx_finalizer_suppressed = False
+        if sys.platform == "win32" and not pipeline_alive:
+            from prepare_lora_kit_ui.windows_shutdown import suppress_netfx_process_finalizer
+
+            netfx_finalizer_suppressed = suppress_netfx_process_finalizer()
+        if diagnostics is not None:
+            diagnostics.mark(
+                "static server close completed",
+                duration=perf_counter() - started,
+            )
+            if sys.platform == "win32":
+                diagnostics.mark(
+                    "Windows CLR exit policy selected",
+                    netfx_finalizer_suppressed=netfx_finalizer_suppressed,
+                    pipeline_alive=pipeline_alive,
+                )
+            diagnostics.runtime_snapshot("application cleanup complete")
+            diagnostics.mark(
+                "pipeline jobs after application cleanup",
+                jobs=jobs,
+            )
+            diagnostics.dump_threads("application cleanup complete")
+            diagnostics.mark("UI command returning")

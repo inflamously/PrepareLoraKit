@@ -50,36 +50,40 @@ def run(
 
     # ── Phase A: score everything ───────────────────────────────────────────
     if "score_images" in enabled:
-        def _score_one(path: Path):
-            # Decode each image once; share it across all scorers. cv2/skimage
-            # release the GIL so blur/noise/jpeg run in parallel across workers
-            # (the CLIP watermark forward serializes on its own lock).
-            check_cancel(cancel_check)
-            try:
-                return _score_image(img_utils.ImageData(path), thresholds, scorers)
-            except Exception as exc:
-                return exc
+        try:
+            def _score_one(path: Path):
+                # Decode each image once; share it across all scorers. cv2/skimage
+                # release the GIL so blur/noise/jpeg run in parallel across workers
+                # (the CLIP watermark forward serializes on its own lock).
+                check_cancel(cancel_check)
+                try:
+                    return _score_image(img_utils.ImageData(path), thresholds, scorers)
+                except Exception as exc:
+                    return exc
 
-        # Warm-up: score the first image serially so every lazy import (skimage,
-        # transformers) and the one-time CLIP model load happens once on the main
-        # thread. Initialising those concurrently across workers races — a worker
-        # can observe a half-built lazy module ("cannot import name 'CLIPModel'").
-        results = [_score_one(images[0])] if images else []
-        if len(images) > 1:
-            workers = min(8, os.cpu_count() or 4)
-            with ThreadPoolExecutor(max_workers=workers) as ex:
-                results.extend(ex.map(_score_one, images[1:]))
+            # Warm-up: score the first image serially so every lazy import (skimage,
+            # transformers) and the one-time CLIP model load happens once on the main
+            # thread. Initialising those concurrently across workers races — a worker
+            # can observe a half-built lazy module ("cannot import name 'CLIPModel'").
+            results = [_score_one(images[0])] if images else []
+            if len(images) > 1:
+                workers = min(8, os.cpu_count() or 4)
+                with ThreadPoolExecutor(max_workers=workers) as ex:
+                    results.extend(ex.map(_score_one, images[1:]))
 
-        for path, result in zip(images, results):
-            check_cancel(cancel_check)
-            key = str(path)
-            if isinstance(result, Exception):
-                reporter.error(f"{path.name}: scoring failed — {result}")
-                report_data[key] = {"kept": False, "decision": "reject", "reason": str(result),
-                                    "scores": {}, "quality": 0.0}
-                rejected += 1
-                continue
-            scored.append((path, result))
+            for path, result in zip(images, results):
+                check_cancel(cancel_check)
+                key = str(path)
+                if isinstance(result, Exception):
+                    reporter.error(f"{path.name}: scoring failed — {result}")
+                    report_data[key] = {"kept": False, "decision": "reject", "reason": str(result),
+                                        "scores": {}, "quality": 0.0}
+                    rejected += 1
+                    continue
+                scored.append((path, result))
+        finally:
+            # The executor has stopped every scoring worker before cleanup runs.
+            img_utils.unload_watermark_model()
     else:
         reporter.warn("Skipping source scoring substep; keeping images unless review changes them.")
         scored = [

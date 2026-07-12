@@ -35,7 +35,12 @@ class PipelineJob:
         self._thread: threading.Thread | None = None
 
     def start(self, target, *args) -> None:
-        self._thread = threading.Thread(target=target, args=args, daemon=True)
+        self._thread = threading.Thread(
+            target=target,
+            args=args,
+            name=f"plk-pipeline-{self.id[:8]}",
+            daemon=True,
+        )
         self._thread.start()
 
     def add_log(self, line: str) -> None:

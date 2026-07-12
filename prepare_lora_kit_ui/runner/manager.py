@@ -101,6 +101,25 @@ class JobManager:
             return False
         return job.cancel()
 
+    def diagnostic_snapshot(self) -> dict[str, Any]:
+        """Return job/thread lifecycle details for shutdown diagnostics."""
+        with self._lock:
+            active_job_id = self._active_job_id
+            jobs = list(self._jobs.items())
+        return {
+            "active_job_id": active_job_id,
+            "jobs": [
+                {
+                    "id": job_id,
+                    "status": job.snapshot()["status"],
+                    "thread_name": job._thread.name if job._thread is not None else None,
+                    "thread_alive": job._thread.is_alive() if job._thread is not None else False,
+                    "thread_daemon": job._thread.daemon if job._thread is not None else None,
+                }
+                for job_id, job in jobs
+            ],
+        }
+
     def active_interaction_provider(self, job_id: str) -> UiInteractionProvider | None:
         job = self.get(job_id)
         provider = getattr(job, "interaction_provider", None)

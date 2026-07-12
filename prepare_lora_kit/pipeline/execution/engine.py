@@ -21,6 +21,7 @@ from prepare_lora_kit.pipeline.execution.selection import (
 from prepare_lora_kit.pipeline.validation import validate_pipeline_selection
 from prepare_lora_kit.project.base import PipelineStep
 from prepare_lora_kit.project.pipeline import mark_legacy_import_satisfied
+from prepare_lora_kit.utils.accelerator import release_accelerator_memory
 from prepare_lora_kit.utils.state import RunState
 
 
@@ -128,8 +129,11 @@ class PipelineExecutor:
         if reason is not None:
             self._record_skip(context.result, step, substeps, reason)
             return
-        step_result = self._invoke_step(context, step, substeps)
-        self._run_post_step(step, step_result, context.output_dir)
+        try:
+            step_result = self._invoke_step(context, step, substeps)
+            self._run_post_step(step, step_result, context.output_dir)
+        finally:
+            release_accelerator_memory()
         self._record_completion(context, step, substeps)
 
     def _invoke_step(
