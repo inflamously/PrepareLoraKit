@@ -96,6 +96,16 @@ def project_status(
     return "draft"
 
 
+def output_exists(output_dir: Path | None) -> bool:
+    """True when the project's output folder has actually been materialized on disk.
+
+    The resolved output path is known as soon as a project is selected, but the folder
+    itself only appears once a run writes to it. The UI needs the distinction to decide
+    whether opening it makes sense.
+    """
+    return output_dir is not None and output_dir.is_dir()
+
+
 def _attention_scan_dir(project: ProjectConfig, output_dir: Path | None) -> Path | None:
     """Prefer the working dataset (reflects remaining need; it shrinks/converts as
     steps run) and fall back to the untouched input folder before any run."""

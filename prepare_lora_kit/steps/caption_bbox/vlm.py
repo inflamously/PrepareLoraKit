@@ -19,11 +19,9 @@ _CACHE: dict[tuple, "LoadedCaptionModel"] = {}
 # with area, so this is the first line of defense against activation OOM.
 _DEFAULT_MAX_PIXELS = 1024 * 1024
 
-_REGION_PROMPT = (
-    "Describe what is shown in this image with a short, literal phrase: a few "
-    "comma-separated words or descriptors. Do not mention that this is a crop "
-    "or region. Output only the description."
-)
+# Region-crop default prompt lives in utils.caption (single source of truth shared
+# with the UI prompt-library "Default"); re-exported here for the caption_region path.
+_REGION_PROMPT = cap_utils._REGION_PROMPT
 
 _TASKS = {"auto", "image-text-to-text", "image-to-text"}
 

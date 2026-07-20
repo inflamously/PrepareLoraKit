@@ -82,5 +82,12 @@
     cursor: not-allowed;
     box-shadow: none;
     transform: none;
+}
+
+/* Deliberately NOT applied to :disabled — the attribute already blocks clicks natively,
+   and suppressing pointer events there would also suppress hover, hiding the `title`
+   tooltip that explains why a control is unavailable. The class form has no such
+   native behavior, so it still needs this. */
+.nf-btn.is-disabled {
     pointer-events: none;
 }

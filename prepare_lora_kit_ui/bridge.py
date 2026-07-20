@@ -12,7 +12,13 @@ from prepare_lora_kit_ui.paths import PROJECT_ROOT
 from prepare_lora_kit.project import project_registry
 from prepare_lora_kit.project.base import ProjectConfig
 
-from prepare_lora_kit_ui.runner import JobManager, _default_output, project_payload, project_status
+from prepare_lora_kit_ui.runner import (
+    JobManager,
+    _default_output,
+    output_exists,
+    project_payload,
+    project_status,
+)
 
 def _initials(name: str) -> str:
     """Two-character mono badge derived from a project name."""
@@ -137,6 +143,7 @@ class UiBridge:
             "project_name": loaded.name,
             "input_dir": loaded.input_dir,
             "output_dir": str(out) if out is not None else None,
+            "output_exists": output_exists(out),
         }
 
     def load_or_create_project_for_input(
@@ -152,6 +159,7 @@ class UiBridge:
             "project_name": loaded.name,
             "input_dir": str(resolved_input),
             "output_dir": str(out),
+            "output_exists": output_exists(out),
         }
 
     def start_run(self, request: dict[str, Any]) -> dict[str, Any]:

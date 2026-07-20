@@ -60,6 +60,7 @@ beforeEach(() => {
   state.runStarting = false;
   state.outputDir = "";
   state.outputCustomized = false;
+  state.outputExists = false;
   state.mockRuntime = false;
   state.mockProjectName = null;
   state.mockCurateCoverage = "auto";
@@ -73,6 +74,7 @@ beforeEach(() => {
           project_name: projectName,
           input_dir: `/images/${projectName}`,
           output_dir: `/outputs/${projectName}`,
+          output_exists: false,
         };
       },
       active_job: async () => ({ active: null }),

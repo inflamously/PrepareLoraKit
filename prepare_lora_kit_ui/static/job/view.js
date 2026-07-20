@@ -22,7 +22,7 @@ export function renderJob() {
         logRail.textContent = "";
         cancelButton.disabled = true;
         cancelButton.textContent = "Cancel";
-        openOutput.disabled = true;
+        renderOpenOutput(openOutput, null);
         runButton.disabled = state.runStarting;
         runButton.textContent = state.runStarting ? "Starting..." : "Run active";
         return;
@@ -46,9 +46,17 @@ export function renderJob() {
     const running = !TERMINAL_STATUSES.has(job.status);
     cancelButton.disabled = TERMINAL_STATUSES.has(job.status) || cancelling;
     cancelButton.textContent = cancelling ? "Cancelling..." : "Cancel";
-    openOutput.disabled = !job.result?.output_dir;
+    renderOpenOutput(openOutput, job);
     runButton.disabled = state.runStarting || running;
     runButton.textContent = state.runStarting ? "Starting..." : "Run active";
+}
+
+/** The folder is openable once it exists on disk — from an earlier session, a partial
+ *  run, or the job that just completed. */
+function renderOpenOutput(openOutput, job) {
+    const canOpen = state.outputExists || Boolean(job?.result?.output_dir);
+    openOutput.disabled = !canOpen;
+    openOutput.title = canOpen ? "" : "No output folder yet - run the pipeline first";
 }
 
 function renderCurrentStep(job, currentStepLabel) {

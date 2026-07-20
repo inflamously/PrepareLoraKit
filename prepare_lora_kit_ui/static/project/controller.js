@@ -141,6 +141,7 @@ function resetProjectSelection() {
   state.outputDir = "";
   state.token = "";
   state.outputCustomized = false;
+  state.outputExists = false;
   state.mockRuntime = false;
   state.mockProjectName = null;
   state.mockCurateCoverage = "auto";
@@ -165,6 +166,10 @@ function loadProjectData(result, options = {}) {
   if (!state.outputCustomized) {
     state.outputDir = result.output_dir || "";
   }
+
+  // Describes whatever path the backend resolved, so it is set regardless of the
+  // outputCustomized guard above.
+  state.outputExists = Boolean(result.output_exists);
 
   state.selectedSteps = previousSelectedSteps
     ? selectedAvailableSteps(previousSelectedSteps)

@@ -43,6 +43,7 @@
  * @property {string} project_name
  * @property {string | null} input_dir
  * @property {string | null} output_dir
+ * @property {boolean} output_exists True when output_dir exists on disk.
  */
 
 /**

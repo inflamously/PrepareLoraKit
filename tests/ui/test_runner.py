@@ -30,6 +30,7 @@ from prepare_lora_kit_ui.runner import (
     UiPipelineExecutor,
     _LogStream,
     _image_payload,
+    output_exists,
     project_payload,
     project_status,
 )
@@ -129,6 +130,18 @@ def test_validate_selection_allows_caption_without_optional_upscale_when_curate_
     state.mark_done("CurateStep")
 
     validate_pipeline_selection(_project(), ["CaptionBboxStep"], out)
+
+
+def test_output_exists_only_for_a_real_directory(tmp_path):
+    a_file = tmp_path / "not-a-dir"
+    a_file.write_text("")
+    a_dir = tmp_path / "out"
+    a_dir.mkdir()
+
+    assert output_exists(None) is False
+    assert output_exists(tmp_path / "missing") is False
+    assert output_exists(a_file) is False
+    assert output_exists(a_dir) is True
 
 
 def test_project_payload_includes_run_state(tmp_path):

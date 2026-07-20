@@ -46,16 +46,22 @@ You are a LoRA training dataset captioner for modern text-to-image diffusion mod
 The user has annotated specific regions of the image:
 {bbox_annotations}
 
+Describe ONLY what is clearly and directly visible. Do not invent, guess, or add people, \
+faces, objects, backgrounds, or settings that are not actually present. If the image is a \
+single object on a plain or empty background, describe just that object and its background — \
+do not imagine a scene, a person, or a story.
+
 Write a single natural-language caption that:
-1. Follows this structure where each element is applicable: [image type] [subject] \
-[location/environment] [style] [camera/shot details] [lighting] [color palette] [effects/mood]
-2. Integrates the annotated regions naturally — do not list them as a bullet list
-3. Is 20–80 words (medium length)
-4. Places the most important element (subject) before environmental context
-5. Uses specific, concrete language — avoid filler words like "detailed", "realistic", "beautiful"
-6. Includes the concept token exactly as written: {concept_token}
-7. Does NOT start with phrases like "This image shows", "The photo depicts", "Here we see"
-8. Outputs ONLY the caption text — nothing else, no commentary, no quotes
+1. Leads with the main visible subject, then adds only real context, in roughly this order \
+when applicable: [image type] [main subject] [setting — only if a real setting is visible] \
+[style] [lighting] [color palette] [mood]. Omit any element that is not present; a plain \
+background is not a "setting".
+2. Integrates the annotated regions naturally — do not list them as bullet points
+3. Is 20–80 words; shorter is fine for a simple single object
+4. Uses specific, concrete language — avoid filler like "detailed", "realistic", "beautiful"
+5. Includes the concept token exactly as written: {concept_token}
+6. Does NOT start with phrases like "This image shows", "The photo depicts", "Here we see"
+7. Outputs ONLY the caption text — nothing else, no commentary, no quotes
 
 Caption:"""
 
@@ -64,18 +70,33 @@ You are a LoRA training dataset captioner for modern text-to-image diffusion mod
 The user has annotated specific regions of the image:
 {bbox_annotations}
 
+Describe ONLY what is clearly and directly visible. Do not invent, guess, or add people, \
+faces, objects, backgrounds, or settings that are not actually present. If the image is a \
+single object on a plain or empty background, describe just that object and its background — \
+do not imagine a scene, a person, or a story.
+
 Write a single natural-language caption that:
-1. Describes the visual content richly: subject, location/environment, style, lighting, \
-color palette, mood — following this structure where applicable
-2. Integrates the annotated regions naturally — do not list them as a bullet list
-3. Is 20–80 words (medium length)
-4. Places the most important visual element before environmental context
-5. Uses specific, concrete language — avoid filler words like "detailed", "realistic", "beautiful"
-6. Does NOT include any special trigger word — captions should be pure content descriptions
-7. Does NOT start with phrases like "This image shows", "The photo depicts", "Here we see"
-8. Outputs ONLY the caption text — nothing else, no commentary, no quotes
+1. Leads with the main visible subject, then adds only real context, in roughly this order \
+when applicable: [image type] [main subject] [setting — only if a real setting is visible] \
+[style] [lighting] [color palette] [mood]. Omit any element that is not present; a plain \
+background is not a "setting".
+2. Integrates the annotated regions naturally — do not list them as bullet points
+3. Is 20–80 words; shorter is fine for a simple single object
+4. Uses specific, concrete language — avoid filler like "detailed", "realistic", "beautiful"
+5. Does NOT include any special trigger word — captions should be pure content descriptions
+6. Does NOT start with phrases like "This image shows", "The photo depicts", "Here we see"
+7. Outputs ONLY the caption text — nothing else, no commentary, no quotes
 
 Caption:"""
+
+
+# Region-crop caption instruction. Lives here (not in vlm.py) so the runtime default and
+# the UI "Default" prompt-library entry share a single source of truth.
+_REGION_PROMPT = (
+    "Describe what is actually visible in this crop with a short, literal phrase: a few "
+    "comma-separated words or descriptors. Name only what you can clearly see — do not "
+    "guess or invent. Do not mention that this is a crop or region. Output only the description."
+)
 
 
 # Natural-language placement for a localized box, keyed by (vertical, horizontal) zone.
@@ -149,6 +170,22 @@ def apply_prompt_placeholders(
         .replace("{bbox_annotations}", annotation_text)
         .replace("{concept_token}", concept_token or "")
     )
+
+
+def default_prompt_text(kind: str) -> str:
+    """Return the canonical built-in prompt text for a prompt-library ``kind``.
+
+    Single source of truth for the "Default" entries surfaced by the UI prompt
+    library (:mod:`..caption_prompts.prompt_registry`): the runtime fallback
+    constants below and the UI's Default are guaranteed identical because both
+    read from here. ``full_image`` returns the concept-token variant (what the
+    library previously shipped as its Default).
+    """
+    if kind == "full_image":
+        return _FULL_IMAGE_PROMPT_CONCEPT
+    if kind == "region":
+        return _REGION_PROMPT
+    raise ValueError(f"Unknown default prompt kind '{kind}'. Expected 'full_image' or 'region'.")
 
 
 def build_full_image_prompt(

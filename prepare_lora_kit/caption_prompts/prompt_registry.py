@@ -23,9 +23,16 @@ from pathlib import Path
 import yaml
 
 from prepare_lora_kit.paths import CONFIGS_DIR
+from prepare_lora_kit.utils import caption as cap_utils
 
 KINDS = ("full_image", "region")
 _PROMPTS_DIR = CONFIGS_DIR / "caption_prompts"
+
+# The built-in "Default" is virtual: its text is synthesized from the runtime
+# fallback constants (:func:`..utils.caption.default_prompt_text`) rather than read
+# from disk, so the UI Default and the runtime default can never drift. It is
+# read-only — it cannot be overwritten or deleted.
+_DEFAULT_NAME = "Default"
 
 
 @dataclass
@@ -66,19 +73,30 @@ def _path_for(kind: str, name: str) -> Path:
     return _PROMPTS_DIR / f"{kind}__{_slug(name)}.yaml"
 
 
+def _is_default(name: str) -> bool:
+    return _slug(name) == _slug(_DEFAULT_NAME)
+
+
+def _default_prompt(kind: str) -> CaptionPrompt:
+    return CaptionPrompt(name=_DEFAULT_NAME, kind=kind, text=cap_utils.default_prompt_text(kind))
+
+
 def list_prompts(kind: str) -> list[CaptionPrompt]:
-    """Return all saved prompts of ``kind``, sorted by name."""
+    """Return all saved prompts of ``kind``, sorted by name.
+
+    Always includes the virtual, read-only built-in "Default" (synthesized from
+    the runtime constants); any on-disk file that would collide with it is ignored.
+    """
     _validate_kind(kind)
-    if not _PROMPTS_DIR.exists():
-        return []
-    prompts: list[CaptionPrompt] = []
-    for path in sorted(_PROMPTS_DIR.glob(f"{kind}__*.yaml")):
-        try:
-            prompt = CaptionPrompt.from_yaml(path)
-        except Exception:
-            continue
-        if prompt.kind == kind:
-            prompts.append(prompt)
+    prompts: list[CaptionPrompt] = [_default_prompt(kind)]
+    if _PROMPTS_DIR.exists():
+        for path in sorted(_PROMPTS_DIR.glob(f"{kind}__*.yaml")):
+            try:
+                prompt = CaptionPrompt.from_yaml(path)
+            except Exception:
+                continue
+            if prompt.kind == kind and not _is_default(prompt.name):
+                prompts.append(prompt)
     prompts.sort(key=lambda p: p.name.lower())
     return prompts
 
@@ -86,6 +104,8 @@ def list_prompts(kind: str) -> list[CaptionPrompt]:
 def load(kind: str, name: str) -> CaptionPrompt:
     """Load a single prompt by kind + name. Raises if it does not exist."""
     _validate_kind(kind)
+    if _is_default(name):
+        return _default_prompt(kind)
     path = _path_for(kind, name)
     if not path.exists():
         raise ValueError(f"Unknown {kind} caption prompt '{name}'.")
@@ -98,6 +118,8 @@ def save(kind: str, name: str, text: str) -> CaptionPrompt:
     name = name.strip()
     if not name:
         raise ValueError("Caption prompt name is required.")
+    if _is_default(name):
+        raise ValueError("The built-in 'Default' caption prompt is read-only and cannot be overwritten.")
     prompt = CaptionPrompt(name=name, kind=kind, text=str(text))
     _PROMPTS_DIR.mkdir(parents=True, exist_ok=True)
     _path_for(kind, name).write_text(
@@ -108,6 +130,8 @@ def save(kind: str, name: str, text: str) -> CaptionPrompt:
 
 
 def delete(kind: str, name: str) -> None:
-    """Remove a named prompt (idempotent)."""
+    """Remove a named prompt (idempotent). The built-in 'Default' cannot be deleted."""
     _validate_kind(kind)
+    if _is_default(name):
+        raise ValueError("The built-in 'Default' caption prompt is read-only and cannot be deleted.")
     _path_for(kind, name).unlink(missing_ok=True)

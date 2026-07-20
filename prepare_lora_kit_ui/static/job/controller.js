@@ -57,10 +57,13 @@ export async function cancelRun() {
 }
 
 export async function openOutput() {
-  const outputDir = state.job?.result?.output_dir;
-  if (outputDir) {
-    await api().open_path(outputDir);
-  }
+  // The job result only exists after a successful run in this session; fall back to the
+  // project's resolved output path so previous runs stay reachable.
+  const outputDir = state.job?.result?.output_dir || state.outputDir.trim();
+  if (!outputDir) return;
+
+  const result = await api().open_path(outputDir);
+  if (result && result.opened === false) alert(result.error);
 }
 
 export async function openInput() {

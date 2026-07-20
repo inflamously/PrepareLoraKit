@@ -12,6 +12,7 @@ from prepare_lora_kit_ui.runner.payloads import (
     _default_output,
     _image_payload,
     _jsonable,
+    output_exists,
     project_payload,
     project_status,
 )
@@ -27,6 +28,7 @@ __all__ = [
     "_default_output",
     "_image_payload",
     "_jsonable",
+    "output_exists",
     "project_payload",
     "project_status",
 ]

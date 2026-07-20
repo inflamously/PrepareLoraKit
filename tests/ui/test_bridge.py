@@ -79,6 +79,57 @@ pipeline: []
     assert Path(result["output_dir"]).parts[-2:] == ("outputs", "saved-dataset")
 
 
+def _write_saved_project(tmp_path, monkeypatch, output_dir: Path) -> None:
+    configs_dir = tmp_path / "configs" / "projects"
+    configs_dir.mkdir(parents=True)
+    monkeypatch.setattr(project_registry._registry, "configs_dir", configs_dir)
+    input_dir = tmp_path / "saved-dataset"
+    input_dir.mkdir()
+    (configs_dir / "saved.yaml").write_text(f"""\
+name: saved
+input_dir: {input_dir}
+output_dir: {output_dir}
+pipeline: []
+""")
+
+
+def test_bridge_load_project_reports_missing_output_folder(tmp_path, monkeypatch):
+    _write_saved_project(tmp_path, monkeypatch, tmp_path / "outputs" / "saved-dataset")
+
+    result = UiBridge().load_project("saved")
+
+    assert result["output_exists"] is False
+
+
+def test_bridge_load_project_reports_existing_output_folder(tmp_path, monkeypatch):
+    output_dir = tmp_path / "outputs" / "saved-dataset"
+    output_dir.mkdir(parents=True)
+    _write_saved_project(tmp_path, monkeypatch, output_dir)
+
+    result = UiBridge().load_project("saved")
+
+    assert result["output_exists"] is True
+
+
+def test_bridge_folder_first_reports_output_folder_existence(tmp_path, monkeypatch):
+    configs_dir = tmp_path / "configs" / "projects"
+    monkeypatch.setattr(project_registry._registry, "configs_dir", configs_dir)
+    input_dir = tmp_path / "new-dataset"
+    input_dir.mkdir()
+    output_dir = tmp_path / "outputs" / "new-dataset"
+
+    missing = UiBridge().load_or_create_project_for_input(
+        str(input_dir), str(output_dir)
+    )
+    output_dir.mkdir(parents=True)
+    present = UiBridge().load_or_create_project_for_input(
+        str(input_dir), str(output_dir)
+    )
+
+    assert missing["output_exists"] is False
+    assert present["output_exists"] is True
+
+
 def test_bridge_shutdown_cancels_active_job():
     bridge = UiBridge()
     job = PipelineJob(bridge.jobs, "active-job")
