@@ -26,6 +26,7 @@ class RealCaptionStep(CaptionStep):
             output_dir: Path | None = None,
             caption_model_id: str | None = None,
             caption_model_task: str = "auto",
+            caption_strategy: str = "grounded",
             spot_check_pct: float = 0.10,
             overwrite: bool = False,
             report_path: Path | None = None,
@@ -65,6 +66,7 @@ class RealCaptionStep(CaptionStep):
             status_callback=caption_status_callback,
             caption_prompt=caption_prompt,
             region_prompt=region_prompt,
+            caption_strategy=caption_strategy,
         )
 
     def prepare_runtime(self, needs_captioning: bool) -> None:

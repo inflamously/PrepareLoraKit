@@ -108,7 +108,8 @@ def _fake_runtime_class(
 ):
     class FakeRuntime:
         def __init__(self, model_id, *, task, quantization, dtype, max_pixels,
-                     status_callback=None, caption_prompt=None, region_prompt=None):
+                     status_callback=None, caption_prompt=None, region_prompt=None,
+                     caption_strategy="grounded"):
             self.metadata = {
                 "model_id": model_id,
                 "task": task,

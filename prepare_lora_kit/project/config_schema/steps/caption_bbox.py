@@ -25,6 +25,13 @@ FIELDS: list[FieldSpec] = [
         ("image-text-to-text", "Image + text to text"),
         ("image-to-text", "Image to text"),
     ]),
+    _select("caption_strategy", "Caption strategy", [
+        ("grounded", "Grounded (observe → compose → verify)"),
+        ("single", "Single pass (fast)"),
+    ], help="Grounded runs three VLM passes per image — observe visible facts, compose "
+            "a caption, then verify against the image — for accurate, hallucination-free "
+            "captions. Single is the faster one-shot pass. Classic image-to-text models "
+            "always use single."),
     _select("vram_tier", "VRAM tier", [
         ("auto", "Auto"),
         ("low", "Low (≤16 GB, 4-bit)"),

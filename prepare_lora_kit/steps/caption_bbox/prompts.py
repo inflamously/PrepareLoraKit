@@ -211,3 +211,157 @@ def build_full_image_prompt(
             concept_token=concept_token,
         )
     return _FULL_IMAGE_PROMPT_STYLE.format(bbox_annotations=annotation_text)
+
+
+# ── Grounded 3-pass prompts (observe → compose → verify) ────────────────────────
+#
+# The single-shot full-image prompt asks the model to observe, compose, style,
+# integrate regions, inject the token and avoid hallucination all at once, which
+# yields generic or tag-like captions. These three prompts split that work into
+# grounded passes over the *same* loaded VLM (see ``grounded.py``). All three fill
+# their placeholders with plain ``str.replace`` (not ``.format``) because ``facts``
+# and ``draft`` are model-generated and may contain stray ``{``/``}``.
+
+_OBSERVE_PROMPT = """\
+You are analysing an image to build an accurate training caption. First, OBSERVE it.
+{bbox_annotations}
+
+List ONLY what is clearly and directly visible. Never guess, infer, or invent people, \
+faces, objects, or settings that are not actually present. Write "not visible" for any \
+heading that does not apply. Be concise and concrete — a few words per line.
+
+SUBJECT:
+COUNT:
+APPEARANCE / CLOTHING:
+POSE / ACTION:
+SETTING / BACKGROUND:
+NOTABLE OBJECTS:
+FRAMING / SHOT:
+LIGHTING:
+COLOR PALETTE:
+MEDIUM / STYLE:
+
+Account for any annotated regions listed above. Output only the filled-in list."""
+
+
+_COMPOSE_PROMPT_CONCEPT = """\
+You are writing a single LoRA training caption for a text-to-image diffusion model.
+Use ONLY these observed facts — do not add anything not listed, and drop anything marked \
+"not visible":
+{facts}
+
+Annotated regions to weave in naturally:
+{bbox_annotations}
+
+Write ONE natural-language caption that:
+1. Leads with the main subject, then real context in roughly this order when present: \
+[image type] [main subject] [setting] [style] [lighting] [color palette] [mood]. A plain \
+background is not a "setting".
+2. Integrates the annotated regions naturally — not as a list.
+3. Is 20–80 words; shorter is fine for a simple single object.
+4. Uses specific, concrete language — avoid filler like "detailed", "realistic", "beautiful".
+5. Includes the concept token exactly as written: {concept_token}
+6. Does NOT start with "This image shows", "The photo depicts", "Here we see".
+7. Outputs ONLY the caption text — nothing else, no commentary, no quotes.
+
+Caption:"""
+
+
+_COMPOSE_PROMPT_STYLE = """\
+You are writing a single LoRA training caption for a text-to-image diffusion model.
+Use ONLY these observed facts — do not add anything not listed, and drop anything marked \
+"not visible":
+{facts}
+
+Annotated regions to weave in naturally:
+{bbox_annotations}
+
+Write ONE natural-language caption that:
+1. Leads with the main subject, then real context in roughly this order when present: \
+[image type] [main subject] [setting] [style] [lighting] [color palette] [mood]. A plain \
+background is not a "setting".
+2. Integrates the annotated regions naturally — not as a list.
+3. Is 20–80 words; shorter is fine for a simple single object.
+4. Uses specific, concrete language — avoid filler like "detailed", "realistic", "beautiful".
+5. Does NOT include any special trigger word — captions should be pure content descriptions.
+6. Does NOT start with "This image shows", "The photo depicts", "Here we see".
+7. Outputs ONLY the caption text — nothing else, no commentary, no quotes.
+
+Caption:"""
+
+
+_VERIFY_PROMPT_CONCEPT = """\
+Here is a draft caption for the image:
+{draft}
+
+Compare it against the image and correct it:
+- Remove any detail that is NOT actually visible (hallucinations).
+- Add the single most important visible element if it is missing.
+- Keep it faithful and fluent, in the same style and attribute order.
+- Keep the concept token exactly as written: {concept_token}
+- Do NOT start with "This image shows", "The photo depicts", "Here we see".
+
+Output ONLY the corrected caption text — nothing else, no commentary, no quotes."""
+
+
+_VERIFY_PROMPT_STYLE = """\
+Here is a draft caption for the image:
+{draft}
+
+Compare it against the image and correct it:
+- Remove any detail that is NOT actually visible (hallucinations).
+- Add the single most important visible element if it is missing.
+- Keep it faithful and fluent, in the same style and attribute order.
+- Do NOT add any special trigger word — keep it a pure content description.
+- Do NOT start with "This image shows", "The photo depicts", "Here we see".
+
+Output ONLY the corrected caption text — nothing else, no commentary, no quotes."""
+
+
+def build_observe_prompt(bbox_annotations: list[dict]) -> str:
+    """Stage A: instruct the VLM to list only-visible facts under fixed headings."""
+    annotation_text = _format_annotations(bbox_annotations)
+    return _OBSERVE_PROMPT.replace("{bbox_annotations}", annotation_text)
+
+
+def build_compose_prompt(
+    facts: str,
+    bbox_annotations: list[dict],
+    concept_token: str | None,
+    *,
+    style_mode: bool,
+    template: str | None = None,
+) -> str:
+    """Stage B: turn observed ``facts`` + regions into one fluent caption.
+
+    A custom ``template`` (the user's ``caption_prompt``) overrides the built-in
+    compose instruction; the observed facts are prepended as grounding context so the
+    prompt library keeps working while still benefiting from the observe pass.
+    """
+    annotation_text = _format_annotations(bbox_annotations)
+    if template:
+        instruction = apply_prompt_placeholders(template, annotation_text, concept_token)
+        return f"Observed facts about the image (use only these):\n{facts}\n\n{instruction}"
+
+    base = _COMPOSE_PROMPT_STYLE if style_mode else _COMPOSE_PROMPT_CONCEPT
+    return (
+        base
+        .replace("{facts}", facts)
+        .replace("{bbox_annotations}", annotation_text)
+        .replace("{concept_token}", concept_token or "")
+    )
+
+
+def build_verify_prompt(
+    draft: str,
+    concept_token: str | None,
+    *,
+    style_mode: bool,
+) -> str:
+    """Stage C: instruct the VLM to remove non-visible claims and fill omissions."""
+    base = _VERIFY_PROMPT_STYLE if style_mode else _VERIFY_PROMPT_CONCEPT
+    return (
+        base
+        .replace("{draft}", draft)
+        .replace("{concept_token}", concept_token or "")
+    )

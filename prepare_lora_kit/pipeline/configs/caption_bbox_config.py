@@ -8,6 +8,7 @@ class CaptionBboxConfig:
     """Config for CaptionBboxStep."""
     caption_model_id: str | None = None
     caption_model_task: str = "auto"     # auto | image-text-to-text | image-to-text
+    caption_strategy: str = "grounded"   # grounded (observe→compose→verify) | single
     vram_tier: str = "auto"              # auto | low | mid | high | max
     max_new_tokens: int = 200
     spot_check_pct: float = 0.10
@@ -25,6 +26,7 @@ class CaptionBboxConfig:
         "max":  ("none", "bfloat16"),   # >= 32 GB
     }
     _MODEL_TASKS = {"auto", "image-text-to-text", "image-to-text"}
+    _STRATEGIES = {"grounded", "single"}
 
     def __post_init__(self) -> None:
         if self.caption_model_id is not None:
@@ -38,6 +40,12 @@ class CaptionBboxConfig:
             raise ValueError(
                 "CaptionBboxStep: caption_model_task must be one of "
                 f"{list(self._MODEL_TASKS)}, got '{self.caption_model_task}'"
+            )
+        self.caption_strategy = str(self.caption_strategy or "grounded").strip().lower()
+        if self.caption_strategy not in self._STRATEGIES:
+            raise ValueError(
+                "CaptionBboxStep: caption_strategy must be one of "
+                f"{list(self._STRATEGIES)}, got '{self.caption_strategy}'"
             )
         if self.vram_tier not in self._VRAM_TIERS:
             raise ValueError(

@@ -36,6 +36,7 @@ def invoke_caption_bbox_step(working_dir: Path, output_dir: Path, cfg: CaptionBb
         output_dir=working_dir,
         caption_model_id=caption_model_id,
         caption_model_task=caption_model_task,
+        caption_strategy=cfg.caption_strategy,
         quantization=quantization,
         dtype=cfg.dtype,
         max_new_tokens=cfg.max_new_tokens,

@@ -61,6 +61,7 @@ images; only the report goes to `reports/`.
 |---|---|
 | `__init__.py` | Lazy `__getattr__` re-export of `run` only, so importing the package does not pull in torch. |
 | `base.py` | `CaptionStep` ABC: shared `run()` template + phase helpers (`_caption_dataset`, `_validate_and_save_success`, `_resolve_pending`) and the hooks the subclasses fill in. |
+| `grounded.py` | `generate_grounded_caption(...)` — the observe → compose → verify 3-pass pipeline over one loaded VLM (prompt-capable models only). |
 | `real.py` | `RealCaptionStep(CaptionStep)` — captions via `vlm.CaptionRuntime`; loads/unloads the model and runs full validation. |
 | `mock.py` | `MockCaptionStep(CaptionStep)` — deterministic `--mock` captions, no model, empty validation. Also the `_mock_caption()` back-compat wrapper. |
 | `step.py` | Thin `run()` wrapper → `RealCaptionStep(...).run()`; keeps the public signature and back-compat re-exports. |
@@ -188,6 +189,37 @@ Characteristics worth knowing:
 (`steps/upscale/seedvr2_worker.py`), there is no worker subprocess. VRAM hygiene
 between steps comes from `release_accelerator_memory()` in
 `pipeline/execution/engine.py` plus `runtime.unload()`.
+
+## Caption strategy (grounded vs single)
+
+`CaptionBboxConfig.caption_strategy` selects how the **full-image** caption is produced;
+it threads through the adapter → `step.run()` → `RealCaptionStep` → `CaptionRuntime`.
+
+- **`grounded`** (default) — a 3-pass pipeline in `grounded.py::generate_grounded_caption`,
+  reusing the *one* already-loaded VLM (no extra model, no extra dependency):
+  1. **OBSERVE** — list only-visible facts under fixed headings
+     (`prompts.build_observe_prompt`); this is where accuracy is won. Gets a larger token
+     budget (`_OBSERVE_MIN_TOKENS = 320`).
+  2. **COMPOSE** — write one fluent caption from those facts + bbox placement prose
+     (`prompts.build_compose_prompt`). A custom `caption_prompt` overrides **only** this
+     stage; the observed facts are prepended as grounding context.
+  3. **VERIFY** — compare the draft to the image, drop non-visible detail, add an obvious
+     missing element (`prompts.build_verify_prompt`).
+
+  Each stage degrades gracefully (`_degenerate` → fall back to the prior stage / a plain
+  single pass), so grounded never returns worse than single. Per-stage progress is emitted
+  through the existing `caption_status_callback` (phase stays `captioning`, message cycles
+  `observing → composing → verifying`).
+
+- **`single`** — the original one-shot generation (`build_full_image_prompt` → one
+  `generate()`). This is also the automatic fallback for **classic `image-to-text`**
+  models: they cannot follow multi-turn instructions, so `caption_image` routes them to the
+  single path + `_compose_classic_caption` regardless of the configured strategy. The gate
+  is `caption_strategy == "grounded" and CaptionRuntime.supports_prompt`.
+
+The chosen strategy is recorded in the report under `caption_model.caption_strategy`. The
+`--mock` runtime overrides `caption_full_image` directly and never constructs a
+`CaptionRuntime`, so mock output is unaffected by this setting.
 
 ## Resume semantics
 

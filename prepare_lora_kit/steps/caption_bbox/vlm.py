@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Callable
 import threading
 
+from prepare_lora_kit.steps.caption_bbox import grounded
 from prepare_lora_kit.steps.caption_bbox import prompts as cap_utils
 from prepare_lora_kit.report import reporter
 
@@ -387,12 +388,16 @@ class CaptionRuntime:
             status_callback: CaptionStatusCallback | None = None,
             caption_prompt: str | None = None,
             region_prompt: str | None = None,
+            caption_strategy: str = "grounded",
     ) -> None:
         self.model_id = str(model_id or "").strip()
         self.task = task
         self.quantization = quantization
         self.dtype = dtype
         self.max_pixels = max_pixels
+        # "grounded" = observe → compose → verify (prompted models only);
+        # "single" = one-shot generation (also the fallback for image-to-text models).
+        self.caption_strategy = str(caption_strategy or "grounded").strip().lower()
         # Optional custom prompt templates from the global prompt library; when
         # unset, the built-in full-image / region defaults are used.
         self.caption_prompt = caption_prompt or None
@@ -413,6 +418,7 @@ class CaptionRuntime:
                 "quantization": self.quantization,
                 "dtype": self.dtype,
                 "max_pixels": self.max_pixels,
+                "caption_strategy": self.caption_strategy,
             }
         return {
             "model_id": self.model_id,
@@ -422,11 +428,17 @@ class CaptionRuntime:
             "quantization": self._loaded.quantization,
             "dtype": self._loaded.dtype,
             "max_pixels": self._loaded.max_pixels,
+            "caption_strategy": self.caption_strategy,
         }
 
     @property
     def status(self) -> dict[str, Any]:
         return dict(self._status)
+
+    @property
+    def supports_prompt(self) -> bool:
+        """Whether the loaded model follows instruction prompts (chat template)."""
+        return bool(self._loaded is not None and self._loaded.supports_prompt)
 
     def load(self) -> None:
         if self._loaded is not None:
@@ -476,6 +488,10 @@ class CaptionRuntime:
                 return _run_prompted(self._loaded, image, prompt_text, max_new_tokens)
             return _run_image_to_text(self._loaded, image, max_new_tokens)
 
+    def run_prompt(self, image, prompt_text: str, *, max_new_tokens: int) -> str:
+        """Single prompted generation on the loaded model (used by the grounded passes)."""
+        return self._run(image, prompt_text, max_new_tokens)
+
     def caption_image(
             self,
             image_path: Path,
@@ -495,14 +511,30 @@ class CaptionRuntime:
                 "crop_name": ann.get("crop_name", ""),
             })
 
-        prompt_text = cap_utils.build_full_image_prompt(
-            ann_lines, concept_token, template=self.caption_prompt
-        )
         image = _load_image(image_path, self.max_pixels)
+        # Ensure the model is loaded so the strategy can inspect ``supports_prompt``.
+        with self._lock:
+            self.load()
         try:
-            text = self._run(image, prompt_text, max_new_tokens)
-            if self._loaded is not None and not self._loaded.supports_prompt:
-                text = _compose_classic_caption(text, annotations, concept_token)
+            if self.caption_strategy == "grounded" and self.supports_prompt:
+                text = grounded.generate_grounded_caption(
+                    self,
+                    image,
+                    ann_lines,
+                    concept_token,
+                    style_mode=not concept_token,
+                    max_new_tokens=max_new_tokens,
+                    emit=lambda _stage, message: self._emit_status(
+                        "captioning", message, current_image=str(image_path)
+                    ),
+                )
+            else:
+                prompt_text = cap_utils.build_full_image_prompt(
+                    ann_lines, concept_token, template=self.caption_prompt
+                )
+                text = self._run(image, prompt_text, max_new_tokens)
+                if self._loaded is not None and not self._loaded.supports_prompt:
+                    text = _compose_classic_caption(text, annotations, concept_token)
             self._emit_status("ready", f"Caption model ready: {self.model_id}")
             return text
         except Exception as exc:
