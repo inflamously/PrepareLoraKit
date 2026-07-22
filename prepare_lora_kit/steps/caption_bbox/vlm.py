@@ -1,4 +1,4 @@
-"""Generic Hugging Face caption runtime for Step 5."""
+"""Generic Hugging Face caption runtime for CaptionBboxStep."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, Callable
 import threading
 
-from prepare_lora_kit.utils import caption as cap_utils
+from prepare_lora_kit.steps.caption_bbox import prompts as cap_utils
 from prepare_lora_kit.report import reporter
 
 CaptionStatusCallback = Callable[[dict[str, Any]], None]
@@ -19,7 +19,7 @@ _CACHE: dict[tuple, "LoadedCaptionModel"] = {}
 # with area, so this is the first line of defense against activation OOM.
 _DEFAULT_MAX_PIXELS = 1024 * 1024
 
-# Region-crop default prompt lives in utils.caption (single source of truth shared
+# Region-crop default prompt lives in prompts.py (single source of truth shared
 # with the UI prompt-library "Default"); re-exported here for the caption_region path.
 _REGION_PROMPT = cap_utils._REGION_PROMPT
 

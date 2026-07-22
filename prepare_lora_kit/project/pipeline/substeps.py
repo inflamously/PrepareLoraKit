@@ -80,6 +80,16 @@ SUBSTEP_PARENT = {
 }
 
 
+def substep_ids_for(step_type: str) -> list[str]:
+    """Return a parent step's substep IDs in canonical order.
+
+    The single source of truth for a step's substep id list; callers (step
+    runners, report builders, mock runtimes) read from here instead of
+    re-hardcoding the ids, so the set can never drift from ``SUBSTEP_REGISTRY``.
+    """
+    return [definition.id for definition in SUBSTEP_REGISTRY.get(step_type, ())]
+
+
 def substep_aliases() -> dict[str, str]:
     """Return lowercase aliases for substep IDs."""
 
@@ -198,5 +208,6 @@ __all__ = [
     "enabled_substep_ids",
     "normalize_substeps",
     "substep_aliases",
+    "substep_ids_for",
     "substep_payloads",
 ]

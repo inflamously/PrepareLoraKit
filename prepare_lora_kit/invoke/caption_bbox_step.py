@@ -12,16 +12,17 @@ def invoke_caption_bbox_step(working_dir: Path, output_dir: Path, cfg: CaptionBb
                              *, concept_token: Optional[str], **_kw) -> None:
     _require_working_dataset(working_dir)
     if _kw.get("mock_runtime"):
-        from prepare_lora_kit.invoke.mock_caption import _mock_caption
-        _mock_caption(
+        from prepare_lora_kit.steps.caption_bbox.mock import MockCaptionStep
+        MockCaptionStep(
             working_dir,
-            output_dir,
             concept_token=concept_token,
-            force=bool(_kw.get("force", False)),
+            output_dir=working_dir,
+            overwrite=bool(_kw.get("force", False)),
+            report_path=output_dir / "reports" / "CaptionBboxStep_report.json",
             enabled_substeps=_kw.get("enabled_substeps"),
             cancel_check=_kw.get("cancel_check"),
             interaction=_kw.get("interaction"),
-        )
+        ).run()
         return
 
     from prepare_lora_kit.steps import caption_bbox

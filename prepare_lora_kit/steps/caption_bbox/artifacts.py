@@ -1,4 +1,4 @@
-"""Generated bbox training item helpers for Step 5."""
+"""Generated bbox training item helpers for CaptionBboxStep."""
 from __future__ import annotations
 
 import json
@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 
-from prepare_lora_kit.utils import caption as cap_utils
+from prepare_lora_kit.steps.caption_bbox import prompts as cap_utils
 BBOX_PREFIX = "plk_bbox__"
 
 # Fields persisted per box in the reload sidecar. Coordinates are normalized

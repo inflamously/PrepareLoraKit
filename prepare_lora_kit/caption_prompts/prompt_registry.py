@@ -12,8 +12,8 @@ Two kinds exist:
 
 A prompt's ``text`` is a template that may contain ``{bbox_annotations}`` and
 ``{concept_token}`` placeholders; these are filled in at caption time by
-:func:`..utils.caption.apply_prompt_placeholders`. Filenames are namespaced by
-kind (``<kind>__<slug>.yaml``) so the same name can exist for both kinds.
+:func:`...steps.caption_bbox.prompts.apply_prompt_placeholders`. Filenames are
+namespaced by kind (``<kind>__<slug>.yaml``) so the same name can exist for both kinds.
 """
 from __future__ import annotations
 
@@ -23,15 +23,15 @@ from pathlib import Path
 import yaml
 
 from prepare_lora_kit.paths import CONFIGS_DIR
-from prepare_lora_kit.utils import caption as cap_utils
+from prepare_lora_kit.steps.caption_bbox import prompts as cap_utils
 
 KINDS = ("full_image", "region")
 _PROMPTS_DIR = CONFIGS_DIR / "caption_prompts"
 
 # The built-in "Default" is virtual: its text is synthesized from the runtime
-# fallback constants (:func:`..utils.caption.default_prompt_text`) rather than read
-# from disk, so the UI Default and the runtime default can never drift. It is
-# read-only — it cannot be overwritten or deleted.
+# fallback constants (:func:`...steps.caption_bbox.prompts.default_prompt_text`)
+# rather than read from disk, so the UI Default and the runtime default can never
+# drift. It is read-only — it cannot be overwritten or deleted.
 _DEFAULT_NAME = "Default"
 
 

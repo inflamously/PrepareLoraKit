@@ -1,11 +1,11 @@
-"""Caption cleanup, validation, and spot-check display for Step 5."""
+"""Caption cleanup, validation, and spot-check display for CaptionBboxStep."""
 from __future__ import annotations
 
 from pathlib import Path
 import random
 
 from prepare_lora_kit.cancellation import CancelCheck, check_cancel
-from prepare_lora_kit.utils import caption as cap_utils
+from prepare_lora_kit.steps.caption_bbox import prompts as cap_utils
 from prepare_lora_kit.report import reporter
 
 

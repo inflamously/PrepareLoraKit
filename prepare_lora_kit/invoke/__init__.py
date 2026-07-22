@@ -24,7 +24,7 @@ from .export_step import invoke_export_step
 from .mock_curate import _mock_curate
 from .mock_embeddings import _mock_embeddings
 from .mock_vae_gate import _mock_vae_gate
-from .mock_caption import _mock_caption
+from prepare_lora_kit.steps.caption_bbox.mock import _mock_caption
 
 STEP_INVOKE_MAP: dict[str, Callable] = {
     "ImportStep": invoke_import_step,

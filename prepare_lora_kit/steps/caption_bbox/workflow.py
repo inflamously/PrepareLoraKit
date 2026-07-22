@@ -1,4 +1,4 @@
-"""Per-image caption workflow for Step 5."""
+"""Per-image caption workflow for CaptionBboxStep."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -161,7 +161,8 @@ def _caption_full_image(
             images=images,
             captions=result.captions,
             skipped_annotation=result.skipped_annotation,
-            runtime=runtime,
+            caption_model=runtime.metadata,
+            caption_status=runtime.status,
             error=f"VL captioning failed for {path.name}: {exc}",
             enabled=enabled,
         )

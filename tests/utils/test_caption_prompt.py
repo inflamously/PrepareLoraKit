@@ -1,8 +1,8 @@
-"""Direct tests for the caption prompt builders in ``utils.caption``.
+"""Direct tests for the caption prompt builders in ``steps.caption_bbox.prompts``.
 
 Pure string layer — no torch/transformers, no model loading.
 """
-from prepare_lora_kit.utils import caption as cap_utils
+from prepare_lora_kit.steps.caption_bbox import prompts as cap_utils
 
 
 def test_concept_prompt_has_token_and_grounding():

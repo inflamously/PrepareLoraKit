@@ -1,20 +1,19 @@
-"""Report payload helpers for Step 5."""
+"""Report payload helpers for CaptionBboxStep."""
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
+from prepare_lora_kit.project.pipeline.substeps import substep_ids_for
 from prepare_lora_kit.report import reporter
 
-if TYPE_CHECKING:
-    from prepare_lora_kit.steps.caption_bbox.vlm import CaptionRuntime
+_REPORT_NAME = "CaptionBboxStep_report.json"
 
 
 def substep_status(enabled: set[str]) -> dict[str, dict[str, bool]]:
     return {
-        "annotate_regions": {"enabled": "annotate_regions" in enabled},
-        "caption_images": {"enabled": "caption_images" in enabled},
-        "validate_captions": {"enabled": "validate_captions" in enabled},
+        substep_id: {"enabled": substep_id in enabled}
+        for substep_id in substep_ids_for("CaptionBboxStep")
     }
 
 
@@ -22,19 +21,21 @@ def build_success_report(
     *,
     images: list[Path],
     captions: dict[str, str],
-    runtime: CaptionRuntime,
+    caption_model: dict[str, Any],
+    caption_status: dict[str, Any],
     skipped_annotation: list[str],
     missing_token: list[str],
     short_captions: list[str],
     long_captions: list[str],
     spot_check_sample: list[tuple[str, str]],
     enabled: set[str],
+    mock_runtime: bool = False,
 ) -> dict[str, Any]:
-    return {
+    report: dict[str, Any] = {
         "total": len(images),
         "captioned": len(captions),
-        "caption_model": runtime.metadata,
-        "caption_status": runtime.status,
+        "caption_model": caption_model,
+        "caption_status": caption_status,
         "skipped_annotation": skipped_annotation,
         "missing_token": missing_token,
         "short_captions": short_captions,
@@ -42,10 +43,13 @@ def build_success_report(
         "spot_check_sample": [p for p, _ in spot_check_sample] if captions else [],
         "substeps": substep_status(enabled),
     }
+    if mock_runtime:
+        report["mock_runtime"] = True
+    return report
 
 
 def save_success_report(report_data: dict[str, Any], report_path: Path | None, output_dir: Path) -> None:
-    reporter.save_report(report_data, report_path or (output_dir / "step5_report.json"))
+    reporter.save_report(report_data, report_path or (output_dir / _REPORT_NAME))
 
 
 def _save_failure_report(
@@ -54,7 +58,8 @@ def _save_failure_report(
     images: list[Path],
     captions: dict[str, str],
     skipped_annotation: list[str],
-    runtime: CaptionRuntime,
+    caption_model: dict[str, Any],
+    caption_status: dict[str, Any],
     error: str,
     enabled: set[str],
 ) -> None:
@@ -62,8 +67,8 @@ def _save_failure_report(
         "status": "failed",
         "total": len(images),
         "captioned": len(captions),
-        "caption_model": runtime.metadata,
-        "caption_status": runtime.status,
+        "caption_model": caption_model,
+        "caption_status": caption_status,
         "skipped_annotation": skipped_annotation,
         "error": error,
         "substeps": substep_status(enabled),

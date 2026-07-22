@@ -1,7 +1,7 @@
 import pytest
 
 from prepare_lora_kit.caption_prompts import prompt_registry
-from prepare_lora_kit.utils import caption as cap_utils
+from prepare_lora_kit.steps.caption_bbox import prompts as cap_utils
 
 
 @pytest.fixture()

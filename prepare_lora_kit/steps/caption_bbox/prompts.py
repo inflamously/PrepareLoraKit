@@ -1,4 +1,10 @@
-"""Caption cleaning and consistency utilities."""
+"""Caption prompt templates, prompt assembly, and caption text-QA helpers.
+
+Single source of truth for the built-in full-image / region prompts (shared by the
+VLM runtime and the UI's virtual "Default" prompt-library entry) plus the small text
+utilities used to clean and validate generated captions. Lives beside the caption
+step because every consumer is caption-specific.
+"""
 from __future__ import annotations
 import re
 

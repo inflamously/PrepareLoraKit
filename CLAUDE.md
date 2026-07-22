@@ -100,6 +100,8 @@ fixtures for `--mock`.
 - Commits use conventional prefixes (`feat:`, `fix:`, `refactor:`) with an imperative summary.
 - UI visual rules (the `nf-*` component kit, design tokens, gold-glow transition) are documented
   in `docs/ui-design.md`; `docs/core.md` describes the step/substep run model.
+- `docs/caption-step.md` documents the `CaptionBboxStep` architecture (layering, VLM runtime,
+  resume semantics, prompt sources, UI plumbing) — read it before changing `steps/caption_bbox/`.
 
 ## Adding a pipeline step
 
