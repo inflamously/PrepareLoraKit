@@ -29,7 +29,7 @@ class MockCaptionStep(CaptionStep):
         # The mock produces canned captions; there is nothing meaningful to QA.
         return [], [], [], []
 
-    def _region_caption_fn(self, crop: Any, source_path: Path) -> str:
+    def _region_caption_fn(self, crop: Any, source_path: Path, *, box: dict | None = None) -> str:
         return f"mock region caption for {source_path.stem}"
 
     def caption_full_image(

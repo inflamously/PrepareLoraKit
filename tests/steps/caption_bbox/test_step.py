@@ -132,8 +132,8 @@ def _fake_runtime_class(
             if self._status_callback:
                 self._status_callback(self.status)
 
-        def caption_region(self, crop):
-            events.append(("region", crop.size))
+        def caption_region(self, crop, *, source_path=None, box=None):
+            events.append(("region", crop.size, Path(source_path).name if source_path else None, box))
             return "green detail"
 
         def caption_image(self, path, annotations, concept_token, *, max_new_tokens):
@@ -169,6 +169,11 @@ def test_caption_bbox_step_reuses_runtime_for_region_and_original_caption(tmp_pa
 
     assert report["captioned"] == 2
     assert _event_names(events) == ["init", "region", "image", "unload"]
+    # The region call must carry the source image and box so the runtime can
+    # caption the region in the context of the full image.
+    region_event = next(e for e in events if e[0] == "region")
+    assert region_event[2] == "image.png"
+    assert region_event[3] == {"x1": 0.1, "y1": 0.1, "x2": 0.5, "y2": 0.5}
     assert (tmp_path / "image.txt").read_text(encoding="utf-8") == "tok, Whole original caption"
     assert (tmp_path / "plk_bbox__image__01.txt").read_text(encoding="utf-8") == "tok, Green detail"
     assert report["caption_model"]["adapter"] == "fake"

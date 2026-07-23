@@ -96,13 +96,52 @@ background is not a "setting".
 Caption:"""
 
 
-# Region-crop caption instruction. Lives here (not in vlm.py) so the runtime default and
+# Region caption instructions. Live here (not in vlm.py) so the runtime defaults and
 # the UI "Default" prompt-library entry share a single source of truth.
+#
+# Bare-crop fallback: a natural phrase, not comma-separated tags (the old tag-style
+# wording produced inaccurate tag lists). Used when no source image/box is available
+# or the model cannot follow prompts.
 _REGION_PROMPT = (
-    "Describe what is actually visible in this crop with a short, literal phrase: a few "
-    "comma-separated words or descriptors. Name only what you can clearly see — do not "
-    "guess or invent. Do not mention that this is a crop or region. Output only the description."
+    "Describe what is shown here in ONE short, natural phrase — not a list of tags. "
+    "Name the main object or subject and its most important visible attributes "
+    "(material, colour, shape, notable detail). Only describe what is clearly visible; "
+    "do not guess. Do not mention that this is a crop or region. Output only the phrase."
 )
+
+# Region caption with a known origin: the model still sees ONLY the crop (a region
+# caption must describe the box contents, never the surrounding scene), but is told
+# where the crop sits in the source image as a hint for partial/ambiguous objects.
+_REGION_WITH_POSITION_PROMPT = (
+    "This is a cropped detail taken from {region_position} of a larger image. "
+    "Describe ONLY what is inside this crop in ONE short, natural phrase — not a list "
+    "of tags and not a full-scene sentence. Name the main object or subject and its "
+    "most important visible attributes (material, colour, shape, notable detail). "
+    "Only describe what is clearly visible; do not guess and do not describe the "
+    "larger image. Output only the phrase."
+)
+
+
+def build_region_prompt(
+    position: str | None = None,
+    *,
+    template: str | None = None,
+) -> str:
+    """Return the region caption instruction (always applied to the crop).
+
+    ``position`` is the :func:`describe_box_position` prose for where the crop sits
+    in the source image; when given, it is included as an origin hint. A custom
+    ``template`` (the project's ``region_prompt``) overrides the built-ins and may
+    use the ``{region_position}`` placeholder (empty when the origin is unknown).
+    """
+    if template:
+        return (
+            apply_prompt_placeholders(template, "", None)
+            .replace("{region_position}", position or "")
+        )
+    if position:
+        return _REGION_WITH_POSITION_PROMPT.replace("{region_position}", position)
+    return _REGION_PROMPT
 
 
 # Natural-language placement for a localized box, keyed by (vertical, horizontal) zone.

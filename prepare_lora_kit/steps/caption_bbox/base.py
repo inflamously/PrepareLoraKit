@@ -84,8 +84,13 @@ class CaptionStep(ABC):
         """Produce the full-image caption text for one image."""
 
     @abstractmethod
-    def _region_caption_fn(self, crop: Any, source_path: Path) -> str:
-        """Produce the raw caption text for a single drawn region crop."""
+    def _region_caption_fn(self, crop: Any, source_path: Path, *, box: dict | None = None) -> str:
+        """Produce the raw caption text for a single drawn region crop.
+
+        ``box`` is the normalized ``{x1,y1,x2,y2}`` dict when the caller knows the
+        region's location on ``source_path`` — the real step then captions the
+        region in the context of the full image instead of the bare crop.
+        """
 
     def prepare_runtime(self, needs_captioning: bool) -> None:
         """Validate/load the caption runtime before the loop (no-op by default)."""

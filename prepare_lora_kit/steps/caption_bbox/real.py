@@ -84,8 +84,8 @@ class RealCaptionStep(CaptionStep):
     def report_status(self) -> dict[str, Any]:
         return self.runtime.status
 
-    def _region_caption_fn(self, crop: Any, source_path: Path) -> str:
-        return self.runtime.caption_region(crop)
+    def _region_caption_fn(self, crop: Any, source_path: Path, *, box: dict | None = None) -> str:
+        return self.runtime.caption_region(crop, source_path=source_path, box=box)
 
     def caption_full_image(
             self,

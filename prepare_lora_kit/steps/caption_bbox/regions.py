@@ -12,7 +12,7 @@ from prepare_lora_kit.steps.caption_bbox.artifacts import _save_bbox_training_it
 
 def make_region_captioner(
     *,
-    caption_fn: Callable[[Any, Path], str],
+    caption_fn: Callable[..., str],
     output_dir: Path,
     captions: dict[str, str],
     concept_token: str | None,
@@ -20,9 +20,10 @@ def make_region_captioner(
 ) -> Callable[[Any, dict[str, Any] | None], dict[str, str]]:
     """Create the in-UI callback that captions and persists a cropped region.
 
-    ``caption_fn(crop, source_path)`` produces the raw region caption text; the
-    real step routes it through the VLM, the mock returns deterministic text. The
-    persistence/normalization around it is identical for both.
+    ``caption_fn(crop, source_path, box=...)`` produces the raw region caption
+    text; the real step routes it through the VLM (captioning the region in the
+    context of the full source image when ``box`` is present), the mock returns
+    deterministic text. The persistence/normalization around it is identical.
     """
 
     def _region_captioner(crop: Any, metadata: dict[str, Any] | None = None) -> dict[str, str]:
@@ -31,7 +32,7 @@ def make_region_captioner(
         if not source_raw:
             raise ValueError("Region caption metadata missing source_path")
         source_path = Path(source_raw)
-        text = caption_fn(crop, source_path)
+        text = caption_fn(crop, source_path, box=(metadata or {}).get("box"))
         check_cancel(cancel_check)
         result = _save_bbox_training_item(crop, source_path, output_dir, text, concept_token)
         captions[result["crop_path"]] = result["caption"]

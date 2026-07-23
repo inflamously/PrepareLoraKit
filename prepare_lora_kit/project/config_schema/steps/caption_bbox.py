@@ -47,5 +47,8 @@ FIELDS: list[FieldSpec] = [
                  "{concept_token} placeholders. Blank = built-in default."),
     _prompt("region_prompt", "Region prompt",
             placeholder="Leave blank to use the built-in region prompt…",
-            help="Bbox/crop caption instruction. Blank = built-in default."),
+            help="Bbox/crop caption instruction. Supports the {region_position} "
+                 "placeholder (the box's location prose when captioning in the "
+                 "context of the full image; empty for a bare crop). Blank = "
+                 "built-in default."),
 ]

@@ -374,6 +374,17 @@ def _clear_cuda(torch) -> None:
         torch.cuda.empty_cache()
 
 
+def _region_position(box: dict[str, Any] | None) -> str | None:
+    """Spatial prose for a normalized box dict, or ``None`` if it is unusable."""
+    if not isinstance(box, dict):
+        return None
+    try:
+        coords = [float(box[k]) for k in ("x1", "y1", "x2", "y2")]
+    except (KeyError, TypeError, ValueError):
+        return None
+    return cap_utils.describe_box_position(*coords)
+
+
 class CaptionRuntime:
     """Reusable Hugging Face caption runtime for one captioning step."""
 
@@ -545,22 +556,32 @@ class CaptionRuntime:
             self,
             image,
             *,
+            source_path: Path | str | None = None,
+            box: dict[str, Any] | None = None,
             max_new_tokens: int = 80,
     ) -> str:
+        """Caption one drawn region — the crop only, never the full scene.
+
+        The model always sees just the crop: a region caption must describe the box
+        contents so it can later ground the full-image caption (and stand alone as a
+        crop training pair). When ``box`` is known, its position on ``source_path``
+        is added to the prompt as an origin hint for partial/ambiguous objects
+        (:func:`prompts.build_region_prompt`); classic image-to-text models ignore
+        prompts, so the hint only applies to prompt-capable runtimes.
+        """
         self._emit_status("captioning", "Captioning selected region")
-        if isinstance(image, (str, Path)):
-            img = _load_image(Path(image), self.max_pixels)
-        else:
-            img = _downscale(image.convert("RGB"), self.max_pixels)
-        # Region crops carry no bbox annotations; the concept token is applied to
-        # the crop caption afterwards (see artifacts._save_bbox_training_item), so
-        # the {concept_token} placeholder resolves to empty here.
-        region_prompt = (
-            cap_utils.apply_prompt_placeholders(self.region_prompt, "", None)
-            if self.region_prompt
-            else _REGION_PROMPT
-        )
         try:
+            with self._lock:
+                self.load()
+            position = _region_position(box) if self.supports_prompt else None
+            if isinstance(image, (str, Path)):
+                img = _load_image(Path(image), self.max_pixels)
+            else:
+                img = _downscale(image.convert("RGB"), self.max_pixels)
+            # Region captions carry no bbox annotations; the concept token is applied
+            # afterwards (see artifacts._save_bbox_training_item), so the
+            # {concept_token} placeholder resolves to empty here.
+            region_prompt = cap_utils.build_region_prompt(position, template=self.region_prompt)
             text = self._run(img, region_prompt, max_new_tokens)
             self._emit_status("ready", f"Caption model ready: {self.model_id}")
             return text
