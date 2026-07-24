@@ -5,6 +5,25 @@
 const STROKE = "#4ea1f3";
 const STROKE_SELECTED = "#5cc38a";
 const STROKE_PENDING = "#d9a441";
+// How strongly the image outside the selected region is dimmed, so the eye
+// lands on the crop instead of the whole picture.
+const OUTSIDE_DIM = "rgba(0,0,0,0.4)";
+
+// Gray out everything outside the selected box by filling the four bands around
+// it. Drawn after the image but before the outlines so the box borders and label
+// chips stay at full contrast.
+export function dimOutsideBox(ctx, box, width, height) {
+  const x = Math.max(0, Math.min(width, box.x1 * width));
+  const y = Math.max(0, Math.min(height, box.y1 * height));
+  const right = Math.max(x, Math.min(width, box.x2 * width));
+  const bottom = Math.max(y, Math.min(height, box.y2 * height));
+
+  ctx.fillStyle = OUTSIDE_DIM;
+  ctx.fillRect(0, 0, width, y); // above
+  ctx.fillRect(0, bottom, width, height - bottom); // below
+  ctx.fillRect(0, y, x, bottom - y); // left
+  ctx.fillRect(right, y, width - right, bottom - y); // right
+}
 
 // Draw a single normalized box (coords in 0–1) plus its label chip. When
 // `highlight` is set the outline glows gold to flag a region still missing a

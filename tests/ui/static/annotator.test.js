@@ -170,6 +170,41 @@ describe("annotation workspace", () => {
     assert.equal(layer.querySelector(".box-item").classList.contains("selected"), true);
   });
 
+  it("toggles the selection off (and stops dimming) on a second Select press", () => {
+    showAnnotator(annotationPending("annotation-toggle"), { onSubmitted: calls() });
+    const layer = document.getElementById("modalLayer");
+    const canvas = activeCanvas();
+
+    drawBox(canvas, { start: [110, 95], end: [310, 245] });
+    const item = layer.querySelector(".box-item");
+    assert.equal(item.classList.contains("selected"), true);
+    assert.equal(item.querySelector(".secondary").textContent, "Deselect");
+
+    // Second press clears the selection: only the label chip is filled, none of
+    // the four dim bands.
+    let before = contextCalls.length;
+    item.querySelector(".secondary").click();
+    let since = contextCalls.slice(before);
+    assert.ok(since.some((c) => c[0] === "drawImage"));
+    assert.equal(since.filter((c) => c[0] === "fillRect").length, 1);
+    assert.equal(
+      layer.querySelector(".box-item").classList.contains("selected"),
+      false,
+    );
+    assert.equal(layer.querySelector("#bboxStatus").textContent, "No box selected");
+    assert.equal(layer.querySelector("#captionBox").disabled, true);
+
+    // Pressing it again re-selects and brings the dimming back.
+    before = contextCalls.length;
+    layer.querySelector(".box-item .secondary").click();
+    since = contextCalls.slice(before);
+    assert.equal(
+      layer.querySelector(".box-item").classList.contains("selected"),
+      true,
+    );
+    assert.equal(since.filter((c) => c[0] === "fillRect").length, 5); // 4 bands + chip
+  });
+
   it("pre-fills reloaded boxes for already-captioned images", () => {
     showAnnotator(
       annotationPending("annotation-reload", [

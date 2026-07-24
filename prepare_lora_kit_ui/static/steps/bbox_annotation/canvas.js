@@ -4,7 +4,7 @@ import {
   fitCanvasSize,
   normalizedFromPixels,
 } from "./canvas-utils.js";
-import { drawBox, drawPendingRect } from "./canvas-render.js";
+import { dimOutsideBox, drawBox, drawPendingRect } from "./canvas-render.js";
 import { isUncaptioned } from "./bbox-annotation-utils.js";
 
 // Owns the annotation <canvas>: renders the image + boxes and turns pointer
@@ -67,6 +67,12 @@ export class AnnotationCanvas {
     if (this.hideBoxes) return;
     const selected = this.getSelected();
     const highlight = this.getHighlightMissing?.();
+    // Focus aid: while a region is selected (and no drag is in flight) dim the
+    // surrounding image so the crop stands out.
+    const selectedBox = boxes[selected];
+    if (selectedBox && !drawing) {
+      dimOutsideBox(ctx, selectedBox, canvas.width, canvas.height);
+    }
     boxes.forEach((box, index) =>
       drawBox(
         ctx,

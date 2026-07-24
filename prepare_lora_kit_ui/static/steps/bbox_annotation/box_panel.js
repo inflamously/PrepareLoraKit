@@ -150,7 +150,7 @@ export class BoxPanel {
         <canvas class="box-thumb" width="64" height="64"></canvas>
         <input value="${escapeText(box.label || "")}" placeholder="Description" />
         ${box.crop_name ? `<small>${escapeText(box.crop_name)}</small>` : ""}
-        <button class="secondary">Select</button>
+        <button class="secondary">${index === selected ? "Deselect" : "Select"}</button>
         <button class="danger">Delete</button>
       `;
       // Show what the region actually crops to, rendered from the active image.
@@ -171,8 +171,10 @@ export class BoxPanel {
         this.renderStatus();
         this.redraw?.();
       });
+      // Select acts as a toggle: pressing it on the already-selected region
+      // clears the selection, which also drops the canvas dimming.
       item.querySelector(".secondary").addEventListener("click", () => {
-        this.setSelected(index);
+        this.setSelected(this.getSelected() === index ? -1 : index);
         this.onChange();
       });
       item.querySelector(".danger").addEventListener("click", () => {
