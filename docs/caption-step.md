@@ -61,7 +61,8 @@ images; only the report goes to `reports/`.
 |---|---|
 | `__init__.py` | Lazy `__getattr__` re-export of `run` only, so importing the package does not pull in torch. |
 | `base.py` | `CaptionStep` ABC: shared `run()` template + phase helpers (`_caption_dataset`, `_validate_and_save_success`, `_resolve_pending`) and the hooks the subclasses fill in. |
-| `grounded.py` | `generate_grounded_caption(...)` — the observe → compose → verify 3-pass pipeline over one loaded VLM (prompt-capable models only). |
+| `grounded.py` | `generate_grounded_caption(...)` — the observe → compose → gap-fill pipeline over one loaded VLM (prompt-capable models only). |
+| `gap_fill.py` | The additive third pass: `needs_gap_pass` (gate), `parse_gap_phrases`, `merge_missing_phrases`. Pure text, no model. |
 | `real.py` | `RealCaptionStep(CaptionStep)` — captions via `vlm.CaptionRuntime`; loads/unloads the model and runs full validation. |
 | `mock.py` | `MockCaptionStep(CaptionStep)` — deterministic `--mock` captions, no model, empty validation. Also the `_mock_caption()` back-compat wrapper. |
 | `step.py` | Thin `run()` wrapper → `RealCaptionStep(...).run()`; keeps the public signature and back-compat re-exports. |
@@ -207,7 +208,7 @@ between steps comes from `release_accelerator_memory()` in
 `CaptionBboxConfig.caption_strategy` selects how the **full-image** caption is produced;
 it threads through the adapter → `step.run()` → `RealCaptionStep` → `CaptionRuntime`.
 
-- **`grounded`** (default) — a 3-pass pipeline in `grounded.py::generate_grounded_caption`,
+- **`grounded`** (default) — a staged pipeline in `grounded.py::generate_grounded_caption`,
   reusing the *one* already-loaded VLM (no extra model, no extra dependency):
   1. **OBSERVE** — list only-visible facts under fixed headings
      (`prompts.build_observe_prompt`); this is where accuracy is won. Gets a larger token
@@ -215,13 +216,23 @@ it threads through the adapter → `step.run()` → `RealCaptionStep` → `Capti
   2. **COMPOSE** — write one fluent caption from those facts + bbox placement prose
      (`prompts.build_compose_prompt`). A custom `caption_prompt` overrides **only** this
      stage; the observed facts are prepended as grounding context.
-  3. **VERIFY** — compare the draft to the image, drop non-visible detail, add an obvious
-     missing element (`prompts.build_verify_prompt`).
+  3. **GAP-FILL** — conditional and additive. `gap_fill.needs_gap_pass` gates it on cheap
+     text signals (`short_caption` under 20 words, `missing_label` when a region label is
+     absent from the draft, `low_information` on banned filler vocabulary); a clean draft
+     skips the pass and the third image encode entirely. When it does run,
+     `prompts.build_gap_prompt` asks **only** for a list of omitted elements — at most 3
+     short noun phrases, or `NONE` — and `gap_fill.merge_missing_phrases` appends the ones
+     not already covered (`_GAP_MAX_TOKENS = 48`).
+
+  Stage 3 asks for a phrase list rather than a corrected caption **by design**: an output
+  format that is a full caption lets the model paraphrase human-authored region labels and
+  drop detail, and no prompt wording prevents that. Emitting a delta and merging in Python
+  makes the pass additive by construction.
 
   Each stage degrades gracefully (`_degenerate` → fall back to the prior stage / a plain
   single pass), so grounded never returns worse than single. Per-stage progress is emitted
   through the existing `caption_status_callback` (phase stays `captioning`, message cycles
-  `observing → composing → verifying`).
+  `observing → composing`, plus `verifying` only when the gap pass actually runs).
 
 - **`single`** — the original one-shot generation (`build_full_image_prompt` → one
   `generate()`). This is also the automatic fallback for **classic `image-to-text`**

@@ -1,13 +1,14 @@
-"""Grounded 3-pass caption generation: observe → compose → verify.
+"""Grounded caption generation: observe → compose → gap-fill.
 
-Splits the single-shot VLM caption into three prompt passes over the *same*
+Splits the single-shot VLM caption into prompt passes over the *same*
 already-loaded model, so accuracy comes from grounding the caption in observed
 facts rather than from a bigger model:
 
 - **A. OBSERVE** — list only-visible facts under fixed headings (the accuracy pass).
 - **B. COMPOSE** — write one fluent caption from those facts + bbox placement.
-- **C. VERIFY** — compare the draft to the image, drop anything not visible, add an
-  obviously missing main element.
+- **C. GAP-FILL** — *conditional and additive*: only when a cheap text signal says
+  the draft is thin, ask the model for the elements it omitted and merge them in
+  Python (:mod:`.gap_fill`). It cannot reword or drop what the draft already says.
 
 Used only for prompt-capable (``image-text-to-text``) runtimes; the caller in
 ``vlm.CaptionRuntime.caption_image`` falls back to the single pass for classic
@@ -20,10 +21,13 @@ from __future__ import annotations
 from typing import Any, Callable
 
 from prepare_lora_kit.cancellation import CancelCheck, check_cancel
+from prepare_lora_kit.steps.caption_bbox import gap_fill
 from prepare_lora_kit.steps.caption_bbox import prompts as cap_utils
 
 # The observe pass emits a headed fact list, which needs more room than a caption.
 _OBSERVE_MIN_TOKENS = 320
+# The gap pass emits at most three short noun phrases, never prose.
+_GAP_MAX_TOKENS = 48
 
 
 def _degenerate(text: str) -> bool:
@@ -84,13 +88,16 @@ def generate_grounded_caption(
         )
     check_cancel(cancel_check)
 
-    # C. VERIFY — drop hallucinations, fill an obvious omission.
-    _emit("verifying", "Verifying against image")
-    final = runtime.run_prompt(
-        image,
-        cap_utils.build_verify_prompt(draft, concept_token, style_mode=style_mode),
-        max_new_tokens=max_new_tokens,
-    )
-    if _degenerate(final):
+    # C. GAP-FILL — additive, and only when the draft looks thin. A good draft skips
+    # the pass entirely, which is the whole saving: on a VLM the cost of a pass is
+    # dominated by re-encoding the image, not by the tokens it decodes.
+    if gap_fill.needs_gap_pass(draft, annotation_lines) is None:
         return draft
-    return final
+
+    _emit("verifying", "Checking for missing details")
+    missing = runtime.run_prompt(
+        image,
+        cap_utils.build_gap_prompt(draft),
+        max_new_tokens=_GAP_MAX_TOKENS,
+    )
+    return gap_fill.merge_missing_phrases(draft, gap_fill.parse_gap_phrases(missing))

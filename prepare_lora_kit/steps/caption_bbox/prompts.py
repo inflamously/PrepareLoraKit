@@ -252,14 +252,17 @@ def build_full_image_prompt(
     return _FULL_IMAGE_PROMPT_STYLE.format(bbox_annotations=annotation_text)
 
 
-# ── Grounded 3-pass prompts (observe → compose → verify) ────────────────────────
+# ── Grounded prompts (observe → compose → gap-fill) ─────────────────────────────
 #
 # The single-shot full-image prompt asks the model to observe, compose, style,
 # integrate regions, inject the token and avoid hallucination all at once, which
-# yields generic or tag-like captions. These three prompts split that work into
-# grounded passes over the *same* loaded VLM (see ``grounded.py``). All three fill
-# their placeholders with plain ``str.replace`` (not ``.format``) because ``facts``
-# and ``draft`` are model-generated and may contain stray ``{``/``}``.
+# yields generic or tag-like captions. These prompts split that work into grounded
+# passes over the *same* loaded VLM (see ``grounded.py``). The last one asks for a
+# list of omissions rather than a corrected caption, so the pass cannot overwrite
+# the draft — see ``gap_fill.py`` for why that had to be a format change and not a
+# wording change. All fill their placeholders with plain ``str.replace`` (not
+# ``.format``) because ``facts`` and ``draft`` are model-generated and may contain
+# stray ``{``/``}``.
 
 _OBSERVE_PROMPT = """\
 You are analysing an image to build an accurate training caption. First, OBSERVE it.
@@ -329,32 +332,17 @@ background is not a "setting".
 Caption:"""
 
 
-_VERIFY_PROMPT_CONCEPT = """\
-Here is a draft caption for the image:
+_GAP_PROMPT = """\
+Look at the image, then read this caption of it:
 {draft}
 
-Compare it against the image and correct it:
-- Remove any detail that is NOT actually visible (hallucinations).
-- Add the single most important visible element if it is missing.
-- Keep it faithful and fluent, in the same style and attribute order.
-- Keep the concept token exactly as written: {concept_token}
-- Do NOT start with "This image shows", "The photo depicts", "Here we see".
+List anything clearly visible in the image that the caption fails to mention.
 
-Output ONLY the corrected caption text — nothing else, no commentary, no quotes."""
-
-
-_VERIFY_PROMPT_STYLE = """\
-Here is a draft caption for the image:
-{draft}
-
-Compare it against the image and correct it:
-- Remove any detail that is NOT actually visible (hallucinations).
-- Add the single most important visible element if it is missing.
-- Keep it faithful and fluent, in the same style and attribute order.
-- Do NOT add any special trigger word — keep it a pure content description.
-- Do NOT start with "This image shows", "The photo depicts", "Here we see".
-
-Output ONLY the corrected caption text — nothing else, no commentary, no quotes."""
+- One short noun phrase per line, at most 3 lines.
+- Only concrete visible things: subjects, objects, setting, notable colour or lighting.
+- Do NOT repeat anything the caption already covers, even in different words.
+- Do NOT rewrite the caption, do NOT explain, do NOT number or bullet the lines.
+- If the caption is already complete, output exactly: NONE"""
 
 
 def build_observe_prompt(bbox_annotations: list[dict]) -> str:
@@ -391,16 +379,11 @@ def build_compose_prompt(
     )
 
 
-def build_verify_prompt(
-    draft: str,
-    concept_token: str | None,
-    *,
-    style_mode: bool,
-) -> str:
-    """Stage C: instruct the VLM to remove non-visible claims and fill omissions."""
-    base = _VERIFY_PROMPT_STYLE if style_mode else _VERIFY_PROMPT_CONCEPT
-    return (
-        base
-        .replace("{draft}", draft)
-        .replace("{concept_token}", concept_token or "")
-    )
+def build_gap_prompt(draft: str) -> str:
+    """Stage C: ask only for what the draft omits — never for a rewritten caption.
+
+    The reply is a phrase list, merged into the draft by :mod:`.gap_fill`. Needs
+    neither the concept token nor the style flag: nothing about the existing
+    caption is regenerated, so nothing about it can be lost.
+    """
+    return _GAP_PROMPT.replace("{draft}", draft)
