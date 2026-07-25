@@ -63,6 +63,7 @@ images; only the report goes to `reports/`.
 | `base.py` | `CaptionStep` ABC: shared `run()` template + phase helpers (`_caption_dataset`, `_validate_and_save_success`, `_resolve_pending`) and the hooks the subclasses fill in. |
 | `grounded.py` | `generate_grounded_caption(...)` — the observe → compose → gap-fill pipeline over one loaded VLM (prompt-capable models only). |
 | `gap_fill.py` | The additive third pass: `needs_gap_pass` (gate), `parse_gap_phrases`, `merge_missing_phrases`. Pure text, no model. |
+| `caption_text.py` | Shared "does this already say that?" normalisation (`content_words`, `covered`) used by `gap_fill` and `grounded`. |
 | `real.py` | `RealCaptionStep(CaptionStep)` — captions via `vlm.CaptionRuntime`; loads/unloads the model and runs full validation. |
 | `mock.py` | `MockCaptionStep(CaptionStep)` — deterministic `--mock` captions, no model, empty validation. Also the `_mock_caption()` back-compat wrapper. |
 | `step.py` | Thin `run()` wrapper → `RealCaptionStep(...).run()`; keeps the public signature and back-compat re-exports. |
@@ -209,13 +210,24 @@ between steps comes from `release_accelerator_memory()` in
 it threads through the adapter → `step.run()` → `RealCaptionStep` → `CaptionRuntime`.
 
 - **`grounded`** (default) — a staged pipeline in `grounded.py::generate_grounded_caption`,
-  reusing the *one* already-loaded VLM (no extra model, no extra dependency):
+  reusing the *one* already-loaded VLM (no extra model, no extra dependency). Only COMPOSE
+  always runs; the other two stages are conditional, because on a VLM the cost of a stage
+  is dominated by re-encoding the image, so skipping a stage is the only real saving:
   1. **OBSERVE** — list only-visible facts under fixed headings
      (`prompts.build_observe_prompt`); this is where accuracy is won. Gets a larger token
-     budget (`_OBSERVE_MIN_TOKENS = 320`).
+     budget (`_OBSERVE_MIN_TOKENS = 320`). **Skipped** when
+     `grounded._annotations_suffice` holds — ≥2 labelled regions, or one label of ≥4
+     content words. Region labels are human-authored and hand-editable, so where they
+     exist they are better grounding than the model's own observations.
   2. **COMPOSE** — write one fluent caption from those facts + bbox placement prose
      (`prompts.build_compose_prompt`). A custom `caption_prompt` overrides **only** this
-     stage; the observed facts are prepended as grounding context.
+     stage; observed facts, when there are any, are prepended as grounding context.
+
+     An **empty `facts`** is the signal that OBSERVE was skipped: the prompt then swaps
+     its grounding section (`prompts._FACTS_SECTION_ANNOTATED`) to declare the labels
+     authoritative and instruct the model to read the attributes labels cannot supply —
+     setting, framing, lighting, palette, medium — off the image directly. That works
+     because COMPOSE is image-conditioned too, not a text-only rewrite.
   3. **GAP-FILL** — conditional and additive. `gap_fill.needs_gap_pass` gates it on cheap
      text signals (`short_caption` under 20 words, `missing_label` when a region label is
      absent from the draft, `low_information` on banned filler vocabulary); a clean draft
@@ -239,6 +251,12 @@ it threads through the adapter → `step.run()` → `RealCaptionStep` → `Capti
   models: they cannot follow multi-turn instructions, so `caption_image` routes them to the
   single path + `_compose_classic_caption` regardless of the configured strategy. The gate
   is `caption_strategy == "grounded" and CaptionRuntime.supports_prompt`.
+
+Because both conditional stages depend on per-image content, the only record of what a run
+actually cost is `caption_model.passes` — a `{stage: count}` tally accumulated by
+`CaptionRuntime.note_pass` over the whole step (`observe`, `compose`, `compose_fallback`,
+`gap`). A 40-image run showing `{"compose": 40, "observe": 12, "gap": 7}` did 59 image
+encodes where the old unconditional 3-pass pipeline would have done 120.
 
 The chosen strategy is recorded in the report under `caption_model.caption_strategy`. The
 `--mock` runtime overrides `caption_full_image` directly and never constructs a

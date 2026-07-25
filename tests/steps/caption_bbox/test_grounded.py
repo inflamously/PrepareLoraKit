@@ -9,10 +9,14 @@ class _FakeRuntime:
         self.caption_prompt = caption_prompt
         self._responses = list(responses)
         self.prompts: list[tuple[str, int]] = []
+        self.passes: list[str] = []
 
     def run_prompt(self, image, prompt_text, *, max_new_tokens):
         self.prompts.append((prompt_text, max_new_tokens))
         return self._responses.pop(0)
+
+    def note_pass(self, stage):
+        self.passes.append(stage)
 
 
 _IMAGE = object()  # opaque; the fake runtime never inspects it.
@@ -158,6 +162,111 @@ def test_style_mode_omits_the_concept_token_instruction():
     _observe, compose, gap = (p for p, _ in runtime.prompts)
     assert "trigger word" in compose
     assert "concept token" not in gap.lower()
+
+
+# ── Tiering: human region labels stand in for the observe pass ─────────────────
+
+def _annotation(label):
+    return {"label": label, "region_desc": "in the center", "crop_name": ""}
+
+
+def test_two_region_labels_replace_the_observe_pass():
+    runtime = _FakeRuntime([_RICH_DRAFT])
+    annotations = [_annotation("a brass telescope"), _annotation("pale curtains")]
+
+    result = grounded.generate_grounded_caption(
+        runtime, _IMAGE, annotations, "tok", style_mode=False,
+    )
+
+    assert result == _RICH_DRAFT
+    assert len(runtime.prompts) == 1              # compose only — one image encode
+    compose = runtime.prompts[0][0]
+    assert "SUBJECT:" not in compose              # no observe headings
+    assert "ground truth" in compose
+    assert "a brass telescope" in compose         # labels still reach compose
+
+
+def test_one_substantial_label_replaces_the_observe_pass():
+    runtime = _FakeRuntime([_RICH_DRAFT, "NONE"])
+    annotations = [_annotation("a chipped enamel mug with a blue rim")]
+
+    grounded.generate_grounded_caption(
+        runtime, _IMAGE, annotations, "tok", style_mode=False,
+    )
+
+    assert "SUBJECT:" not in runtime.prompts[0][0]   # first pass is compose
+    assert runtime.passes[0] == "compose"
+
+
+def test_one_thin_label_still_runs_the_observe_pass():
+    runtime = _FakeRuntime(["FACTS", _RICH_DRAFT, "NONE"])
+    annotations = [_annotation("hat")]
+
+    grounded.generate_grounded_caption(
+        runtime, _IMAGE, annotations, "tok", style_mode=False,
+    )
+
+    observe, compose = (p for p, _ in runtime.prompts[:2])
+    assert "SUBJECT:" in observe
+    assert "Use ONLY these observed facts" in compose
+
+
+def test_unannotated_image_still_runs_the_observe_pass():
+    runtime = _FakeRuntime(["FACTS", _RICH_DRAFT])
+
+    grounded.generate_grounded_caption(
+        runtime, _IMAGE, [], "tok", style_mode=False,
+    )
+
+    assert len(runtime.prompts) == 2
+    assert "SUBJECT:" in runtime.prompts[0][0]
+
+
+def test_blank_labels_do_not_count_towards_the_observe_skip():
+    runtime = _FakeRuntime(["FACTS", _RICH_DRAFT])
+    annotations = [_annotation("  "), _annotation("")]
+
+    grounded.generate_grounded_caption(
+        runtime, _IMAGE, annotations, "tok", style_mode=False,
+    )
+
+    assert len(runtime.prompts) == 2
+
+
+def test_records_the_passes_it_actually_ran():
+    runtime = _FakeRuntime(["FACTS", "A brass telescope", "a red curtain"])
+
+    grounded.generate_grounded_caption(
+        runtime, _IMAGE, [], "tok", style_mode=False,
+    )
+
+    assert runtime.passes == ["observe", "compose", "gap"]
+
+
+def test_records_only_the_compose_pass_for_an_annotated_image():
+    runtime = _FakeRuntime([_RICH_DRAFT])
+    annotations = [_annotation("a brass telescope"), _annotation("pale curtains")]
+
+    grounded.generate_grounded_caption(
+        runtime, _IMAGE, annotations, "tok", style_mode=False,
+    )
+
+    assert runtime.passes == ["compose"]
+
+
+def test_a_runtime_without_pass_accounting_still_works():
+    class _Bare:
+        caption_prompt = None
+
+        def run_prompt(self, image, prompt_text, *, max_new_tokens):
+            return _RICH_DRAFT
+
+    result = grounded.generate_grounded_caption(
+        _Bare(), _IMAGE, [_annotation("a brass telescope"), _annotation("pale curtains")],
+        "tok", style_mode=False,
+    )
+
+    assert result == _RICH_DRAFT
 
 
 def test_emits_each_stage_in_order():

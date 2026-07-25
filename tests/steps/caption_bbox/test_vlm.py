@@ -199,3 +199,23 @@ def test_explicit_quantization_requires_bitsandbytes(monkeypatch):
 
     with pytest.raises(RuntimeError, match="requires bitsandbytes"):
         vlm._resolve_quantization("4bit", _Torch)
+
+
+def test_metadata_reports_the_generation_passes_that_ran():
+    runtime = vlm.CaptionRuntime("fake/model")
+
+    assert runtime.metadata["passes"] == {}
+
+    runtime.note_pass("observe")
+    runtime.note_pass("compose")
+    runtime.note_pass("compose")
+
+    assert runtime.metadata["passes"] == {"observe": 1, "compose": 2}
+
+
+def test_pass_tally_survives_into_loaded_metadata(monkeypatch):
+    runtime = _runtime_with_loaded(monkeypatch, supports_prompt=True)
+    runtime.note_pass("gap")
+
+    assert runtime.metadata["adapter"] == "fake"      # the loaded branch
+    assert runtime.metadata["passes"] == {"gap": 1}

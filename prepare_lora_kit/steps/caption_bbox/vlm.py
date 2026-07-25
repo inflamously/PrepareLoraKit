@@ -406,9 +406,13 @@ class CaptionRuntime:
         self.quantization = quantization
         self.dtype = dtype
         self.max_pixels = max_pixels
-        # "grounded" = observe → compose → verify (prompted models only);
+        # "grounded" = observe → compose → gap-fill (prompted models only);
         # "single" = one-shot generation (also the fallback for image-to-text models).
         self.caption_strategy = str(caption_strategy or "grounded").strip().lower()
+        # Generation passes actually run, accumulated across the whole step. Both
+        # grounded stages are conditional, so this is the only record of what the
+        # run really cost; it rides along in ``metadata`` into the step report.
+        self.pass_counts: dict[str, int] = {}
         # Optional custom prompt templates from the global prompt library; when
         # unset, the built-in full-image / region defaults are used.
         self.caption_prompt = caption_prompt or None
@@ -417,6 +421,10 @@ class CaptionRuntime:
         self._lock = threading.Lock()
         self._status_callback = status_callback
         self._status: dict[str, Any] = {}
+
+    def note_pass(self, stage: str) -> None:
+        """Tally one generation pass (``observe`` / ``compose`` / ``gap`` / …)."""
+        self.pass_counts[stage] = self.pass_counts.get(stage, 0) + 1
 
     @property
     def metadata(self) -> dict[str, Any]:
@@ -430,6 +438,7 @@ class CaptionRuntime:
                 "dtype": self.dtype,
                 "max_pixels": self.max_pixels,
                 "caption_strategy": self.caption_strategy,
+                "passes": dict(self.pass_counts),
             }
         return {
             "model_id": self.model_id,
@@ -440,6 +449,7 @@ class CaptionRuntime:
             "dtype": self._loaded.dtype,
             "max_pixels": self._loaded.max_pixels,
             "caption_strategy": self.caption_strategy,
+            "passes": dict(self.pass_counts),
         }
 
     @property

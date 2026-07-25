@@ -288,10 +288,7 @@ Account for any annotated regions listed above. Output only the filled-in list."
 
 _COMPOSE_PROMPT_CONCEPT = """\
 You are writing a single LoRA training caption for a text-to-image diffusion model.
-Use ONLY these observed facts — do not add anything not listed, and drop anything marked \
-"not visible":
-{facts}
-
+{facts_section}
 Annotated regions to weave in naturally:
 {bbox_annotations}
 
@@ -311,10 +308,7 @@ Caption:"""
 
 _COMPOSE_PROMPT_STYLE = """\
 You are writing a single LoRA training caption for a text-to-image diffusion model.
-Use ONLY these observed facts — do not add anything not listed, and drop anything marked \
-"not visible":
-{facts}
-
+{facts_section}
 Annotated regions to weave in naturally:
 {bbox_annotations}
 
@@ -351,6 +345,31 @@ def build_observe_prompt(bbox_annotations: list[dict]) -> str:
     return _OBSERVE_PROMPT.replace("{bbox_annotations}", annotation_text)
 
 
+# Where COMPOSE's grounding comes from. An empty ``facts`` string means the observe
+# pass was skipped because the human's region labels already ground the image (see
+# ``grounded._annotations_suffice``) — the caption must then be told the labels are
+# authoritative, and that the global attributes labels cannot supply are to be read
+# off the image, which COMPOSE can do because it is image-conditioned too.
+_FACTS_SECTION_OBSERVED = """\
+Use ONLY these observed facts — do not add anything not listed, and drop anything marked \
+"not visible":
+{facts}
+"""
+
+_FACTS_SECTION_ANNOTATED = """\
+No separate observation pass was run. The annotated regions below were labelled by a \
+human and are ground truth: use them exactly, and never rename or contradict them. Read \
+every other attribute — setting, framing, lighting, colour palette, medium and style — \
+directly from the image, and describe only what is clearly visible there.
+"""
+
+
+def _facts_section(facts: str) -> str:
+    if facts and facts.strip():
+        return _FACTS_SECTION_OBSERVED.replace("{facts}", facts.strip())
+    return _FACTS_SECTION_ANNOTATED
+
+
 def build_compose_prompt(
     facts: str,
     bbox_annotations: list[dict],
@@ -361,19 +380,25 @@ def build_compose_prompt(
 ) -> str:
     """Stage B: turn observed ``facts`` + regions into one fluent caption.
 
+    An empty ``facts`` switches the grounding section to the annotation-led variant
+    rather than emitting an empty fact list — the absence of facts *is* the signal
+    that the observe pass was skipped, so the two can never drift out of sync.
+
     A custom ``template`` (the user's ``caption_prompt``) overrides the built-in
-    compose instruction; the observed facts are prepended as grounding context so the
-    prompt library keeps working while still benefiting from the observe pass.
+    compose instruction; observed facts, when there are any, are prepended as
+    grounding context so the prompt library keeps working.
     """
     annotation_text = _format_annotations(bbox_annotations)
     if template:
         instruction = apply_prompt_placeholders(template, annotation_text, concept_token)
-        return f"Observed facts about the image (use only these):\n{facts}\n\n{instruction}"
+        if facts and facts.strip():
+            return f"Observed facts about the image (use only these):\n{facts}\n\n{instruction}"
+        return instruction
 
     base = _COMPOSE_PROMPT_STYLE if style_mode else _COMPOSE_PROMPT_CONCEPT
     return (
         base
-        .replace("{facts}", facts)
+        .replace("{facts_section}", _facts_section(facts))
         .replace("{bbox_annotations}", annotation_text)
         .replace("{concept_token}", concept_token or "")
     )

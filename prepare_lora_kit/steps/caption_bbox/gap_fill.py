@@ -18,17 +18,11 @@ from __future__ import annotations
 
 import re
 
+from prepare_lora_kit.steps.caption_bbox.caption_text import covered
+
 # The compose stage targets a 20–80 word caption; below the floor it has almost
 # certainly under-described the image.
 _MIN_WORDS = 20
-
-# Function words carry no visual content, so they are ignored when deciding whether
-# a phrase is already covered by the caption.
-_STOPWORDS = frozenset({
-    "a", "an", "and", "are", "as", "at", "be", "behind", "beside", "by", "for",
-    "from", "in", "into", "is", "it", "its", "of", "on", "or", "over", "that",
-    "the", "their", "there", "this", "to", "under", "up", "with", "within",
-})
 
 # Filler the compose prompt explicitly bans. Its presence means the model ignored
 # the instruction and reached for generic vocabulary — a reliable smell for a
@@ -44,36 +38,8 @@ _LOW_INFORMATION_RE = re.compile(
     re.IGNORECASE,
 )
 
-_WORD_RE = re.compile(r"[a-z0-9]+")
 _LIST_MARKER_RE = re.compile(r"^\s*(?:[-*•–—]+|\d+[.)])\s*")
 _QUOTES = "\"'“”‘’"
-
-
-def _singular(word: str) -> str:
-    """Crude plural fold so "curtains" and "curtain" compare equal."""
-    if len(word) > 3 and word.endswith("s") and not word.endswith(("ss", "us", "is")):
-        return word[:-1]
-    return word
-
-
-def _content_words(text: str) -> set[str]:
-    return {
-        _singular(word)
-        for word in _WORD_RE.findall((text or "").lower())
-        if word not in _STOPWORDS
-    }
-
-
-def _covered(caption: str, phrase: str) -> bool:
-    """True when every content word of ``phrase`` already appears in ``caption``.
-
-    Deliberately loose: it is far worse to append a duplicate than to skip a
-    marginal addition, since duplicates dilute the caption for the text encoder.
-    """
-    words = _content_words(phrase)
-    if not words:
-        return True
-    return words <= _content_words(caption)
 
 
 def needs_gap_pass(
@@ -93,7 +59,7 @@ def needs_gap_pass(
     for ann in annotation_lines or ():
         label = (ann.get("label") if isinstance(ann, dict) else ann) or ""
         label = str(label).strip()
-        if label and not _covered(text, label):
+        if label and not covered(text, label):
             return "missing_label"
 
     if _LOW_INFORMATION_RE.search(text):
@@ -169,7 +135,7 @@ def merge_missing_phrases(
 
     for phrase in phrases:
         phrase = (phrase or "").strip().strip(_QUOTES).strip(" .,;")
-        if not phrase or _covered(body, phrase):
+        if not phrase or covered(body, phrase):
             continue
         candidate = f"{body}, {_decapitalise(phrase)}"
         if len(candidate) + (1 if trailing_period else 0) > max_chars:
