@@ -1,61 +1,23 @@
-"""Caption prompt templates, prompt assembly, and caption text-QA helpers.
+"""Caption prompt templates and prompt assembly.
 
-Single source of truth for the built-in full-image / region prompts (shared by the
-VLM runtime and the UI's virtual "Default" prompt-library entry) plus the small text
-utilities used to clean and validate generated captions. Lives beside the caption
-step because every consumer is caption-specific.
+Single source of truth for the built-in full-image / region prompts, shared by the VLM
+runtime and the UI's virtual "Default" prompt-library entry. Caption *text* utilities
+(boilerplate stripping, coverage, length/token checks) live in :mod:`.caption_text`.
 """
 from __future__ import annotations
-import re
-
-_BOILERPLATE = [
-    re.compile(r"^(this image (shows?|depicts?|features?|captures?|presents?)[,:]?\s*)", re.I),
-    re.compile(r"^(the (photo|photograph|image|picture) (shows?|depicts?|features?|captures?)[,:]?\s*)", re.I),
-    re.compile(r"^(in this (image|photo|photograph|picture)[,:]?\s*)", re.I),
-    re.compile(r"^(here (we see|is)[,:]?\s*)", re.I),
-    re.compile(r"^(a (photo|photograph|image|picture) (of|showing|depicting|featuring)[,:]?\s*)", re.I),
-    re.compile(r"\s*\(?(generated|ai.?generated|stock photo|getty images?|shutterstock)[^.]*\.?\s*$", re.I),
-]
-
-
-def strip_boilerplate(text: str) -> str:
-    text = text.strip()
-    changed = True
-    while changed:
-        changed = False
-        for pat in _BOILERPLATE:
-            new = pat.sub("", text).strip()
-            if new != text:
-                text = new
-                changed = True
-    # Capitalise first letter
-    if text:
-        text = text[0].upper() + text[1:]
-    return text
-
-
-def token_present(caption: str, token: str) -> bool:
-    return token.lower() in caption.lower()
-
-
-def caption_length_ok(caption: str, min_chars: int = 10, max_chars: int = 600) -> bool:
-    return min_chars <= len(caption.strip()) <= max_chars
-
-
-def verify_token_consistency(captions: dict[str, str], token: str) -> list[str]:
-    """Return list of paths where token is missing from the caption."""
-    return [path for path, cap in captions.items() if not token_present(cap, token)]
-
 
 _FULL_IMAGE_PROMPT_CONCEPT = """\
 You are a LoRA training dataset captioner for modern text-to-image diffusion models.
-The user has annotated specific regions of the image:
+The user has annotated specific regions of the image. Those labels are ground truth — keep \
+their wording, and never rename or contradict them:
 {bbox_annotations}
 
 Describe ONLY what is clearly and directly visible. Do not invent, guess, or add people, \
 faces, objects, backgrounds, or settings that are not actually present. If the image is a \
 single object on a plain or empty background, describe just that object and its background — \
-do not imagine a scene, a person, or a story.
+do not imagine a scene, a person, or a story. If something is present that you cannot \
+confidently name, describe what it looks like — shape, material, colour, parts — instead of \
+guessing a name for it.
 
 Write a single natural-language caption that:
 1. Leads with the main visible subject, then adds only real context, in roughly this order \
@@ -73,13 +35,16 @@ Caption:"""
 
 _FULL_IMAGE_PROMPT_STYLE = """\
 You are a LoRA training dataset captioner for modern text-to-image diffusion models.
-The user has annotated specific regions of the image:
+The user has annotated specific regions of the image. Those labels are ground truth — keep \
+their wording, and never rename or contradict them:
 {bbox_annotations}
 
 Describe ONLY what is clearly and directly visible. Do not invent, guess, or add people, \
 faces, objects, backgrounds, or settings that are not actually present. If the image is a \
 single object on a plain or empty background, describe just that object and its background — \
-do not imagine a scene, a person, or a story.
+do not imagine a scene, a person, or a story. If something is present that you cannot \
+confidently name, describe what it looks like — shape, material, colour, parts — instead of \
+guessing a name for it.
 
 Write a single natural-language caption that:
 1. Leads with the main visible subject, then adds only real context, in roughly this order \
@@ -106,7 +71,8 @@ _REGION_PROMPT = (
     "Describe what is shown here in ONE short, natural phrase — not a list of tags. "
     "Name the main object or subject and its most important visible attributes "
     "(material, colour, shape, notable detail). Only describe what is clearly visible; "
-    "do not guess. Do not mention that this is a crop or region. Output only the phrase."
+    "do not guess. If you cannot confidently name it, describe its appearance instead of "
+    "guessing a name. Do not mention that this is a crop or region. Output only the phrase."
 )
 
 # Region caption with a known origin: the model still sees ONLY the crop (a region
@@ -118,7 +84,8 @@ _REGION_WITH_POSITION_PROMPT = (
     "of tags and not a full-scene sentence. Name the main object or subject and its "
     "most important visible attributes (material, colour, shape, notable detail). "
     "Only describe what is clearly visible; do not guess and do not describe the "
-    "larger image. Output only the phrase."
+    "larger image. If you cannot confidently name it, describe its appearance instead "
+    "of guessing a name. Output only the phrase."
 )
 
 
@@ -126,6 +93,7 @@ def build_region_prompt(
     position: str | None = None,
     *,
     template: str | None = None,
+    domain_brief: str | None = None,
 ) -> str:
     """Return the region caption instruction (always applied to the crop).
 
@@ -135,13 +103,15 @@ def build_region_prompt(
     use the ``{region_position}`` placeholder (empty when the origin is unknown).
     """
     if template:
-        return (
+        prompt = (
             apply_prompt_placeholders(template, "", None)
             .replace("{region_position}", position or "")
         )
-    if position:
-        return _REGION_WITH_POSITION_PROMPT.replace("{region_position}", position)
-    return _REGION_PROMPT
+    elif position:
+        prompt = _REGION_WITH_POSITION_PROMPT.replace("{region_position}", position)
+    else:
+        prompt = _REGION_PROMPT
+    return apply_domain_brief(prompt, domain_brief)
 
 
 # Natural-language placement for a localized box, keyed by (vertical, horizontal) zone.
@@ -185,18 +155,47 @@ def describe_box_position(x1: float, y1: float, x2: float, y2: float) -> str:
     return placement
 
 
+def _annotation_lines(bbox_annotations: list[dict]) -> list[str]:
+    """One ``Region N (where): label`` line per *labelled* annotation."""
+    lines = []
+    for i, ann in enumerate(bbox_annotations or (), 1):
+        label = ann.get("label", "").strip()
+        region = ann.get("region_desc", "")
+        if label:
+            crop_name = ann.get("crop_name", "")
+            crop_note = f", saved crop {crop_name}" if crop_name else ""
+            lines.append(f"  Region {i} ({region}{crop_note}): {label}")
+    return lines
+
+
 def _format_annotations(bbox_annotations: list[dict]) -> str:
+    lines = _annotation_lines(bbox_annotations)
+    if lines:
+        return "\n".join(lines)
     if bbox_annotations:
-        lines = []
-        for i, ann in enumerate(bbox_annotations, 1):
-            label = ann.get("label", "").strip()
-            region = ann.get("region_desc", "")
-            if label:
-                crop_name = ann.get("crop_name", "")
-                crop_note = f", saved crop {crop_name}" if crop_name else ""
-                lines.append(f"  Region {i} ({region}{crop_note}): {label}")
-        return "\n".join(lines) if lines else "  (no annotations provided)"
+        return "  (no annotations provided)"
     return "  (no annotations — describe the full image)"
+
+
+# A VLM facing an unfamiliar domain cannot abstain its way to a *right* answer — it can
+# only avoid a wrong one. The domain brief is the one lever that supplies the missing
+# knowledge, so it is prepended to every prompt that names or describes anything, ahead
+# of the model's own priors. Deliberately not a template placeholder: it must reach
+# user-authored prompts from the library too, without them having to opt in.
+_DOMAIN_SECTION = """\
+Domain context for this dataset — authoritative, and it outranks your own assumptions \
+about what things are:
+{domain_brief}
+
+"""
+
+
+def apply_domain_brief(prompt: str, domain_brief: str | None) -> str:
+    """Prepend the project's domain brief to ``prompt`` when one is set."""
+    brief = (domain_brief or "").strip()
+    if not brief:
+        return prompt
+    return _DOMAIN_SECTION.replace("{domain_brief}", brief) + prompt
 
 
 def apply_prompt_placeholders(
@@ -238,18 +237,20 @@ def build_full_image_prompt(
     concept_token: str | None = None,
     *,
     template: str | None = None,
+    domain_brief: str | None = None,
 ) -> str:
     annotation_text = _format_annotations(bbox_annotations)
 
     if template:
-        return apply_prompt_placeholders(template, annotation_text, concept_token)
-
-    if concept_token:
-        return _FULL_IMAGE_PROMPT_CONCEPT.format(
+        prompt = apply_prompt_placeholders(template, annotation_text, concept_token)
+    elif concept_token:
+        prompt = _FULL_IMAGE_PROMPT_CONCEPT.format(
             bbox_annotations=annotation_text,
             concept_token=concept_token,
         )
-    return _FULL_IMAGE_PROMPT_STYLE.format(bbox_annotations=annotation_text)
+    else:
+        prompt = _FULL_IMAGE_PROMPT_STYLE.format(bbox_annotations=annotation_text)
+    return apply_domain_brief(prompt, domain_brief)
 
 
 # ── Grounded prompts (observe → compose → gap-fill) ─────────────────────────────
@@ -272,6 +273,10 @@ List ONLY what is clearly and directly visible. Never guess, infer, or invent pe
 faces, objects, or settings that are not actually present. Write "not visible" for any \
 heading that does not apply. Be concise and concrete — a few words per line.
 
+If something IS present but you cannot confidently name it, do NOT substitute a familiar \
+name for it. Describe what it actually looks like — shape, material, colour, parts — and \
+begin that line with "?". An accurate description is worth more than a confident wrong name.
+
 SUBJECT:
 COUNT:
 APPEARANCE / CLOTHING:
@@ -289,14 +294,12 @@ Account for any annotated regions listed above. Output only the filled-in list."
 _COMPOSE_PROMPT_CONCEPT = """\
 You are writing a single LoRA training caption for a text-to-image diffusion model.
 {facts_section}
-Annotated regions to weave in naturally:
-{bbox_annotations}
-
+{annotations_section}
 Write ONE natural-language caption that:
 1. Leads with the main subject, then real context in roughly this order when present: \
 [image type] [main subject] [setting] [style] [lighting] [color palette] [mood]. A plain \
 background is not a "setting".
-2. Integrates the annotated regions naturally — not as a list.
+2. Integrates any annotated regions naturally — not as a list.
 3. Is 20–80 words; shorter is fine for a simple single object.
 4. Uses specific, concrete language — avoid filler like "detailed", "realistic", "beautiful".
 5. Includes the concept token exactly as written: {concept_token}
@@ -309,14 +312,12 @@ Caption:"""
 _COMPOSE_PROMPT_STYLE = """\
 You are writing a single LoRA training caption for a text-to-image diffusion model.
 {facts_section}
-Annotated regions to weave in naturally:
-{bbox_annotations}
-
+{annotations_section}
 Write ONE natural-language caption that:
 1. Leads with the main subject, then real context in roughly this order when present: \
 [image type] [main subject] [setting] [style] [lighting] [color palette] [mood]. A plain \
 background is not a "setting".
-2. Integrates the annotated regions naturally — not as a list.
+2. Integrates any annotated regions naturally — not as a list.
 3. Is 20–80 words; shorter is fine for a simple single object.
 4. Uses specific, concrete language — avoid filler like "detailed", "realistic", "beautiful".
 5. Does NOT include any special trigger word — captions should be pure content descriptions.
@@ -339,35 +340,67 @@ List anything clearly visible in the image that the caption fails to mention.
 - If the caption is already complete, output exactly: NONE"""
 
 
-def build_observe_prompt(bbox_annotations: list[dict]) -> str:
+def build_observe_prompt(
+    bbox_annotations: list[dict],
+    *,
+    domain_brief: str | None = None,
+) -> str:
     """Stage A: instruct the VLM to list only-visible facts under fixed headings."""
     annotation_text = _format_annotations(bbox_annotations)
-    return _OBSERVE_PROMPT.replace("{bbox_annotations}", annotation_text)
+    return apply_domain_brief(
+        _OBSERVE_PROMPT.replace("{bbox_annotations}", annotation_text), domain_brief
+    )
 
 
 # Where COMPOSE's grounding comes from. An empty ``facts`` string means the observe
 # pass was skipped because the human's region labels already ground the image (see
-# ``grounded._annotations_suffice``) — the caption must then be told the labels are
-# authoritative, and that the global attributes labels cannot supply are to be read
-# off the image, which COMPOSE can do because it is image-conditioned too.
+# ``grounded._annotations_suffice``) — the caption must then read the global attributes
+# labels cannot supply off the image, which COMPOSE can do because it is
+# image-conditioned too.
 _FACTS_SECTION_OBSERVED = """\
 Use ONLY these observed facts — do not add anything not listed, and drop anything marked \
 "not visible":
 {facts}
 """
 
-_FACTS_SECTION_ANNOTATED = """\
-No separate observation pass was run. The annotated regions below were labelled by a \
-human and are ground truth: use them exactly, and never rename or contradict them. Read \
-every other attribute — setting, framing, lighting, colour palette, medium and style — \
-directly from the image, and describe only what is clearly visible there.
+# Appended only when the observe pass actually abstained on something, so the prompt
+# stays tight in the common case.
+_UNNAMED_FACTS_NOTE = """\
+A fact beginning with "?" is something the observer could not confidently name: keep its \
+description of appearance, never invent a name for it, and do not repeat the "?" marker.
 """
+
+_FACTS_SECTION_ANNOTATED = """\
+No separate observation pass was run. Read every attribute the annotated regions below do \
+not cover — setting, framing, lighting, colour palette, medium and style — directly from \
+the image, and describe only what is clearly visible there.
+"""
+
+# Region labels are human-authored, so COMPOSE is told they outrank its own reading of
+# the image. Enforced afterwards too: ``validation.enforce_region_labels`` re-inserts a
+# label the model dropped anyway.
+_ANNOTATIONS_SECTION = """\
+Annotated regions — labelled by a human, so they are ground truth. Weave them into the \
+caption naturally, keeping each label's wording, and never rename or contradict them:
+{bbox_annotations}
+"""
+
+_NO_ANNOTATIONS_SECTION = "No regions were annotated — describe the full image.\n"
 
 
 def _facts_section(facts: str) -> str:
     if facts and facts.strip():
-        return _FACTS_SECTION_OBSERVED.replace("{facts}", facts.strip())
+        facts = facts.strip()
+        section = _FACTS_SECTION_OBSERVED.replace("{facts}", facts)
+        return f"{section}\n{_UNNAMED_FACTS_NOTE}" if "?" in facts else section
     return _FACTS_SECTION_ANNOTATED
+
+
+def _annotations_section(bbox_annotations: list[dict]) -> str:
+    lines = _annotation_lines(bbox_annotations)
+    if not lines:
+        return _NO_ANNOTATIONS_SECTION
+    return _ANNOTATIONS_SECTION.replace("{bbox_annotations}", "\n".join(lines))
 
 
 def build_compose_prompt(
@@ -377,6 +410,7 @@ def build_compose_prompt(
     *,
     style_mode: bool,
     template: str | None = None,
+    domain_brief: str | None = None,
 ) -> str:
     """Stage B: turn observed ``facts`` + regions into one fluent caption.
 
@@ -392,15 +426,16 @@ def build_compose_prompt(
     if template:
         instruction = apply_prompt_placeholders(template, annotation_text, concept_token)
         if facts and facts.strip():
-            return f"Observed facts about the image (use only these):\n{facts}\n\n{instruction}"
-        return instruction
+            instruction = f"Observed facts about the image (use only these):\n{facts}\n\n{instruction}"
+        return apply_domain_brief(instruction, domain_brief)
 
     base = _COMPOSE_PROMPT_STYLE if style_mode else _COMPOSE_PROMPT_CONCEPT
-    return (
+    return apply_domain_brief(
         base
         .replace("{facts_section}", _facts_section(facts))
-        .replace("{bbox_annotations}", annotation_text)
-        .replace("{concept_token}", concept_token or "")
+        .replace("{annotations_section}", _annotations_section(bbox_annotations))
+        .replace("{concept_token}", concept_token or ""),
+        domain_brief,
     )
 
 

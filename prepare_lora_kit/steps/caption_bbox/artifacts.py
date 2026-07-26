@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 
-from prepare_lora_kit.steps.caption_bbox import prompts as cap_utils
+from prepare_lora_kit.steps.caption_bbox import caption_text as cap_text
 BBOX_PREFIX = "plk_bbox__"
 
 # Fields persisted per box in the reload sidecar. Coordinates are normalized
@@ -127,10 +127,10 @@ def _normalize_bbox_caption(caption: str, concept_token: str | None) -> str:
                 text = text[len(candidate):]
                 break
 
-    body = cap_utils.strip_boilerplate(text)
+    body = cap_text.strip_boilerplate(text)
     if prefix:
         return f"{prefix}{body}"
-    if concept_token and body and not cap_utils.token_present(body, concept_token):
+    if concept_token and body and not cap_text.token_present(body, concept_token):
         return f"{concept_token}, {body}"
     return body
 

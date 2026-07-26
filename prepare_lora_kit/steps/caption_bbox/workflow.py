@@ -178,12 +178,14 @@ def _write_caption(
         concept_token: str | None,
         style_mode: bool,
         cancel_check: CancelCheck | None,
+        annotations: list | tuple = (),
 ) -> None:
     caption = clean_caption_for_mode(
         caption,
         path,
         concept_token,
         style_mode=style_mode,
+        annotations=annotations,
     )
 
     check_cancel(cancel_check)

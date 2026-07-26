@@ -7,6 +7,7 @@ from typing import Any, Callable
 import threading
 
 from prepare_lora_kit.steps.caption_bbox import grounded
+from prepare_lora_kit.steps.caption_bbox import caption_text as cap_text
 from prepare_lora_kit.steps.caption_bbox import prompts as cap_utils
 from prepare_lora_kit.report import reporter
 
@@ -294,7 +295,7 @@ def _run_prompted(loaded: LoadedCaptionModel, image, prompt_text: str, max_new_t
         del inputs
         _clear_cuda(torch)
 
-    return cap_utils.strip_boilerplate(generated.strip())
+    return cap_text.strip_boilerplate(generated.strip())
 
 
 def _run_image_to_text(loaded: LoadedCaptionModel, image, max_new_tokens: int) -> str:
@@ -328,7 +329,7 @@ def _run_image_to_text(loaded: LoadedCaptionModel, image, max_new_tokens: int) -
         del inputs
         _clear_cuda(torch)
 
-    return cap_utils.strip_boilerplate(generated.strip())
+    return cap_text.strip_boilerplate(generated.strip())
 
 
 def _image_to_text_prompt(model_id: str) -> str:
@@ -354,7 +355,7 @@ def _first_caption_value(value: Any) -> str | None:
 
 
 def _compose_classic_caption(base_caption: str, annotations: list[dict], concept_token: str | None) -> str:
-    caption = cap_utils.strip_boilerplate(base_caption)
+    caption = cap_text.strip_boilerplate(base_caption)
     labels = []
     for ann in annotations:
         label = str(ann.get("label") or "").strip()
@@ -364,9 +365,9 @@ def _compose_classic_caption(base_caption: str, annotations: list[dict], concept
         unique_labels = list(dict.fromkeys(labels))
         detail = ", ".join(unique_labels)
         caption = f"{caption}, with {detail}" if caption else detail
-    if concept_token and caption and not cap_utils.token_present(caption, concept_token):
+    if concept_token and caption and not cap_text.token_present(caption, concept_token):
         caption = f"{concept_token}, {caption}"
-    return cap_utils.strip_boilerplate(caption)
+    return cap_text.strip_boilerplate(caption)
 
 
 def _clear_cuda(torch) -> None:
@@ -400,6 +401,7 @@ class CaptionRuntime:
             caption_prompt: str | None = None,
             region_prompt: str | None = None,
             caption_strategy: str = "grounded",
+            domain_brief: str | None = None,
     ) -> None:
         self.model_id = str(model_id or "").strip()
         self.task = task
@@ -417,6 +419,10 @@ class CaptionRuntime:
         # unset, the built-in full-image / region defaults are used.
         self.caption_prompt = caption_prompt or None
         self.region_prompt = region_prompt or None
+        # Project-level description of what this dataset actually depicts. Prepended to
+        # every prompt that names or describes anything, so an unfamiliar domain is
+        # supplied rather than guessed at.
+        self.domain_brief = (domain_brief or "").strip() or None
         self._loaded: LoadedCaptionModel | None = None
         self._lock = threading.Lock()
         self._status_callback = status_callback
@@ -438,6 +444,7 @@ class CaptionRuntime:
                 "dtype": self.dtype,
                 "max_pixels": self.max_pixels,
                 "caption_strategy": self.caption_strategy,
+                "domain_brief": bool(self.domain_brief),
                 "passes": dict(self.pass_counts),
             }
         return {
@@ -449,6 +456,7 @@ class CaptionRuntime:
             "dtype": self._loaded.dtype,
             "max_pixels": self._loaded.max_pixels,
             "caption_strategy": self.caption_strategy,
+            "domain_brief": bool(self.domain_brief),
             "passes": dict(self.pass_counts),
         }
 
@@ -551,7 +559,8 @@ class CaptionRuntime:
                 )
             else:
                 prompt_text = cap_utils.build_full_image_prompt(
-                    ann_lines, concept_token, template=self.caption_prompt
+                    ann_lines, concept_token, template=self.caption_prompt,
+                    domain_brief=self.domain_brief,
                 )
                 text = self._run(image, prompt_text, max_new_tokens)
                 if self._loaded is not None and not self._loaded.supports_prompt:
@@ -591,7 +600,9 @@ class CaptionRuntime:
             # Region captions carry no bbox annotations; the concept token is applied
             # afterwards (see artifacts._save_bbox_training_item), so the
             # {concept_token} placeholder resolves to empty here.
-            region_prompt = cap_utils.build_region_prompt(position, template=self.region_prompt)
+            region_prompt = cap_utils.build_region_prompt(
+                position, template=self.region_prompt, domain_brief=self.domain_brief,
+            )
             text = self._run(img, region_prompt, max_new_tokens)
             self._emit_status("ready", f"Caption model ready: {self.model_id}")
             return text

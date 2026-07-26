@@ -219,3 +219,12 @@ def test_pass_tally_survives_into_loaded_metadata(monkeypatch):
 
     assert runtime.metadata["adapter"] == "fake"      # the loaded branch
     assert runtime.metadata["passes"] == {"gap": 1}
+
+
+def test_runtime_normalises_and_reports_the_domain_brief():
+    assert vlm.CaptionRuntime('fake/model', domain_brief='  ').domain_brief is None
+    assert vlm.CaptionRuntime('fake/model').metadata['domain_brief'] is False
+
+    runtime = vlm.CaptionRuntime('fake/model', domain_brief='  Game screenshots.  ')
+    assert runtime.domain_brief == 'Game screenshots.'
+    assert runtime.metadata['domain_brief'] is True

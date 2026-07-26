@@ -15,7 +15,7 @@ class FieldSpec:
 
     name: str
     label: str
-    control: str  # "select" | "number" | "text" | "checkbox"
+    control: str  # "select" | "number" | "text" | "textarea" | "checkbox" | "prompt"
     value_type: str = "str"  # "str" | "int" | "float" | "bool"
     options: list[dict[str, str]] = field(default_factory=list)  # [{value,label}]
     allow_custom: bool = False  # select may accept a free-text value not in options
@@ -45,6 +45,17 @@ def _check(name, label, **kw) -> FieldSpec:
 
 def _text(name, label, **kw) -> FieldSpec:
     return FieldSpec(name=name, label=label, control="text", value_type="str", **kw)
+
+
+def _textarea(name, label, **kw) -> FieldSpec:
+    """A plain multi-line text field.
+
+    Unlike :func:`_prompt` it is **not** backed by the caption prompt library — use
+    it for free-form prose that is not a reusable prompt template. Empty clears the
+    field (``nullable``).
+    """
+    kw.setdefault("nullable", True)
+    return FieldSpec(name=name, label=label, control="textarea", value_type="str", **kw)
 
 
 def _prompt(name, label, **kw) -> FieldSpec:

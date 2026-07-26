@@ -236,6 +236,7 @@ class CaptionStep(ABC):
                 concept_token=self.concept_token,
                 style_mode=self.style_mode,
                 cancel_check=self.cancel_check,
+                annotations=annotations,
             )
 
         return result

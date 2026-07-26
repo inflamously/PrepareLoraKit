@@ -170,3 +170,20 @@ def test_ignores_blank_and_punctuation_only_phrases():
 @pytest.mark.parametrize("phrase", ["a red hat", "an oak floor", "pale curtains"])
 def test_merged_caption_is_never_shorter_than_the_draft(phrase):
     assert len(gap_fill.merge_missing_phrases(_RICH_DRAFT, [phrase])) >= len(_RICH_DRAFT)
+
+
+# ── The label gate agrees with validation.enforce_region_labels ────────────────
+
+def test_paraphrased_label_does_not_trigger_a_gap_pass():
+    # Otherwise the gate spends a whole pass chasing a label that enforcement would
+    # then decline to append.
+    draft = (
+        "A brass telescope beside a chipped mug on a wooden shelf, morning light "
+        "falling across the floor and pale curtains behind it."
+    )
+
+    assert gap_fill.needs_gap_pass(draft, _labels("a chipped enamel mug with a blue rim")) is None
+
+
+def test_an_unmentioned_region_still_triggers_a_gap_pass():
+    assert gap_fill.needs_gap_pass(_RICH_DRAFT, _labels("a chipped mug")) == "missing_label"

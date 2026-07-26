@@ -5,8 +5,9 @@ from prepare_lora_kit.steps.caption_bbox import grounded
 class _FakeRuntime:
     """Records the prompts it is asked to run and returns canned per-stage text."""
 
-    def __init__(self, responses, *, caption_prompt=None):
+    def __init__(self, responses, *, caption_prompt=None, domain_brief=None):
         self.caption_prompt = caption_prompt
+        self.domain_brief = domain_brief
         self._responses = list(responses)
         self.prompts: list[tuple[str, int]] = []
         self.passes: list[str] = []
@@ -267,6 +268,19 @@ def test_a_runtime_without_pass_accounting_still_works():
     )
 
     assert result == _RICH_DRAFT
+
+
+def test_the_runtimes_domain_brief_reaches_every_naming_pass():
+    brief = "Screenshots from the game Foo."
+    runtime = _FakeRuntime(["FACTS", "A brass telescope", "NONE"], domain_brief=brief)
+
+    grounded.generate_grounded_caption(
+        runtime, _IMAGE, [], "tok", style_mode=False,
+    )
+
+    observe, compose, _gap = (p for p, _ in runtime.prompts)
+    assert brief in observe
+    assert brief in compose
 
 
 def test_emits_each_stage_in_order():

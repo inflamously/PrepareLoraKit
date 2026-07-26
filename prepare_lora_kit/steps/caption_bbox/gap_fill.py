@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import re
 
-from prepare_lora_kit.steps.caption_bbox.caption_text import covered
+from prepare_lora_kit.steps.caption_bbox.caption_text import covered, mentions
 
 # The compose stage targets a 20–80 word caption; below the floor it has almost
 # certainly under-described the image.
@@ -59,7 +59,9 @@ def needs_gap_pass(
     for ann in annotation_lines or ():
         label = (ann.get("label") if isinstance(ann, dict) else ann) or ""
         label = str(label).strip()
-        if label and not covered(text, label):
+        # Same lenient test validation.enforce_region_labels uses, so the gate never
+        # spends a pass chasing a label that enforcement would consider present.
+        if label and not mentions(text, label):
             return "missing_label"
 
     if _LOW_INFORMATION_RE.search(text):

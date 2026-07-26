@@ -96,6 +96,9 @@ def generate_grounded_caption(
         if emit is not None:
             emit(stage, message)
 
+    # Optional like ``note_pass``: the runtime is duck-typed at this boundary.
+    domain_brief = getattr(runtime, "domain_brief", None)
+
     # A. OBSERVE — the grounding pass, skipped when the human already supplied the
     # facts. An empty ``facts`` tells build_compose_prompt to switch to its
     # annotation-led grounding section.
@@ -104,7 +107,7 @@ def generate_grounded_caption(
         _emit("observing", "Observing visible details")
         facts = runtime.run_prompt(
             image,
-            cap_utils.build_observe_prompt(annotation_lines),
+            cap_utils.build_observe_prompt(annotation_lines, domain_brief=domain_brief),
             max_new_tokens=max(max_new_tokens, _OBSERVE_MIN_TOKENS),
         )
         _note_pass(runtime, "observe")
@@ -120,6 +123,7 @@ def generate_grounded_caption(
             concept_token,
             style_mode=style_mode,
             template=runtime.caption_prompt,
+            domain_brief=domain_brief,
         ),
         max_new_tokens=max_new_tokens,
     )
@@ -130,7 +134,8 @@ def generate_grounded_caption(
         draft = runtime.run_prompt(
             image,
             cap_utils.build_full_image_prompt(
-                annotation_lines, concept_token, template=runtime.caption_prompt
+                annotation_lines, concept_token, template=runtime.caption_prompt,
+                domain_brief=domain_brief,
             ),
             max_new_tokens=max_new_tokens,
         )

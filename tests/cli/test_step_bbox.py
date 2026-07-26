@@ -103,7 +103,7 @@ def _fake_runtime_class(captured):
     class FakeRuntime:
         def __init__(self, model_id, *, task, quantization, dtype, max_pixels,
                      status_callback=None, caption_prompt=None, region_prompt=None,
-                     caption_strategy="grounded"):
+                     caption_strategy="grounded", domain_brief=None):
             self.metadata = {"model_id": model_id, "adapter": "fake", "device": "cpu"}
             self.status = {"phase": "ready", "message": "ok"}
 

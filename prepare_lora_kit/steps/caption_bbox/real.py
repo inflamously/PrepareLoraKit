@@ -41,6 +41,7 @@ class RealCaptionStep(CaptionStep):
             qwen_model_id: str | None = None,
             caption_prompt: str | None = None,
             region_prompt: str | None = None,
+        domain_brief: str | None = None,
     ) -> None:
         super().__init__(
             dataset_dir,
@@ -67,6 +68,7 @@ class RealCaptionStep(CaptionStep):
             caption_prompt=caption_prompt,
             region_prompt=region_prompt,
             caption_strategy=caption_strategy,
+            domain_brief=domain_brief,
         )
 
     def prepare_runtime(self, needs_captioning: bool) -> None:

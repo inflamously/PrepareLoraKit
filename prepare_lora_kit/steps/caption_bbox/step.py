@@ -59,6 +59,7 @@ def run(
         qwen_model_id: str | None = None,
         caption_prompt: str | None = None,
         region_prompt: str | None = None,
+        domain_brief: str | None = None,
 ) -> dict:
     """Run the real VLM captioning step. See :class:`RealCaptionStep`."""
     return RealCaptionStep(
@@ -82,4 +83,5 @@ def run(
         qwen_model_id=qwen_model_id,
         caption_prompt=caption_prompt,
         region_prompt=region_prompt,
+        domain_brief=domain_brief,
     ).run()

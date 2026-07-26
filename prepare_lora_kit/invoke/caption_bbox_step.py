@@ -49,4 +49,5 @@ def invoke_caption_bbox_step(working_dir: Path, output_dir: Path, cfg: CaptionBb
         caption_status_callback=_kw.get("caption_status_callback"),
         caption_prompt=cfg.caption_prompt,
         region_prompt=cfg.region_prompt,
+        domain_brief=cfg.domain_brief,
     )

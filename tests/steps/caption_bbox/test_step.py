@@ -109,7 +109,7 @@ def _fake_runtime_class(
     class FakeRuntime:
         def __init__(self, model_id, *, task, quantization, dtype, max_pixels,
                      status_callback=None, caption_prompt=None, region_prompt=None,
-                     caption_strategy="grounded"):
+                     caption_strategy="grounded", domain_brief=None):
             self.metadata = {
                 "model_id": model_id,
                 "task": task,
@@ -174,7 +174,11 @@ def test_caption_bbox_step_reuses_runtime_for_region_and_original_caption(tmp_pa
     region_event = next(e for e in events if e[0] == "region")
     assert region_event[2] == "image.png"
     assert region_event[3] == {"x1": 0.1, "y1": 0.1, "x2": 0.5, "y2": 0.5}
-    assert (tmp_path / "image.txt").read_text(encoding="utf-8") == "tok, Whole original caption"
+    # The region label is ground truth: the runtime's caption never mentions it, so
+    # validation.enforce_region_labels appends it (token-free, and only once).
+    assert (tmp_path / "image.txt").read_text(encoding="utf-8") == (
+        "tok, Whole original caption, green detail"
+    )
     assert (tmp_path / "plk_bbox__image__01.txt").read_text(encoding="utf-8") == "tok, Green detail"
     assert report["caption_model"]["adapter"] == "fake"
     assert report["caption_status"]["phase"] == "ready"
@@ -230,7 +234,9 @@ def test_caption_bbox_step_resume_skips_done_and_prompts_only_pending(tmp_path, 
     # its hand-drawn boxes are left untouched.
     assert {Path(d["path"]).name for d in second.seen} == {"new.png"}
     assert (tmp_path / "plk_bbox__done__boxes.json").exists()
-    assert (tmp_path / "done.txt").read_text(encoding="utf-8") == "tok, Whole original caption"
+    assert (tmp_path / "done.txt").read_text(encoding="utf-8") == (
+        "tok, Whole original caption, a red car"     # annotated label enforced
+    )
     captioned = [e[1] for e in events2 if e[0] == "image"]
     assert captioned == ["new.png"]
     # The report still covers both images (done caption preserved + new one).

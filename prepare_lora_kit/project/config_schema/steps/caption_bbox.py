@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 
-from prepare_lora_kit.project.config_schema.fields import FieldSpec, _number, _prompt, _select
+from prepare_lora_kit.project.config_schema.fields import (
+    FieldSpec, _number, _prompt, _select, _textarea,
+)
 STEP_TYPE = "CaptionBboxStep"
 
 _CAPTION_MODELS = [
@@ -26,12 +28,13 @@ FIELDS: list[FieldSpec] = [
         ("image-to-text", "Image to text"),
     ]),
     _select("caption_strategy", "Caption strategy", [
-        ("grounded", "Grounded (observe → compose → verify)"),
+        ("grounded", "Grounded (observe → compose → gap-fill)"),
         ("single", "Single pass (fast)"),
-    ], help="Grounded runs three VLM passes per image — observe visible facts, compose "
-            "a caption, then verify against the image — for accurate, hallucination-free "
-            "captions. Single is the faster one-shot pass. Classic image-to-text models "
-            "always use single."),
+    ], help="Grounded composes the caption from observed facts, then fills any gap it "
+            "left — for accurate, hallucination-free captions. It observes only when "
+            "regions are not already annotated, and gap-fills only when the caption "
+            "looks thin, so annotated images cost one pass. Single is the one-shot "
+            "pass. Classic image-to-text models always use single."),
     _select("vram_tier", "VRAM tier", [
         ("auto", "Auto"),
         ("low", "Low (≤16 GB, 4-bit)"),
@@ -41,6 +44,12 @@ FIELDS: list[FieldSpec] = [
     ]),
     _number("max_new_tokens", "Max new tokens", "int", minimum=1, step=10),
     _number("spot_check_pct", "Spot check fraction", "float", minimum=0, maximum=1, step=0.05),
+    _textarea("domain_brief", "Domain brief",
+              placeholder="What is this dataset? Vocabulary, what you'll see, terms to avoid…",
+              help="Authoritative context prepended to every caption prompt. Use it when "
+                   "the model does not know the domain: say what the dataset depicts, "
+                   "name the things it contains, and list any wrong names it should "
+                   "never use. Blank = no domain context."),
     _prompt("caption_prompt", "Caption prompt",
             placeholder="Leave blank to use the built-in default prompt…",
             help="Full-image caption instruction. Supports {bbox_annotations} and "

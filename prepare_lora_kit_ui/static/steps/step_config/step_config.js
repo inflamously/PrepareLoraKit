@@ -89,6 +89,9 @@ function buildField(spec, value) {
   if (spec.control === "prompt") {
     return promptField(spec, value, wrap);
   }
+  if (spec.control === "textarea") {
+    return textareaField(spec, value, wrap);
+  }
   return inputField(spec, value, wrap);
 }
 
@@ -253,6 +256,18 @@ function selectField(spec, value, wrap) {
     read: () => (select.value === CUSTOM ? custom.value.trim() : select.value),
   };
 }
+
+// Plain multi-line text (not prompt-library backed) — e.g. the caption domain brief.
+function textareaField(spec, value, wrap) {
+  const textarea = document.createElement("textarea");
+  textarea.className = "nf-input step-config__prompt-text";
+  textarea.rows = 4;
+  if (spec.placeholder) textarea.placeholder = spec.placeholder;
+  textarea.value = value == null ? "" : String(value);
+  wrap.append(textarea);
+  return { name: spec.name, element: wrap, read: () => textarea.value };
+}
+
 
 function inputField(spec, value, wrap) {
   const input = document.createElement("input");

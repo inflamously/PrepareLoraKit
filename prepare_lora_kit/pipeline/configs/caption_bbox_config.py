@@ -17,6 +17,10 @@ class CaptionBboxConfig:
     # falls back to the built-in full-image / region defaults.
     caption_prompt: str | None = None
     region_prompt: str | None = None
+    # What this dataset actually depicts, in the user's own words. Prepended to every
+    # captioning prompt as authoritative context: a VLM outside its training domain
+    # can be told to stop guessing, but only a brief can tell it what things *are*.
+    domain_brief: str | None = None
 
     _VRAM_TIERS = {
         "auto": ("auto", "bfloat16"),
@@ -55,6 +59,7 @@ class CaptionBboxConfig:
             raise ValueError("CaptionBboxStep: spot_check_pct must be in [0, 1]")
         self.caption_prompt = self._clean_prompt(self.caption_prompt)
         self.region_prompt = self._clean_prompt(self.region_prompt)
+        self.domain_brief = self._clean_prompt(self.domain_brief)
 
     @staticmethod
     def _clean_prompt(value: str | None) -> str | None:
