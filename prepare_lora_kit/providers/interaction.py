@@ -32,6 +32,26 @@ class InteractionProvider(Protocol):
         ``skipped`` means "do not caption this image" (keep any existing caption).
         """
 
+    def caption_verify(
+            self,
+            items: list[dict],
+            *,
+            generator: Any | None = None,
+            preview_dir: Path | None = None,
+            settings: dict[str, Any] | None = None,
+    ) -> dict[str, dict]:
+        """Review captions against text-to-image renders of themselves.
+
+        ``items`` are descriptors ``{"path", "name", "caption", "caption_path"}``.
+        ``generator`` is a ``(prompt, options) -> dict`` callable the provider
+        may invoke *while the review is open* — the UI calls it from its own RPC
+        thread each time the user asks for a render.
+
+        Returns ``{str(path): {"verdict", "caption"}}`` where ``verdict`` is one
+        of ``correct``/``generic``/``wrong`` and ``caption`` is the (possibly
+        edited) text to write back to ``<stem>.txt``.
+        """
+
     def vae_review(self, items: list[dict]) -> dict[str, str]:
         """Return per-original VAE gate decisions: keep or drop."""
 

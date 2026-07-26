@@ -8,7 +8,8 @@ name: example
 # which operation runs, plus step-specific options. Remove or reorder steps as
 # needed. Available types:
 #   ImportStep       QualityGateStep  CurateStep  UpscaleStep  CaptionBboxStep
-#   VaeGateStep      AuditStep        BucketPoolsCheckStep  ExportStep
+#   CaptionVerifierStep            VaeGateStep      AuditStep
+#   BucketPoolsCheckStep           ExportStep
 #
 # Ordering rules (enforced on load):
 #   - Steps follow the dataset workflow order and dependency graph.
@@ -71,6 +72,24 @@ pipeline:
     vram_tier: auto   # auto | low (<=16GB,4bit) | mid (<=24GB,8bit) | high | max
     max_new_tokens: 200
     spot_check_pct: 0.10  # 0..1
+
+  # Optional: renders each caption with a text-to-image model so you can see
+  # what the text encoder made of it. Remove this step to skip it entirely.
+  - type: CaptionVerifierStep
+    substeps:
+      - {id: verify_captions, enabled: true}
+      - {id: apply_caption_edits, enabled: true}   # false = review-only pass
+    t2i_model_id: auto   # auto | SDXL / SD 1.5 / FLUX.2 klein / Krea 2 id | repo | .safetensors
+    vram_tier: auto      # auto | low (<=16GB) | mid (<=24GB) | high (<=32GB) | max
+    width: null          # null = model family default (512 SD1.5, 1024 SDXL/FLUX.2)
+    height: null
+    num_inference_steps: null   # null = family default
+    guidance_scale: null        # null = family default
+    seed: 42                    # base seed; Re-roll in the modal ignores it
+    negative_prompt: null       # SD 1.5 / SDXL only; FLUX and Krea reject it
+    max_images: null            # null = every captioned image
+    keep_previews: true         # renders kept under reports/ as verdict evidence
+    write_edited_captions: true # false also disables the apply_caption_edits substep
 
   - type: VaeGateStep
     substeps:

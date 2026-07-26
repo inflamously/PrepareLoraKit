@@ -91,6 +91,72 @@ export const STEP_HELP = {
     ],
   },
 
+  CaptionVerifierStep: {
+    summary:
+      "Shows what a text encoder actually makes of each caption, so you can fix terms it misreads.",
+    detail:
+      "Renders each caption with a text-to-image model — from the caption text alone, never from " +
+      "the photo — and puts that render beside the real image. A term the encoder knows produces " +
+      "the right thing; a term it half-knows produces something generic; a term bound to another " +
+      "concept produces something wrong. Rendering happens on demand, one image at a time, so the " +
+      "modal opens instantly and only spends GPU time on images you actually inspect.",
+    process: [
+      { label: "1. Collect captioned images",
+        desc: "Lists every working-dataset image with a .txt sidecar. Generated bbox region crops are excluded." },
+      { label: "2. Pick a model for the VRAM you have",
+        desc: "Auto chooses SDXL up to 16 GB and FLUX.2 klein above it, planning from free VRAM rather than total." },
+      { label: "3. Render a caption on demand",
+        desc: "Selecting an image renders its caption; Re-roll draws the same caption again on a fresh seed." },
+      { label: "4. Judge the render",
+        desc: "Mark each caption Renders correctly, Renders generic, or Renders wrong." },
+      { label: "5. Fix the caption in place",
+        desc: "Edit the text under any image. Continue writes changed captions back to their .txt sidecar." },
+    ],
+    guidance: [
+      { label: "Renders correctly",
+        desc: "The encoder has a real embedding for the term. Keep using it in captions." },
+      { label: "Renders generic",
+        desc: "A weak embedding: the model produces something plausible but unspecific. Replace the term with a plain geometric description." },
+      { label: "Renders wrong",
+        desc: "The term is bound to a different concept and is actively harmful. Remove or replace it." },
+      { label: "Caption truncated",
+        desc: "The most reliable signal here. SD 1.5 and SDXL stop reading at 77 tokens, so anything past the cut never reached the model at all — a bad render says nothing about those words." },
+      { label: "One sample is not evidence",
+        desc: "These are joint text-image models and every render depends on the seed. Re-roll before trusting a verdict." },
+      { label: "Renders are diagnostics, not data",
+        desc: "Every render is written under reports/, never into the dataset, so it can never be exported as training data." },
+      { label: "Edits are stored exactly as typed",
+        desc: "The trigger token is not re-added and captions are not re-normalized: removing a term the encoder misreads is the whole point." },
+    ],
+    substeps: [
+      { id: "verify_captions", label: "Verify captions",
+        desc: "Opens the gallery, renders captions on demand, and records a verdict per image." },
+      { id: "apply_caption_edits", label: "Apply caption edits",
+        desc: "Writes edited captions back to their .txt sidecars. Disable for a review-only pass." },
+    ],
+    params: [
+      { label: "Image model",
+        desc: "Which text encoder gets probed. Auto matches your VRAM; any diffusers repo id or .safetensors path also works." },
+      { label: "VRAM tier",
+        desc: "Quantization and CPU-offload strategy. Auto plans from free VRAM so it survives running straight after captioning." },
+      { label: "Width",
+        desc: "Render width. Blank uses the model family's native size (512 for SD 1.5, 1024 for SDXL and FLUX.2)." },
+      { label: "Height",
+        desc: "Render height. Blank uses the model family's native size." },
+      { label: "Steps",
+        desc: "Denoising steps per render. Blank uses the family default; fewer steps trade fidelity for a faster loop." },
+      { label: "Guidance",
+        desc: "How strictly the render follows the caption. Blank uses the family default." },
+      { label: "Seed",
+        desc: "Base seed for the first render of each image, so re-opening the modal reproduces what you saw. Re-roll ignores it." },
+      { label: "Max images in gallery",
+        desc: "Caps how many captioned images are offered. Blank shows all of them." },
+      { label: "Negative prompt",
+        desc: "Applied to SD 1.5 and SDXL only; the FLUX and Krea pipelines do not accept one." },
+      { label: "Keep generated previews",
+        desc: "Keeps renders under reports/ as evidence for each verdict. Disable to delete them when the step finishes." },
+    ],
+  },
   VaeGateStep: {
     summary: "Catches images the model can't reproduce well before training on them.",
     detail:

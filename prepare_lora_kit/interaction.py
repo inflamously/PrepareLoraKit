@@ -57,6 +57,11 @@ class CliInteractionProvider:
         # Region annotation is a UI-only feature; the CLI captions full images.
         return [], True, False
 
+    # Deliberately no ``caption_verify``: it needs a side-by-side gallery with
+    # an editable caption per image, so it is UI-only. CaptionVerifierStep
+    # probes with ``getattr`` and reports a clean skip-with-reason for headless
+    # runs, which is more informative than an empty no-op review.
+
     def vae_review(self, items: list[dict]) -> dict[str, str]:
 
         from prepare_lora_kit.steps.vae_gate.review import _review_artifact_decisions

@@ -13,6 +13,7 @@
 @import "./steps/curate_details/curate_details.css";
 @import "./steps/bucket_pool_details/bucket_pool_details.css";
 @import "./steps/vae_review/vae_review.css";
+@import "./steps/caption_verify/caption_verify.css";
 @import "./steps/upscale_review/upscale_review.css";
 @import "./steps/export_review/export_review.css";
 @import "./steps/bbox_annotation/bbox_annotation.css";

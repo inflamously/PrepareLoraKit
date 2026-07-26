@@ -9,6 +9,9 @@ from prepare_lora_kit.interaction import RegionCaptioner
 from prepare_lora_kit.project.config_schema import schema_payload
 from prepare_lora_kit.providers.interaction import InteractionProvider
 
+from prepare_lora_kit_ui.runner.caption_verify_interaction import (
+    CaptionVerifyInteractionMixin,
+)
 from prepare_lora_kit_ui.runner.job import PipelineJob
 from prepare_lora_kit_ui.runner.payloads import _image_payload, _jsonable
 
@@ -59,7 +62,7 @@ def _bucket_payload(
     }
 
 
-class UiInteractionProvider(InteractionProvider):
+class UiInteractionProvider(CaptionVerifyInteractionMixin, InteractionProvider):
     """Provider that pauses a job and waits for frontend responses."""
 
     def __init__(self, job: PipelineJob, media_base_url: str | None = None) -> None:
@@ -70,6 +73,7 @@ class UiInteractionProvider(InteractionProvider):
         # Resolved paths of every image in the active annotation batch; region
         # captioning is allowed for any of them while the workspace modal is open.
         self._batch_paths: set[Path] = set()
+        self._init_caption_verify()
 
     def step_config(self, step_type: str, current_config: Any, error: str | None = None) -> dict:
         """Pause before a step so the frontend can edit its config tunables.

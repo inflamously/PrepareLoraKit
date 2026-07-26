@@ -58,12 +58,13 @@ only manages job lifecycle and thread error handling.
 
 **Pipeline stages** (named packages, each `step.py` + helpers): `import_step` (ImportStep),
 `quality_gate` (QualityGateStep), `curate` (CurateStep), `upscale` (UpscaleStep, optional),
-`caption_bbox` (CaptionBboxStep), `vae_gate` (VaeGateStep), `audit` (AuditStep),
+`caption_bbox` (CaptionBboxStep), `caption_verifier` (CaptionVerifierStep, optional),
+`vae_gate` (VaeGateStep), `audit` (AuditStep),
 `bucket_pools_check` (BucketPoolsCheckStep), and `export_step` (ExportStep, optional). The
 canonical order and direct dependencies live in `STEP_DEFINITIONS`.
 
 **Step/substep registries** — the single source of truth is
-`prepare_lora_kit_pipeline/configuration.py` plus
+`prepare_lora_kit/pipeline/configuration.py` plus
 `prepare_lora_kit/project/pipeline/substeps.py`. Key tables: `STEP_DEFINITIONS`
 and `SUBSTEP_REGISTRY`; callers should use the registry helper functions instead
 of importing derived step maps. Ordering and direct
@@ -71,7 +72,7 @@ prerequisites are validated at config load; duplicate step types are rejected; l
 missing `ImportStep` get it inserted in memory.
 
 **Config models** are split deliberately:
-- `prepare_lora_kit_pipeline/configs/*_config.py` — runtime dataclasses passed to step `run()`s.
+- `prepare_lora_kit/pipeline/configs/*_config.py` — runtime dataclasses passed to step `run()`s.
 - `project/config_schema/` — UI-facing field schemas (`steps/*.py`) for the mid-run step-config
   strip and override handling.
 - Dataset-specific model and bucket choices live in step configs such as `VaeGateStep`,
@@ -100,15 +101,17 @@ fixtures for `--mock`.
 - Commits use conventional prefixes (`feat:`, `fix:`, `refactor:`) with an imperative summary.
 - UI visual rules (the `nf-*` component kit, design tokens, gold-glow transition) are documented
   in `docs/ui-design.md`; `docs/core.md` describes the step/substep run model.
+- `docs/caption-verifier-step.md` documents `CaptionVerifierStep` (the optional text-encoder
+  probe): its threading model, VRAM planner, artifact rules, and caption write-back guarantees.
 - `docs/caption-step/` documents the `CaptionBboxStep` architecture, one file per concern
   (layering, substeps, run flow, VLM runtime, caption strategy, prompts, artifacts, UI
   plumbing); start at `docs/caption-step/README.md` before changing `steps/caption_bbox/`.
 
 ## Adding a pipeline step
 
-1. Add a runtime config dataclass in `prepare_lora_kit_pipeline/configs/`.
+1. Add a runtime config dataclass in `prepare_lora_kit/pipeline/configs/`.
 2. Add a UI field schema in `project/config_schema/steps/`.
 3. Register the step in `STEP_DEFINITIONS` with its order, prerequisites, and
-   optional/resume flags (`prepare_lora_kit_pipeline/configuration.py`).
+   optional/resume flags (`prepare_lora_kit/pipeline/configuration.py`).
 4. Implement the step under `steps/<name>/step.py` with a `run()` entry point.
 5. Add an invoke adapter module under `invoke/` + its `STEP_INVOKE_MAP` entry in `invoke/__init__.py`.

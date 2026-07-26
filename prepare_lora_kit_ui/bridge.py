@@ -207,6 +207,24 @@ class UiBridge:
             raise RuntimeError("No active UI interaction provider")
         return provider.caption_region(image_path, box)
 
+    def generate_caption_preview(
+        self,
+        job_id: str,
+        image_path: str,
+        caption: str,
+        options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Render one caption while the caption-verify modal is open.
+
+        Re-roll is ``options={"reroll": true}`` rather than a second method:
+        it differs only in seed policy, so one entry point keeps the bridge, the
+        JSDoc and the JS call site singular.
+        """
+        provider = self.jobs.active_interaction_provider(job_id)
+        if provider is None:
+            raise RuntimeError("No active UI interaction provider")
+        return provider.generate_caption_preview(image_path, caption, options or {})
+
     def open_path(self, path: str) -> dict[str, Any]:
         p = Path(path).expanduser()
         target = p if p.exists() else p.parent

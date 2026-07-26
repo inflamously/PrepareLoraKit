@@ -27,12 +27,41 @@ export function setupInteractionDom() {
   const apiCalls = {
     submitted: [],
     captioned: [],
+    generated: [],
+    // Tests set this to control a pending render (deferred promise, rejection).
+    generateHandler: null,
   };
   window.pywebview = {
     api: {
       submit_interaction: async (jobId, requestId, value) => {
         apiCalls.submitted.push({ jobId, requestId, value });
         return { accepted: true };
+      },
+      generate_caption_preview: async (jobId, imagePath, caption, options) => {
+        const call = { jobId, imagePath, caption, options: { ...options } };
+        apiCalls.generated.push(call);
+        if (apiCalls.generateHandler) {
+          return apiCalls.generateHandler(call, apiCalls.generated.length);
+        }
+        const seed = apiCalls.generated.length;
+        const uri = `http://example.invalid/gen_${seed}.png`;
+        return {
+          path: `/previews/gen_${seed}.png`,
+          name: `gen_${seed}.png`,
+          uri,
+          thumb_uri: `${uri}?w=384`,
+          view_uri: `${uri}?w=2048`,
+          seed,
+          caption,
+          elapsed_ms: 1200,
+          steps: 4,
+          guidance: 1,
+          width: 512,
+          height: 512,
+          model_id: "mock",
+          truncated: false,
+          token_count: 5,
+        };
       },
       caption_region: async (jobId, imagePath, box) => {
         apiCalls.captioned.push({
@@ -332,4 +361,36 @@ function dispatchPointer(target, type, properties) {
     Object.defineProperty(event, key, { value });
   });
   target.dispatchEvent(event);
+}
+
+export function captionVerifyPending(id = "caption-verify-1", items) {
+  const item = (name, caption) => {
+    const uri = `http://example.invalid/${name}.png`;
+    return {
+      path: `/images/${name}.png`,
+      name: `${name}.png`,
+      uri,
+      thumb_uri: `${uri}?w=384`,
+      view_uri: `${uri}?w=2048`,
+      width: 1024,
+      height: 1024,
+      caption,
+      caption_path: `/images/${name}.txt`,
+      has_caption: Boolean(caption),
+      initial_verdict: "correct",
+    };
+  };
+  return {
+    id,
+    kind: "caption_verify",
+    payload: {
+      step_type: "CaptionVerifierStep",
+      settings: { model_id: "mock", steps: 4, guidance: 1 },
+      verdicts: ["correct", "generic", "wrong"],
+      items: items || [
+        item("first", "plk_mock, a red cube."),
+        item("second", "plk_mock, a blue sphere."),
+      ],
+    },
+  };
 }

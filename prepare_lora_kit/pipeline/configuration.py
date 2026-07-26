@@ -7,6 +7,7 @@ from prepare_lora_kit.pipeline.configs import (
     AuditConfig,
     BucketPoolsCheckConfig,
     CaptionBboxConfig,
+    CaptionVerifierConfig,
     CurateConfig,
     ExportConfig,
     ImportConfig,
@@ -53,25 +54,37 @@ STEP_DEFINITIONS: dict[str, StepDefinition] = {
         prerequisites=("QualityGateStep", "CurateStep"),
         resume_aware=True,
     ),
+    # Optional text-encoder probe: renders each caption with a text-to-image
+    # model so the user can tell a term the encoder knows from one it does not.
+    # ``resume_aware`` so a plain re-run re-opens the review modal instead of
+    # reporting "already done" and forcing the user through ``--force`` (which
+    # would invalidate VaeGate/Audit/Buckets/Export for a caption tweak).
+    "CaptionVerifierStep": StepDefinition(
+        CaptionVerifierConfig,
+        order=5,
+        prerequisites=("CaptionBboxStep",),
+        optional=True,
+        resume_aware=True,
+    ),
     "VaeGateStep": StepDefinition(
         VaeGateConfig,
-        order=5,
+        order=6,
         prerequisites=("ImportStep",),
         resume_aware=True,
     ),
     "AuditStep": StepDefinition(
         AuditConfig,
-        order=6,
+        order=7,
         prerequisites=("VaeGateStep",),
     ),
     "BucketPoolsCheckStep": StepDefinition(
         BucketPoolsCheckConfig,
-        order=7,
+        order=8,
         prerequisites=("AuditStep",),
     ),
     "ExportStep": StepDefinition(
         ExportConfig,
-        order=8,
+        order=9,
         prerequisites=("ImportStep",),
         optional=True,
     ),

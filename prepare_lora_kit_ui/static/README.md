@@ -44,6 +44,14 @@ components must follow (e.g. the gold-glow transition) — is documented in
 | `steps/bbox_annotation/bbox_annotation.js` | Orchestrates the region annotation modal, captioning selected boxes, skipping images, and submitting annotations. |
 | `steps/bbox_annotation/box_panel.js` | Renders and updates the side panel for selecting, labeling, and deleting annotation boxes. |
 | `steps/bbox_annotation/canvas.js` | Handles annotation canvas drawing, pointer events, normalized box coordinates, resizing, and cleanup. |
+| `steps/caption_verify/caption_verify.css` | Styles the caption-verifier modal, gallery cards with editable captions, and the source-vs-render compare pane. |
+| `steps/caption_verify/caption_verify.js` | Orchestrates caption-verifier state: selection, on-demand rendering, verdicts, caption edits, and submission. |
+| `steps/caption_verify/components/card.js` | Builds a gallery card with a thumbnail, an editable caption textarea, and the three verdict buttons. |
+| `steps/caption_verify/components/modal.js` | Creates the caption-verifier modal structure and the auto-render toggle. |
+| `steps/caption_verify/components/preview.js` | Renders the right pane: source image, render from the caption, prompt, metadata, and controls. |
+| `steps/caption_verify/utils/captions.js` | Holds caption text while the modal is open and builds the submit payload. |
+| `steps/caption_verify/utils/previews.js` | Caches renders and status per image path and detects captions edited since a render. |
+| `steps/caption_verify/utils/verdicts.js` | Defines the correct/generic/wrong verdicts and normalizes verdict values. |
 | `steps/curate_details/curate_details.css` | Styles the curate-details modal, coverage image area, summary metrics, and report path display. |
 | `steps/curate_details/curate_details.js` | Shows curation coverage and summary metrics before submitting confirmation to continue. |
 | `steps/bucket_pool_details/bucket_pool_details.css` | Styles the configured-bucket grid, assigned-image browser, and crop comparison detail pane. |

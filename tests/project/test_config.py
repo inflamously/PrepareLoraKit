@@ -49,6 +49,7 @@ def test_default_project_creation_writes_input_dir_and_pipeline(tmp_path):
         "CurateStep",
         "UpscaleStep",
         "CaptionBboxStep",
+        "CaptionVerifierStep",
         "VaeGateStep",
         "AuditStep",
         "BucketPoolsCheckStep",
@@ -197,6 +198,7 @@ def test_step_prerequisites_allow_optional_upscale_step():
         "CurateStep": ["QualityGateStep"],
         "UpscaleStep": ["ImportStep"],
         "CaptionBboxStep": ["QualityGateStep", "CurateStep"],
+        "CaptionVerifierStep": ["CaptionBboxStep"],
         "VaeGateStep": ["ImportStep"],
         "AuditStep": ["VaeGateStep"],
         "BucketPoolsCheckStep": ["AuditStep"],
@@ -224,7 +226,7 @@ def test_step_definitions_drive_configuration_helpers():
 def test_optional_step_types_marks_upscale_optional():
     assert {
                step_type for step_type in step_types() if is_optional_step_type(step_type)
-           } == {"UpscaleStep", "ExportStep"}
+           } == {"UpscaleStep", "CaptionVerifierStep", "ExportStep"}
 
 
 def test_upscale_config_defaults_to_seedvr2():

@@ -17,6 +17,7 @@ from .curate_config import CurateConfig
 from .upscale_config import UpscaleConfig
 from .vae_gate_config import VaeGateConfig
 from .caption_bbox_config import CaptionBboxConfig
+from .caption_verifier_config import CaptionVerifierConfig
 from .audit_config import AuditConfig
 from .bucket_pools_check_config import BucketPoolsCheckConfig
 from .export_config import ExportConfig
@@ -29,6 +30,7 @@ __all__ = [
     "UpscaleConfig",
     "VaeGateConfig",
     "CaptionBboxConfig",
+    "CaptionVerifierConfig",
     "AuditConfig",
     "BucketPoolsCheckConfig",
     "ExportConfig",

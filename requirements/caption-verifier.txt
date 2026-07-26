@@ -1,0 +1,24 @@
+# Optional runtime for CaptionVerifierStep (text-to-image caption probe).
+#
+# Everything here is already in base.txt, only at a lower floor. base.txt pins
+# diffusers>=0.30 because VaeGateStep needs nothing more than AutoencoderKL, and
+# raising the core floor would force every user through a large upgrade for an
+# optional step. Install this file instead when you want the verifier:
+#
+#   pip install -r requirements/caption-verifier.txt
+#
+# Nothing here is OS-specific, so there are no -linux / -windows variants.
+-r base.txt
+
+# PipelineQuantizationConfig (4-bit/8-bit per pipeline component) landed in 0.32;
+# Flux2KleinPipeline + Flux2Transformer2DModel need 0.38. Without a high enough
+# version the step still runs — it reports "needs diffusers >= X" and skips
+# rather than failing the pipeline — but FLUX.2 klein is unavailable.
+# Krea 2 (Krea2Pipeline) needs a release newer than 0.38.
+diffusers>=0.38
+
+transformers>=4.57          # Qwen3 text encoder used by FLUX.2 klein
+accelerate>=0.31            # enable_model_cpu_offload / sequential offload hooks
+bitsandbytes>=0.43          # nf4 quantization for the 16 GB and 24 GB tiers
+sentencepiece               # tokenizers for the T5/Qwen-class text encoders
+protobuf

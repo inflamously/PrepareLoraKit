@@ -47,6 +47,11 @@ SUBSTEP_REGISTRY: dict[str, tuple[SubstepDefinition, ...]] = {
         SubstepDefinition("caption_images", "Caption images"),
         SubstepDefinition("validate_captions", "Validate captions", prerequisites=("caption_images",)),
     ),
+    "CaptionVerifierStep": (
+        SubstepDefinition("verify_captions", "Verify captions"),
+        SubstepDefinition("apply_caption_edits", "Apply caption edits",
+                          prerequisites=("verify_captions",)),
+    ),
     "VaeGateStep": (
         SubstepDefinition("reconstruct_images", "Reconstruct images"),
         SubstepDefinition("review_vae_artifacts", "Review artifacts", prerequisites=("reconstruct_images",)),
@@ -121,6 +126,10 @@ def default_substeps_for(step_type: str, config: Any | None = None) -> list[Pipe
         enabled_by_id["check_resolution"] = bool(getattr(config, "check_resolution_gate", True))
     elif step_type == "BucketPoolsCheckStep":
         enabled_by_id["write_cache_info"] = bool(getattr(config, "cache_mode", False))
+    elif step_type == "CaptionVerifierStep":
+        enabled_by_id["apply_caption_edits"] = bool(
+            getattr(config, "write_edited_captions", True)
+        )
 
     return [
         PipelineSubstep(id=entry.id, enabled=enabled_by_id.get(entry.id, entry.enabled))

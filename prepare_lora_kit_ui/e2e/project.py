@@ -4,7 +4,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from prepare_lora_kit.pipeline.configs import QualityGateConfig, ImportConfig, ScorerEntry, UpscaleConfig, CurateConfig, \
-    CaptionBboxConfig, VaeGateConfig, AuditConfig, BucketPoolsCheckConfig, ExportConfig
+    CaptionBboxConfig, CaptionVerifierConfig, VaeGateConfig, AuditConfig, BucketPoolsCheckConfig, \
+    ExportConfig
 from prepare_lora_kit.project.base import ProjectConfig, PipelineStep
 
 from prepare_lora_kit_ui.e2e.constants import MOCK_PROJECT_NAME, QUALITY_GATE_MIN_SIDE
@@ -42,6 +43,17 @@ def mock_project(input_dir: Path) -> ProjectConfig:
                     vram_tier="auto",
                     max_new_tokens=32,
                     spot_check_pct=0.0,
+                ),
+            ),
+            PipelineStep(
+                "CaptionVerifierStep",
+                CaptionVerifierConfig(
+                    # The mock runtime never loads a model and reports
+                    # model_id "mock" itself; "auto" keeps config validation quiet.
+                    t2i_model_id="auto",
+                    num_inference_steps=4,
+                    width=384,
+                    height=384,
                 ),
             ),
             PipelineStep("VaeGateStep", VaeGateConfig()),

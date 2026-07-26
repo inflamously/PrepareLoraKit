@@ -212,10 +212,20 @@
  * @property {Object} values
  * @property {string | null} error
  *
+ * @typedef {ImagePayload & {seed: number, caption: string, elapsed_ms: number|null, steps: number|null, guidance: number|null, width: number|null, height: number|null, model_id: string|null, truncated: boolean, token_count: number|null}} CaptionPreview
+ *
+ * @typedef {ImagePayload & {width: number|null, height: number|null, caption: string, caption_path: string, has_caption: boolean, initial_verdict: "correct"|"generic"|"wrong"}} CaptionVerifyItem
+ *
+ * @typedef {Object} CaptionVerifyPayload
+ * @property {string} step_type
+ * @property {Object} settings
+ * @property {("correct"|"generic"|"wrong")[]} verdicts
+ * @property {CaptionVerifyItem[]} items
+ *
  * @typedef {Object} PendingInput
  * @property {string} id
- * @property {"source_review" | "bbox_annotation" | "vae_review" | "upscale_review" | "curate_details" | "bucket_pool_details" | "export_review" | "step_config"} kind
- * @property {ImagePayload | {items: SourceReviewItem[]} | {items: VaeReviewItem[]} | {items: UpscaleReviewItem[]} | CurateDetailsPayload | BucketPoolDetailsPayload | ExportReviewPayload | StepConfigPayload} payload
+ * @property {"source_review" | "bbox_annotation" | "vae_review" | "upscale_review" | "curate_details" | "bucket_pool_details" | "export_review" | "caption_verify" | "step_config"} kind
+ * @property {ImagePayload | {items: SourceReviewItem[]} | {items: VaeReviewItem[]} | {items: UpscaleReviewItem[]} | CurateDetailsPayload | BucketPoolDetailsPayload | ExportReviewPayload | CaptionVerifyPayload | StepConfigPayload} payload
  */
 
 /**
@@ -307,6 +317,7 @@
  * @property {(job_id: string) => Promise<{cancel_requested: boolean}>} cancel_job
  * @property {() => Promise<{cancel_requested: boolean}>} shutdown
  * @property {(job_id: string, image_path: string, box: BoundingBox) => Promise<{caption: string, crop_path?: string, crop_name?: string, sidecar_path?: string}>} caption_region
+ * @property {(job_id: string, image_path: string, caption: string, options?: {reroll?: boolean}) => Promise<CaptionPreview>} generate_caption_preview
  * @property {(kind: string) => Promise<{prompts: {name: string, kind: string, text: string}[]}>} list_caption_prompts
  * @property {(kind: string, name: string, text: string) => Promise<{saved: boolean, prompts: {name: string, kind: string, text: string}[]}>} save_caption_prompt
  * @property {(kind: string, name: string) => Promise<{deleted: boolean, prompts: {name: string, kind: string, text: string}[]}>} delete_caption_prompt
