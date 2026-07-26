@@ -2,17 +2,19 @@ import { api } from "../../core/api.js";
 import { state } from "../../+state/index.js";
 import { renderCaptionStatus } from "../../caption/status.js";
 import { closeModal, modalCancelButton, showModal } from "../../components/modal.js";
-import { captionVerifyCard, syncCaptionVerifyCards } from "./components/card.js";
+import { createCaptionEditor } from "./components/editor.js";
 import { captionVerifyModal } from "./components/modal.js";
-import { renderCaptionPreview } from "./components/preview.js";
+import { renderCaptionPreview, setPreviewStale } from "./components/preview.js";
+import { captionVerifyTile, syncCaptionVerifyTiles } from "./components/strip.js";
 import {
   buildSubmitValue,
   createCaptionStore,
+  isEdited,
   readCaption,
   setCaption,
 } from "./utils/captions.js";
-import { createPreviewStore } from "./utils/previews.js";
-import { normalizeCaptionVerdict } from "./utils/verdicts.js";
+import { createPreviewStore, isPreviewStale } from "./utils/previews.js";
+import { CAPTION_VERDICTS, normalizeCaptionVerdict } from "./utils/verdicts.js";
 
 export function showCaptionVerify(pending, { onSubmitted }) {
   new CaptionVerify(pending, onSubmitted).show();
@@ -34,9 +36,10 @@ class CaptionVerify {
     this.captions = createCaptionStore(this.items);
     this.previews = createPreviewStore();
     this.reviewed = new Set();
-    this.cardsByPath = new Map();
-    // Starts null so the first selectItem() in show() does real work — the
-    // same-path early-return would otherwise skip the initial render.
+    this.tilesByPath = new Map();
+    // Starts at -1 so the first selectAt() in show() does real work — the
+    // same-index early-return would otherwise skip the initial render.
+    this.index = -1;
     this.selected = null;
     this.inflight = null;
     this.closed = false;
@@ -44,7 +47,7 @@ class CaptionVerify {
     this.ticker = null;
 
     this.modal = captionVerifyModal(this.items.length, this.settings);
-    this.grid = this.modal.querySelector(".caption-verify-grid");
+    this.strip = this.modal.querySelector("#captionVerifyTiles");
     this.panel = this.modal.querySelector(".caption-verify-preview");
     this.progress = this.modal.querySelector("#captionVerifyProgress");
     this.auto = this.modal.querySelector("#captionVerifyAuto");
@@ -53,48 +56,77 @@ class CaptionVerify {
       const el = this.modal.querySelector("#captionVerifyStatus");
       if (el) renderCaptionStatus(el, event.detail?.caption_status);
     };
+    this.onKeyDown = (event) => this.handleKey(event);
   }
 
   show() {
-    const cards = this.items.map((item) => {
-      const card = captionVerifyCard(item, this.verdicts, {
-        onSelect: (selected) => this.selectItem(selected),
+    this.editor = createCaptionEditor(
+      this.modal.querySelector(".caption-verify-editor"),
+      {
+        onInput: (text) => this.onCaptionInput(text),
+        onVerdict: (value) => this.setVerdict(this.selected, value),
+      },
+    );
+
+    const tiles = this.items.map((item, index) => {
+      const tile = captionVerifyTile(item, index, this.verdicts, {
+        onSelect: () => this.selectAt(index),
         onVerdictChange: (changed) => this.onVerdictChange(changed),
-        onCaptionInput: (changed, text) => this.onCaptionInput(changed, text),
       });
-      this.cardsByPath.set(item.path, card);
-      return card;
+      this.tilesByPath.set(item.path, tile);
+      return tile;
     });
-    // Cards are built once and never re-rendered, so a <textarea> keeps its
-    // edits for the modal's lifetime no matter how often selection changes.
-    this.grid.replaceChildren(...cards);
+    this.strip.replaceChildren(...tiles);
 
     if (this.items[0]) {
       // No auto-render on open: the user may never click Generate at all.
-      this.selectItem(this.items[0], { autoRender: false });
+      this.selectAt(0, { autoRender: false });
     } else {
+      this.editor.show(null);
       this.renderPreview();
     }
 
     this.modal
       .querySelector("#finishCaptionVerify")
       .addEventListener("click", () => this.submit());
+    this.modal
+      .querySelector("#captionVerifyPrev")
+      .addEventListener("click", () => this.step(-1));
+    this.modal
+      .querySelector("#captionVerifyNext")
+      .addEventListener("click", () => this.step(1));
 
     const actions = this.modal.querySelector(".modal-actions");
-    actions.insertBefore(modalCancelButton(this.onSubmitted), actions.firstChild);
+    // Cancelling closes the modal without going through submit(), so it has to
+    // tear down the listeners this modal owns or they outlive it.
+    actions.insertBefore(
+      modalCancelButton(async () => {
+        this.cleanup();
+        await this.onSubmitted();
+      }),
+      actions.firstChild,
+    );
 
     globalThis.addEventListener("plk:job-status", this.onJobStatus);
+    document.addEventListener("keydown", this.onKeyDown);
     this.updateProgress();
     showModal(this.modal);
   }
 
-  selectItem(item, { autoRender = true } = {}) {
-    if (!item) return;
-    if (this.selected?.path === item.path) return;
+  // --- selection ---------------------------------------------------------
+
+  selectAt(index, { autoRender = true } = {}) {
+    const item = this.items[index];
+    if (!item || index === this.index) return;
+    this.index = index;
     this.selected = item;
-    this.cardsByPath.forEach((card, path) => {
-      card.classList.toggle("selected", path === item.path);
+    this.tilesByPath.forEach((tile, path) => {
+      tile.classList.toggle("selected", path === item.path);
     });
+    this.tilesByPath
+      .get(item.path)
+      ?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+    this.showInEditor(item);
     this.renderPreview();
 
     // Clicking an image must not queue a GPU job per click: only render when
@@ -111,20 +143,103 @@ class CaptionVerify {
     }
   }
 
+  step(delta) {
+    if (!this.items.length) return;
+    const next = Math.min(
+      this.items.length - 1,
+      Math.max(0, this.index + delta),
+    );
+    this.selectAt(next);
+  }
+
+  showInEditor(item) {
+    this.editor.show(item, {
+      caption: readCaption(this.captions, item.path),
+      verdict: this.verdicts[item.path],
+      tokens: this.tokensFor(item.path),
+      edited: isEdited(this.captions, item.path),
+    });
+  }
+
+  // Counts only — never re-assigns the textarea's value, which would drop the
+  // caret to the end of the text under whoever is typing.
+  syncCounts() {
+    const item = this.selected;
+    if (!item) return;
+    this.editor.syncCounts({
+      caption: readCaption(this.captions, item.path),
+      tokens: this.tokensFor(item.path),
+      edited: isEdited(this.captions, item.path),
+    });
+  }
+
+  // Only the encoder can count its own tokens, and only for the text it was
+  // actually given: an edited caption has no token count until it is rendered.
+  tokensFor(path) {
+    const preview = this.previews.get(path);
+    if (!preview || preview.token_count === null || preview.token_count === undefined) {
+      return null;
+    }
+    return isPreviewStale(preview, readCaption(this.captions, path))
+      ? null
+      : preview.token_count;
+  }
+
+  // --- edits and verdicts ------------------------------------------------
+
+  setVerdict(item, value) {
+    if (!item) return;
+    this.verdicts[item.path] = normalizeCaptionVerdict(value);
+    this.onVerdictChange(item);
+  }
+
   onVerdictChange(item) {
     this.reviewed.add(item.path);
-    this.updateProgress();
     if (this.selected?.path === item.path) {
-      this.renderPreview();
+      this.editor.syncVerdict(this.verdicts[item.path]);
+    }
+    this.updateProgress();
+  }
+
+  onCaptionInput(text) {
+    const item = this.selected;
+    if (!item) return;
+    setCaption(this.captions, item.path, text);
+    this.syncCounts();
+    setPreviewStale(
+      this.panel,
+      isPreviewStale(this.previews.get(item.path), text),
+    );
+    this.syncTiles();
+  }
+
+  handleKey(event) {
+    if (event.defaultPrevented || this.closed) return;
+    const typing = event.target === this.editor?.textarea;
+
+    if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+      event.preventDefault();
+      this.generate({ reroll: false });
+      return;
+    }
+    // Everything below is a bare key, so it must never steal a keystroke that
+    // belongs to the caption box.
+    if (typing || event.ctrlKey || event.metaKey || event.altKey) return;
+
+    const verdict = CAPTION_VERDICTS[["1", "2", "3"].indexOf(event.key)];
+    if (verdict) {
+      event.preventDefault();
+      this.setVerdict(this.selected, verdict.value);
+    } else if (event.key === "ArrowRight") {
+      event.preventDefault();
+      this.step(1);
+    } else if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      this.step(-1);
     }
   }
 
-  onCaptionInput(item, text) {
-    setCaption(this.captions, item.path, text);
-    if (this.selected?.path === item.path) {
-      this.renderPreview();
-    }
-  }
+  // --- rendering ---------------------------------------------------------
 
   renderPreview() {
     const item = this.selected;
@@ -175,7 +290,11 @@ class CaptionVerify {
     } finally {
       this.stopTicker();
       this.inflight = null;
-      if (!this.closed) this.renderPreview();
+      if (!this.closed) {
+        this.renderPreview();
+        // A finished render is the only source of a token count.
+        if (this.selected?.path === path) this.syncCounts();
+      }
     }
   }
 
@@ -201,14 +320,23 @@ class CaptionVerify {
     if (this.progress) {
       this.progress.textContent = `${this.reviewed.size} reviewed`;
     }
-    syncCaptionVerifyCards(this.cardsByPath, this.verdicts);
+    this.syncTiles();
+  }
+
+  syncTiles() {
+    syncCaptionVerifyTiles(this.tilesByPath, this.verdicts, {
+      reviewed: this.reviewed,
+      isEdited: (path) => isEdited(this.captions, path),
+    });
   }
 
   cleanup() {
     this.closed = true;
     this.stopTicker();
-    // The listener lives on globalThis; leaking it would fire for every later job.
+    // These listeners live on globalThis/document; leaking them would fire for
+    // every later job and swallow keystrokes meant for the next screen.
     globalThis.removeEventListener("plk:job-status", this.onJobStatus);
+    document.removeEventListener("keydown", this.onKeyDown);
   }
 
   async submit() {

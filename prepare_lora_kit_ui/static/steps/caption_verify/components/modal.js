@@ -1,5 +1,10 @@
 import { escapeText } from "../../../core/dom.js";
 
+// Three fixed rows: header, workspace (caption editor beside the compare pane)
+// and the dataset filmstrip. The gallery used to be the workspace itself, which
+// put a caption box, a verdict trio and a thumbnail in every tile *and* the
+// selected caption again in the preview — the strip demotes navigation to what
+// it is, so exactly one caption is editable and exactly one verdict is on show.
 export function captionVerifyModal(itemCount, settings = {}) {
   const modal = document.createElement("div");
   modal.className = "modal caption-verify-modal";
@@ -19,9 +24,21 @@ export function captionVerifyModal(itemCount, settings = {}) {
       </div>
     </div>
     <div class="caption-verify-workspace">
-      <div class="caption-verify-grid"></div>
+      <section class="caption-verify-editor"></section>
       <aside class="caption-verify-preview" aria-live="polite"></aside>
     </div>
+    <footer class="caption-verify-strip">
+      <div class="caption-verify-strip__head">
+        <span>Dataset · ${itemCount} image${itemCount === 1 ? "" : "s"}</span>
+        <div class="caption-verify-strip__nav">
+          <button type="button" class="nf-btn caption-verify-nav" id="captionVerifyPrev"
+                  title="Previous image" aria-label="Previous image">&lsaquo;</button>
+          <button type="button" class="nf-btn caption-verify-nav" id="captionVerifyNext"
+                  title="Next image" aria-label="Next image">&rsaquo;</button>
+        </div>
+      </div>
+      <div class="caption-verify-tiles" id="captionVerifyTiles"></div>
+    </footer>
   `;
   return modal;
 }

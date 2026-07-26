@@ -40,6 +40,22 @@ would be `--force`, which would also invalidate VaeGate → Audit → Buckets �
 UI: `prepare_lora_kit_ui/runner/caption_verify_interaction.py` (provider mixin),
 `bridge.generate_caption_preview`, and `static/steps/caption_verify/`.
 
+### Review modal
+
+Three regions, one job each (`static/steps/caption_verify/components/`):
+
+| region | file | holds |
+|---|---|---|
+| editor (left) | `editor.js` | the caption under test — the only editable copy — its char/token counts, and the one verdict control |
+| preview (right) | `preview.js` | source vs render, the render settings strip, Render/Re-roll, and the notices (stale, truncated, error, live model status) |
+| filmstrip (footer) | `strip.js` | navigation only: one tile per image, verdict dot, edited marker |
+
+Shortcuts: `1`/`2`/`3` judge the selected image, `←`/`→` move through the strip
+(all four ignored while the caption box has focus), `Ctrl`/`Cmd`+`Enter` renders
+from anywhere in the modal. A tile's verdict dot stays neutral until that image
+is actually judged — every item starts on the `correct` default, so a coloured
+dot everywhere would read as "all approved" before the review began.
+
 ## Threading
 
 Two threads meet here, and it drives most of the design:

@@ -12,10 +12,23 @@ let apiCalls;
 let showCaptionVerify;
 
 const layer = () => document.getElementById("modalLayer");
-const cards = () => [...layer().querySelectorAll(".caption-verify-card")];
-const textareas = () => [...layer().querySelectorAll("textarea[data-caption]")];
+const tiles = () => [...layer().querySelectorAll(".caption-verify-tile")];
+const editor = () => layer().querySelector("textarea[data-caption]");
+const verdictButtons = () => [
+  ...layer().querySelectorAll(".caption-verify-verdict"),
+];
+const verdictButton = (value) =>
+  layer().querySelector(`.caption-verify-verdict[data-decision="${value}"]`);
+const activeVerdict = () =>
+  verdictButtons().find((button) => button.getAttribute("aria-pressed") === "true")
+    ?.dataset.decision;
+const stale = () => layer().querySelector(".caption-verify-stale");
 const click = (el) =>
   el.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+const press = (key, options = {}) =>
+  document.dispatchEvent(
+    new window.KeyboardEvent("keydown", { key, bubbles: true, ...options }),
+  );
 
 function type(textarea, value) {
   textarea.value = value;
@@ -36,25 +49,101 @@ describe("caption verify modal", () => {
     ));
   });
 
-  it("renders one card per item with its caption and three verdict buttons", () => {
+  it("renders one filmstrip tile per item and one caption editor", () => {
     showCaptionVerify(captionVerifyPending(), { onSubmitted: calls() });
 
-    assert.equal(cards().length, 2);
-    assert.equal(textareas()[0].value, "plk_mock, a red cube.");
+    assert.equal(tiles().length, 2);
+    assert.equal(layer().querySelectorAll("textarea[data-caption]").length, 1);
+    assert.equal(editor().value, "plk_mock, a red cube.");
+    assert.equal(
+      layer().querySelector("#captionVerifyName").textContent,
+      "first.png",
+    );
     assert.deepEqual(
-      [...cards()[0].querySelectorAll("[data-decision]")].map(
-        (b) => b.dataset.decision,
-      ),
+      verdictButtons().map((button) => button.dataset.decision),
       ["correct", "generic", "wrong"],
     );
-    assert.ok(cards()[0].classList.contains("selected"));
-    assert.ok(cards()[0].classList.contains("correct"));
+    assert.ok(tiles()[0].classList.contains("selected"));
+    assert.equal(activeVerdict(), "correct");
+  });
+
+  it("swaps the editor to the tile that was clicked", () => {
+    showCaptionVerify(captionVerifyPending(), { onSubmitted: calls() });
+
+    click(tiles()[1]);
+
+    assert.equal(editor().value, "plk_mock, a blue sphere.");
+    assert.equal(
+      layer().querySelector("#captionVerifyName").textContent,
+      "second.png",
+    );
+    assert.ok(tiles()[1].classList.contains("selected"));
+    assert.ok(!tiles()[0].classList.contains("selected"));
+  });
+
+  it("steps through the strip with the nav buttons and arrow keys", () => {
+    showCaptionVerify(captionVerifyPending(), { onSubmitted: calls() });
+
+    click(layer().querySelector("#captionVerifyNext"));
+    assert.ok(tiles()[1].classList.contains("selected"));
+
+    // Clamped at both ends rather than wrapping around.
+    click(layer().querySelector("#captionVerifyNext"));
+    assert.ok(tiles()[1].classList.contains("selected"));
+
+    press("ArrowLeft");
+    assert.ok(tiles()[0].classList.contains("selected"));
+    press("ArrowRight");
+    assert.ok(tiles()[1].classList.contains("selected"));
+  });
+
+  it("judges the selected image with the 1/2/3 keys", () => {
+    showCaptionVerify(captionVerifyPending(), { onSubmitted: calls() });
+
+    press("2");
+
+    assert.equal(activeVerdict(), "generic");
+    assert.ok(tiles()[0].classList.contains("generic"));
+    assert.match(
+      layer().querySelector("#captionVerifyProgress").textContent,
+      /1 reviewed/,
+    );
+  });
+
+  it("leaves digits typed into the caption box alone", () => {
+    showCaptionVerify(captionVerifyPending(), { onSubmitted: calls() });
+
+    editor().dispatchEvent(
+      new window.KeyboardEvent("keydown", { key: "3", bubbles: true }),
+    );
+
+    assert.equal(activeVerdict(), "correct");
+    assert.match(
+      layer().querySelector("#captionVerifyProgress").textContent,
+      /0 reviewed/,
+    );
+  });
+
+  it("generates on ctrl+enter, including from the caption box", async () => {
+    showCaptionVerify(captionVerifyPending(), { onSubmitted: calls() });
+
+    editor().dispatchEvent(
+      new window.KeyboardEvent("keydown", {
+        key: "Enter",
+        ctrlKey: true,
+        bubbles: true,
+      }),
+    );
+    await nextTick();
+
+    assert.equal(apiCalls.generated.length, 1);
+    assert.equal(apiCalls.generated[0].imagePath, "/images/first.png");
   });
 
   it("sends the edited caption, not the original", async () => {
     showCaptionVerify(captionVerifyPending(), { onSubmitted: calls() });
 
-    type(textareas()[0], "a plain grey cylinder");
+    type(editor(), "a plain grey cylinder");
     await generate();
 
     assert.equal(apiCalls.generated.length, 1);
@@ -112,14 +201,14 @@ describe("caption verify modal", () => {
     showCaptionVerify(captionVerifyPending(), { onSubmitted: calls() });
 
     await generate();
-    click(cards()[1]); // move on while the first render is still running
+    click(tiles()[1]); // move on while the first render is still running
     release();
     await nextTick();
 
     // The second image must not be showing the first image's render.
     assert.equal(layer().querySelector(".caption-verify-generated img"), null);
 
-    click(cards()[0]);
+    click(tiles()[0]);
     await nextTick();
     assert.match(
       layer().querySelector(".caption-verify-generated img").getAttribute("src"),
@@ -127,37 +216,27 @@ describe("caption verify modal", () => {
     );
   });
 
-  it("does not cycle the verdict on a right-click inside the caption box", () => {
+  it("cycles the verdict on a right-click on a tile", () => {
     showCaptionVerify(captionVerifyPending(), { onSubmitted: calls() });
 
-    const event = new window.MouseEvent("contextmenu", {
-      bubbles: true,
-      cancelable: true,
-    });
-    textareas()[0].dispatchEvent(event);
-
-    assert.ok(cards()[0].classList.contains("correct"));
-    assert.equal(event.defaultPrevented, false, "native copy/paste menu must work");
-  });
-
-  it("still cycles the verdict on a right-click on the card body", () => {
-    showCaptionVerify(captionVerifyPending(), { onSubmitted: calls() });
-
-    cards()[0].dispatchEvent(
+    tiles()[0].dispatchEvent(
       new window.MouseEvent("contextmenu", { bubbles: true, cancelable: true }),
     );
 
-    assert.ok(cards()[0].classList.contains("generic"));
+    assert.ok(tiles()[0].classList.contains("generic"));
+    assert.equal(activeVerdict(), "generic", "the editor follows the tile");
   });
 
   it("keeps caption edits across re-selection", async () => {
     showCaptionVerify(captionVerifyPending(), { onSubmitted: calls() });
 
-    type(textareas()[0], "edited text");
-    click(cards()[1]);
-    click(cards()[0]);
+    type(editor(), "edited text");
+    click(tiles()[1]);
+    assert.equal(editor().value, "plk_mock, a blue sphere.");
+    click(tiles()[0]);
 
-    assert.equal(textareas()[0].value, "edited text");
+    assert.equal(editor().value, "edited text");
+    assert.ok(tiles()[0].classList.contains("caption-verify-tile--edited"));
     click(layer().querySelector("#finishCaptionVerify"));
     await nextTick();
     assert.equal(
@@ -170,21 +249,35 @@ describe("caption verify modal", () => {
     showCaptionVerify(captionVerifyPending(), { onSubmitted: calls() });
 
     await generate();
-    assert.equal(layer().querySelector(".caption-verify-stale"), null);
+    assert.ok(stale().hidden);
 
-    type(textareas()[0], "different caption");
-    assert.ok(layer().querySelector(".caption-verify-stale"));
+    type(editor(), "different caption");
+    assert.ok(!stale().hidden);
 
     await generate();
-    assert.equal(layer().querySelector(".caption-verify-stale"), null);
+    assert.ok(stale().hidden);
+  });
+
+  it("counts characters always and tokens only for the render on screen", async () => {
+    showCaptionVerify(captionVerifyPending(), { onSubmitted: calls() });
+    const count = () => layer().querySelector("#captionVerifyCount").textContent;
+
+    assert.equal(count(), "21 chars");
+
+    await generate();
+    assert.equal(count(), "5 tokens · 21 chars");
+
+    // The counted tokens belong to the caption that was rendered, not this one.
+    type(editor(), "a red cube");
+    assert.equal(count(), "10 chars");
   });
 
   it("submits verdicts and captions per path", async () => {
     const onSubmitted = calls();
     showCaptionVerify(captionVerifyPending(), { onSubmitted });
 
-    click(cards()[0].querySelector('[data-decision="wrong"]'));
-    type(textareas()[0], "a red cube");
+    click(verdictButton("wrong"));
+    type(editor(), "a red cube");
     click(layer().querySelector("#finishCaptionVerify"));
     await nextTick();
 
@@ -216,8 +309,10 @@ describe("caption verify modal", () => {
       onSubmitted: calls(),
     });
 
-    assert.equal(cards().length, 0);
+    assert.equal(tiles().length, 0);
     assert.match(layer().textContent, /No captions to verify/);
+    assert.ok(editor().disabled);
+    assert.ok(verdictButtons().every((button) => button.disabled));
 
     click(layer().querySelector("#finishCaptionVerify"));
     await nextTick();
@@ -248,7 +343,7 @@ describe("caption verify modal", () => {
     );
     assert.equal(injected.length, 0);
     assert.equal(
-      textareas()[0].value,
+      editor().value,
       "</textarea><img onerror=alert(1) src=x>",
       "the caption survives verbatim as a value, never as markup",
     );
@@ -288,12 +383,22 @@ describe("caption verify modal", () => {
     );
   });
 
-  it("counts reviewed images in the header", () => {
+  it("counts reviewed images in the header and dots only judged tiles", () => {
     showCaptionVerify(captionVerifyPending(), { onSubmitted: calls() });
 
     assert.match(layer().querySelector("#captionVerifyProgress").textContent, /0 reviewed/);
-    click(cards()[0].querySelector('[data-decision="generic"]'));
+    assert.ok(
+      tiles().every(
+        (tile) => !tile.classList.contains("caption-verify-tile--reviewed"),
+      ),
+      "an unjudged tile must not wear the default verdict's colour",
+    );
+
+    click(verdictButton("generic"));
+
     assert.match(layer().querySelector("#captionVerifyProgress").textContent, /1 reviewed/);
+    assert.ok(tiles()[0].classList.contains("caption-verify-tile--reviewed"));
+    assert.ok(!tiles()[1].classList.contains("caption-verify-tile--reviewed"));
   });
 
   it("auto-renders on select only once per image", async () => {
@@ -302,14 +407,14 @@ describe("caption verify modal", () => {
     // Opening the modal must not render anything on its own.
     assert.equal(apiCalls.generated.length, 0);
 
-    click(cards()[1]);
+    click(tiles()[1]);
     await nextTick();
     assert.equal(apiCalls.generated.length, 1);
     assert.equal(apiCalls.generated[0].imagePath, "/images/second.png");
 
-    click(cards()[0]);
+    click(tiles()[0]);
     await nextTick();
-    click(cards()[1]);
+    click(tiles()[1]);
     await nextTick();
 
     const forSecond = apiCalls.generated.filter(
@@ -322,7 +427,7 @@ describe("caption verify modal", () => {
     showCaptionVerify(captionVerifyPending(), { onSubmitted: calls() });
 
     layer().querySelector("#captionVerifyAuto").checked = false;
-    click(cards()[1]);
+    click(tiles()[1]);
     await nextTick();
 
     assert.equal(apiCalls.generated.length, 0);
@@ -344,7 +449,7 @@ describe("caption verify modal", () => {
     assert.match(layer().querySelector("#captionVerifyStatus").textContent, /Denoising 3\/4/);
   });
 
-  it("stops listening for job status after submitting", async () => {
+  it("stops listening for job status and keys after submitting", async () => {
     showCaptionVerify(captionVerifyPending(), { onSubmitted: calls() });
 
     click(layer().querySelector("#finishCaptionVerify"));
@@ -356,6 +461,8 @@ describe("caption verify modal", () => {
         detail: { caption_status: { phase: "idle", message: "x" } },
       }),
     );
+    press("2");
+    press("ArrowRight");
     assert.equal(layer().querySelector(".caption-verify-modal"), null);
   });
 
@@ -379,5 +486,6 @@ describe("caption verify modal", () => {
     });
 
     assert.ok(layer().querySelector("#generateCaptionPreview").disabled);
+    assert.ok(tiles()[0].classList.contains("caption-verify-tile--nocaption"));
   });
 });

@@ -1,22 +1,15 @@
-/* Gallery + editable caption on the left, source-vs-render compare on the right.
-   The workspace must be flex:1 1 auto; min-height:0; overflow:hidden or the
-   fixed-height .modal leaks (see components/modal.css). */
+/* Caption editor + verdict on the left, source-vs-render compare on the right,
+   dataset filmstrip along the bottom. The workspace must be flex:1 1 auto;
+   min-height:0; overflow:hidden or the fixed-height .modal leaks (see
+   components/modal.css); the strip is a fixed-height footer beneath it. */
 .caption-verify-workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(380px, 0.95fr);
+  grid-template-columns: minmax(0, 0.95fr) minmax(380px, 1.05fr);
+  gap: 14px;
   flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;
-}
-
-.caption-verify-grid {
-  display: grid;
-  align-content: start;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 300px));
-  gap: 12px;
-  min-height: 0;
-  overflow: auto;
-  padding: 14px;
+  padding: 14px 16px;
 }
 
 .caption-verify-auto {
@@ -28,144 +21,189 @@
   white-space: nowrap;
 }
 
-/* --- cards --------------------------------------------------------------- */
+/* --- caption under test -------------------------------------------------- */
 
-.caption-verify-card {
-  position: relative;
+.caption-verify-editor {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto auto;
+  gap: 10px;
+  min-height: 0;
+}
+
+/* Gold framed: this is the one editable thing on screen. */
+.caption-verify-editor__panel {
   display: flex;
   flex-direction: column;
-  border: 3px solid var(--hairline);
+  gap: 10px;
+  min-height: 0;
+  padding: 12px;
+  border: 1px solid var(--border-gold);
   border-radius: var(--radius-lg);
-  background: rgba(7, 10, 24, 0.86);
-  overflow: hidden;
+  background: rgba(5, 7, 15, 0.62);
 }
 
-.caption-verify-card.correct { border-color: rgba(56, 214, 160, 0.52); }
-.caption-verify-card.generic { border-color: rgba(255, 196, 0, 0.55); }
-.caption-verify-card.wrong { border-color: rgba(255, 92, 106, 0.68); }
-
-.caption-verify-card.selected {
-  outline: 2px solid rgba(255, 224, 0, 0.74);
-  outline-offset: -5px;
-  box-shadow: 0 0 0 1px rgba(255, 224, 0, 0.24);
+.caption-verify-editor--empty .caption-verify-editor__panel {
+  border-color: var(--hairline);
 }
 
-.caption-verify-card--nocaption { opacity: 0.72; }
-
-.caption-verify-thumb {
-  margin: 0;
-  aspect-ratio: 4 / 3;
-  overflow: hidden;
-  background: var(--night-990, #05070f);
+.caption-verify-editor__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
-.caption-verify-thumb img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-
-.caption-verify-thumb-missing {
-  display: grid;
-  place-items: center;
-  height: 100%;
-  font-size: 12px;
-  color: var(--text-dim, #9aa4c4);
-}
-
-.caption-verify-name {
-  padding: 6px 10px;
-  font-size: 12px;
-  font-weight: 650;
-  white-space: nowrap;
+.caption-verify-editor__label {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--accent, #ffe000);
+}
+
+.caption-verify-editor__label strong {
+  color: var(--accent, #ffe000);
+  font-weight: 750;
+}
+
+.caption-verify-editor__count {
+  flex: 0 0 auto;
+  color: var(--caption, #7e89b6);
+  text-transform: none;
+  letter-spacing: 0;
 }
 
 /* .nf-input hard-sets height: var(--control-h-md); step_config.css overrides it
    the same way for its prompt textarea. */
 .caption-verify-text {
+  flex: 1 1 auto;
   height: auto;
-  min-height: 72px;
-  max-height: 132px;
-  padding: 8px 10px;
-  resize: vertical;
+  min-height: 0;
+  padding: 12px 14px;
+  resize: none;
   overflow: auto;
-  border-radius: 0;
-  border-width: 1px 0;
+  border-radius: var(--radius-md);
+  background: var(--night-990, #05070f);
   font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 12px;
-  line-height: 1.45;
+  font-size: 13px;
+  line-height: 1.55;
 }
 
-.caption-verify-card--edited .caption-verify-text {
+.caption-verify-editor--edited .caption-verify-text {
   border-left: 3px solid var(--accent, #ffe000);
 }
 
-.caption-verify-actions {
+/* --- verdict ------------------------------------------------------------- */
+
+.caption-verify-verdicts {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--border, #222c58);
+  border-radius: var(--radius-lg);
+  background: rgba(5, 7, 15, 0.5);
 }
 
-.caption-verify-actions button {
-  min-height: 32px;
+.caption-verify-verdict {
   min-width: 0;
-  border-width: 0 0 0 1px;
-  border-radius: 0;
-  padding: 0 6px;
+  height: 38px;
+  gap: 7px;
+  padding: 0 8px;
+  border-color: transparent;
+  background: transparent;
   font-size: 12px;
   white-space: normal;
   overflow-wrap: anywhere;
 }
 
-.caption-verify-actions button:first-child { border-left: 0; }
+.caption-verify-verdict:hover:not(:disabled) {
+  background: var(--surface-hover, #1b2347);
+  border-color: transparent;
+}
 
-.caption-verify-actions button[aria-pressed="true"] {
-  color: var(--text, #eef1ff);
+.caption-verify-dot {
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.caption-verify-verdict--correct { color: var(--success-500, #38d6a0); }
+.caption-verify-verdict--generic { color: var(--warning-500, #ffc400); }
+.caption-verify-verdict--wrong { color: var(--danger-500, #ff5c6a); }
+
+/* Doubled real classes (0,3,0) so the pressed tint survives the :hover rule
+   above it — the same cascade guard the kit uses for its gold states. */
+.caption-verify-verdict.caption-verify-verdict[aria-pressed="true"] {
   font-weight: 750;
+  border-color: currentColor;
+}
+
+.caption-verify-verdict.caption-verify-verdict--correct[aria-pressed="true"] { background: var(--success-bg); }
+.caption-verify-verdict.caption-verify-verdict--generic[aria-pressed="true"] { background: var(--warning-bg); }
+.caption-verify-verdict.caption-verify-verdict--wrong[aria-pressed="true"] { background: var(--danger-bg); }
+
+.caption-verify-hint {
+  margin: 0;
+  text-align: right;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  color: var(--caption, #7e89b6);
 }
 
 /* --- preview pane -------------------------------------------------------- */
 
 .caption-verify-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   min-width: 0;
   min-height: 0;
   overflow: auto;
-  border-left: 1px solid var(--hairline);
-  background: rgba(7, 10, 24, 0.72);
+}
+
+.caption-verify-compare,
+.caption-verify-render {
+  flex: 0 0 auto;
+  padding: 12px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  background: rgba(5, 7, 15, 0.62);
 }
 
 .caption-verify-compare {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
-  padding: 14px;
-  border-bottom: 1px solid var(--hairline);
-  background: rgba(5, 7, 15, 0.82);
 }
 
 .caption-verify-compare figure {
   margin: 0;
   display: grid;
-  gap: 6px;
+  gap: 8px;
   align-content: start;
   justify-items: center;
-  min-height: 240px;
+  min-height: 200px;
 }
 
 .caption-verify-compare figcaption {
   font-size: 11px;
   font-weight: 750;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-dim, #9aa4c4);
+  letter-spacing: 0.06em;
+  color: var(--caption, #7e89b6);
 }
 
 .caption-verify-compare img {
   display: block;
   max-width: 100%;
-  max-height: min(38vh, 380px);
+  max-height: min(32vh, 340px);
   border: 1px solid var(--hairline);
   border-radius: var(--radius-md);
   background: var(--night-990, #05070f);
@@ -177,29 +215,57 @@
   place-items: center;
   gap: 8px;
   width: 100%;
-  min-height: 200px;
+  min-height: 170px;
   border: 1px dashed var(--hairline);
   border-radius: var(--radius-md);
   font-size: 12px;
-  color: var(--text-dim, #9aa4c4);
+  color: var(--caption, #7e89b6);
 }
 
-.caption-verify-body {
+.caption-verify-render {
   display: grid;
   gap: 10px;
-  padding: 14px;
 }
 
-.caption-verify-prompt {
+.caption-verify-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
   margin: 0;
-  padding: 10px 12px;
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-md);
-  background: rgba(11, 16, 36, 0.58);
   font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 12px;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
+  font-size: 11px;
+  color: var(--caption, #7e89b6);
+}
+
+.caption-verify-meta div { display: flex; gap: 6px; }
+.caption-verify-meta dt { text-transform: uppercase; letter-spacing: 0.06em; }
+.caption-verify-meta dd { margin: 0; color: var(--text, #eef1ff); font-weight: 700; }
+
+.caption-verify-controls { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.caption-verify-shortcut {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  font-size: 11px;
+  color: var(--caption, #7e89b6);
+}
+
+.caption-verify-shortcut kbd {
+  padding: 2px 6px;
+  border: 1px solid var(--border, #222c58);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised, #161d3a);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 10px;
+  color: var(--muted, #aeb7dc);
+}
+
+.caption-verify-notices {
+  display: grid;
+  gap: 8px;
+  align-content: start;
 }
 
 .caption-verify-stale,
@@ -208,10 +274,14 @@
   border-radius: var(--radius-md);
   background: var(--warning-bg, rgba(255, 196, 0, 0.12));
   color: var(--warning-500, #ffc400);
-  padding: 6px 10px;
+  padding: 8px 10px;
   font-size: 11px;
   font-weight: 650;
 }
+
+/* Toggled by setPreviewStale() instead of a re-render; the notices row is a
+   grid, so the box has to be pulled out of flow explicitly. */
+.caption-verify-stale[hidden] { display: none; }
 
 .caption-verify-error {
   border: 1px solid var(--danger-500, #ff5c6a);
@@ -222,20 +292,18 @@
   font-size: 12px;
 }
 
-.caption-verify-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 16px;
-  margin: 0;
-  font-size: 11px;
-  color: var(--text-dim, #9aa4c4);
+/* job.css styles .caption-status as a full-width run banner; inside the pane it
+   has to read as one of the notice boxes above it. */
+.caption-verify-preview .caption-status {
+  border: 1px solid rgba(56, 214, 160, 0.32);
+  border-radius: var(--radius-md);
+  padding: 8px 10px;
+  font-size: 12px;
 }
 
-.caption-verify-meta div { display: flex; gap: 5px; }
-.caption-verify-meta dt { text-transform: uppercase; letter-spacing: 0.04em; }
-.caption-verify-meta dd { margin: 0; color: var(--text, #eef1ff); }
-
-.caption-verify-controls { display: flex; gap: 8px; flex-wrap: wrap; }
+.caption-verify-preview .caption-status[data-phase="failed"] {
+  border-color: rgba(255, 92, 106, 0.45);
+}
 
 .caption-verify-empty {
   display: grid;
@@ -244,7 +312,138 @@
   height: 100%;
   padding: 24px;
   text-align: center;
-  color: var(--text-dim, #9aa4c4);
+  color: var(--caption, #7e89b6);
+}
+
+/* --- dataset filmstrip --------------------------------------------------- */
+
+.caption-verify-strip {
+  display: grid;
+  gap: 8px;
+  flex: 0 0 auto;
+  padding: 10px 16px 2px;
+  border-top: 1px solid var(--hairline);
+}
+
+.caption-verify-strip__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--caption, #7e89b6);
+}
+
+.caption-verify-strip__nav { display: flex; gap: 6px; }
+
+.caption-verify-nav {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  font-size: 15px;
+  line-height: 1;
+}
+
+/* min-width:0 or the tile row sizes the grid column and pushes the modal wide
+   instead of scrolling inside it. */
+.caption-verify-tiles {
+  display: flex;
+  gap: 10px;
+  min-width: 0;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+.caption-verify-tile {
+  flex: 0 0 auto;
+  display: grid;
+  gap: 5px;
+  width: 74px;
+  cursor: pointer;
+}
+
+.caption-verify-tile__frame {
+  position: relative;
+  display: block;
+  height: 58px;
+  border: 2px solid var(--hairline);
+  border-radius: var(--radius-md);
+  background: var(--night-990, #05070f);
+  overflow: hidden;
+  transition: var(--transition-color), box-shadow var(--dur-fast) var(--ease-out);
+}
+
+.caption-verify-tile:hover .caption-verify-tile__frame {
+  border-color: var(--border-strong, #3d4b86);
+}
+
+.caption-verify-tile__img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.caption-verify-tile__missing {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  font-size: 10px;
+  color: var(--caption, #7e89b6);
+}
+
+.caption-verify-tile__index {
+  position: absolute;
+  top: 3px;
+  left: 4px;
+  padding: 0 4px;
+  border-radius: var(--radius-xs);
+  background: rgba(5, 7, 15, 0.74);
+  font: 700 10px/16px var(--font-mono, ui-monospace, monospace);
+  color: var(--muted, #aeb7dc);
+}
+
+/* Every item starts on the "correct" default, so the dot stays neutral until
+   the user has actually judged that image. */
+.caption-verify-tile__dot {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.45);
+  background: var(--night-500, #3d4b86);
+}
+
+.caption-verify-tile--reviewed.correct .caption-verify-tile__dot { background: var(--success-500, #38d6a0); }
+.caption-verify-tile--reviewed.generic .caption-verify-tile__dot { background: var(--warning-500, #ffc400); }
+.caption-verify-tile--reviewed.wrong .caption-verify-tile__dot { background: var(--danger-500, #ff5c6a); }
+
+.caption-verify-tile__name {
+  font: 400 10px/1.3 var(--font-mono, ui-monospace, monospace);
+  color: var(--caption, #7e89b6);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.caption-verify-tile--nocaption { opacity: 0.62; }
+
+.caption-verify-tile--edited .caption-verify-tile__name { color: var(--accent, #ffe000); }
+
+.caption-verify-tile.selected .caption-verify-tile__frame {
+  border-color: var(--accent, #ffe000);
+  box-shadow: var(--glow-gold);
+}
+
+.caption-verify-tile.selected .caption-verify-tile__name {
+  color: var(--accent, #ffe000);
+  font-weight: 700;
 }
 
 /* Local spinner — precedent: bbox_annotation.css owns its own keyframes.
@@ -263,7 +462,11 @@
 }
 
 @media (max-width: 900px) {
-  .caption-verify-workspace { grid-template-columns: minmax(0, 1fr); }
-  .caption-verify-preview { border-top: 1px solid var(--hairline); border-left: 0; }
+  .caption-verify-workspace {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+    overflow: auto;
+  }
+
   .caption-verify-compare { grid-template-columns: minmax(0, 1fr); }
 }
