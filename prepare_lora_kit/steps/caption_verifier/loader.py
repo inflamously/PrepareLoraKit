@@ -68,20 +68,23 @@ def _instantiate_pipeline(diffusers, pipeline_cls, plan: GenerationPlan):
     * a path/URL ending in a checkpoint suffix -> ``from_single_file``
     * anything else -> ``from_pretrained``
     """
+    from prepare_lora_kit.settings.hub import hub_error_context
+
     kwargs = _from_pretrained_kwargs(diffusers, plan)
     model_id = plan.model_id
 
-    if "::" in model_id:
-        from huggingface_hub import hf_hub_download
+    with hub_error_context(model_id):
+        if "::" in model_id:
+            from huggingface_hub import hf_hub_download
 
-        repo_id, _, filename = model_id.partition("::")
-        local = hf_hub_download(repo_id, filename)
-        return _from_single_file(pipeline_cls, local, kwargs)
+            repo_id, _, filename = model_id.partition("::")
+            local = hf_hub_download(repo_id, filename)
+            return _from_single_file(pipeline_cls, local, kwargs)
 
-    if model_id.lower().endswith(_SINGLE_FILE_SUFFIXES):
-        return _from_single_file(pipeline_cls, model_id, kwargs)
+        if model_id.lower().endswith(_SINGLE_FILE_SUFFIXES):
+            return _from_single_file(pipeline_cls, model_id, kwargs)
 
-    return pipeline_cls.from_pretrained(model_id, **kwargs)
+        return pipeline_cls.from_pretrained(model_id, **kwargs)
 
 
 def _from_single_file(pipeline_cls, path: str, kwargs: dict):

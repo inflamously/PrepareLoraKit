@@ -37,6 +37,11 @@ components must follow (e.g. the gold-glow transition) — is documented in
 | `project/project.css` | Adds project-specific spacing and substep layout around reusable app-kit pipeline rows. |
 | `project/selection.js` | Returns active step types and configured substeps in project pipeline order. |
 | `project/view.js` | Renders the project summary, active step toggles, and substep status rows. |
+| `settings/controller.js` | Binds the Settings button in the library and project appbars. |
+| `settings/fields.js` | Builds one settings control, showing the app default as placeholder text when a field is unset. |
+| `settings/form.js` | Builds the Settings modal markup and marshals values to and from the grouped bridge payload. |
+| `settings/settings.css` | Styles the Settings modal sections, status lines, and model-access result rows. |
+| `settings/settings.js` | Opens the Settings modal and drives saving, the Hugging Face checks, and hardware detection. |
 | `shell/events.js` | Wires top-level UI controls to project loading, folder selection, caption input syncing, and job actions. |
 | `shell/render.js` | Runs the shared render pass for project steps and job state. |
 | `shell/shell.css` | Styles the project-detail shell frame, local status mappings, force row, and small-screen compatibility. |

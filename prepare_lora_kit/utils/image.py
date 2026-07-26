@@ -146,6 +146,9 @@ def jpeg_artifact_score(src) -> float:
 
 # ── Watermark (CLIP zero-shot) ─────────────────────────────────────────────────
 
+# The watermark scorer's model is fixed: the thresholds in QualityGateConfig are
+# calibrated against this checkpoint, so it is not a user-facing choice.
+_WATERMARK_CLIP_ID = "openai/clip-vit-base-patch32"
 _clip_model = None
 _clip_processor = None
 _clip_device = None
@@ -163,9 +166,13 @@ def _get_clip():
             if _clip_model is None:
                 import torch
                 from transformers import CLIPModel, CLIPProcessor
+
+                from prepare_lora_kit.settings.hub import hub_error_context
+
                 _clip_device = "cuda" if torch.cuda.is_available() else "cpu"
-                model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").eval().to(_clip_device)
-                _clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+                with hub_error_context(_WATERMARK_CLIP_ID):
+                    model = CLIPModel.from_pretrained(_WATERMARK_CLIP_ID).eval().to(_clip_device)
+                    _clip_processor = CLIPProcessor.from_pretrained(_WATERMARK_CLIP_ID)
                 _clip_model = model  # publish last: other threads see a ready model
     return _clip_model, _clip_processor, _clip_device
 

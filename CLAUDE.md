@@ -79,7 +79,10 @@ missing `ImportStep` get it inserted in memory.
   `AuditStep`, and `BucketPoolsCheckStep`.
 
 **Configs on disk:** project presets in `configs/projects/`, caption prompts in
-`configs/caption_prompts/`.
+`configs/caption_prompts/` (both created lazily — neither is guaranteed to exist in a fresh
+checkout). App-wide settings live *outside* the repo at `~/.prepare_lora_kit/settings.yaml`
+(`prepare_lora_kit/settings/`): machine facts plus defaults seeded into newly created projects.
+They never alter an existing project — see `docs/settings.md`.
 
 **UI** (`prepare_lora_kit_ui/`): `bridge.py` is the synchronous pywebview API object
 (`window.pywebview.api`); `runner/` manages background jobs and pending interaction requests
@@ -101,6 +104,8 @@ fixtures for `--mock`.
 - Commits use conventional prefixes (`feat:`, `fix:`, `refactor:`) with an imperative summary.
 - UI visual rules (the `nf-*` component kit, design tokens, gold-glow transition) are documented
   in `docs/ui-design.md`; `docs/core.md` describes the step/substep run model.
+- `docs/settings.md` documents the app-wide settings store: the seed-vs-fallback split, why no
+  Hugging Face token is stored, and the `HF_HOME`-before-import ordering constraint.
 - `docs/caption-verifier-step.md` documents `CaptionVerifierStep` (the optional text-encoder
   probe): its threading model, VRAM planner, artifact rules, and caption write-back guarantees.
 - `docs/caption-step/` documents the `CaptionBboxStep` architecture, one file per concern

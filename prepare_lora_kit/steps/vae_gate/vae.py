@@ -17,15 +17,18 @@ def _instantiate_vae(model_id: str, AutoencoderKL, config_id: str | None = None)
     ``config_id`` (optional) points the single-file loader at a base repo's ``vae/`` config
     for checkpoints diffusers cannot auto-configure from their state-dict keys.
     """
-    if "::" in model_id:
-        repo_id, filename = model_id.split("::", 1)
-        from huggingface_hub import hf_hub_download
+    from prepare_lora_kit.settings.hub import hub_error_context
 
-        local = hf_hub_download(repo_id, filename)
-        return _from_single_file(AutoencoderKL, local, config_id)
-    if model_id.lower().endswith(_SINGLE_FILE_SUFFIXES):
-        return _from_single_file(AutoencoderKL, model_id, config_id)
-    return AutoencoderKL.from_pretrained(model_id, subfolder="vae")
+    with hub_error_context(model_id):
+        if "::" in model_id:
+            repo_id, filename = model_id.split("::", 1)
+            from huggingface_hub import hf_hub_download
+
+            local = hf_hub_download(repo_id, filename)
+            return _from_single_file(AutoencoderKL, local, config_id)
+        if model_id.lower().endswith(_SINGLE_FILE_SUFFIXES):
+            return _from_single_file(AutoencoderKL, model_id, config_id)
+        return AutoencoderKL.from_pretrained(model_id, subfolder="vae")
 
 
 def _from_single_file(AutoencoderKL, path: str, config_id: str | None = None):

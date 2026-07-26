@@ -62,7 +62,11 @@ screenshots when modifying `prepare_lora_kit/ui/static/`.
 ## Security & Configuration Tips
 
 - Do not commit generated datasets, reports, model weights, or local `outputs/`
-content. Keep machine-specific paths in local project YAML files and document any
-required environment variables, such as `SEEDVR_PATH`, when adding optional
-runtime integrations.
+content. Machine-specific paths belong in app settings
+(`~/.prepare_lora_kit/settings.yaml`, edited from the UI's Settings button — see
+`docs/settings.md`), which lives outside the repo; a project YAML may still
+override any of them. Document any required environment variables, such as
+`SEEDVR_PATH`, when adding optional runtime integrations.
+- Never store a Hugging Face token in this repo or in app settings. The app
+reuses the token `hf auth login` writes, via `huggingface_hub.get_token()`.
 - Avoid installation of runtime in sandboxes, if .venv present keep it intact.

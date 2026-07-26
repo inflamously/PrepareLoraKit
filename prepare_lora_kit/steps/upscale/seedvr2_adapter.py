@@ -21,7 +21,34 @@ class SeedVR2Unavailable(RuntimeError):
 
 
 def default_seedvr2_submodule_dir() -> Path:
+    """Where SeedVR2 lives when the project config does not say.
+
+    Global settings act as the fallback rather than an override: a project that
+    names a directory still wins. All this does is let a user who keeps the
+    submodule or its checkpoints somewhere unusual say so once instead of in
+    every project YAML.
+    """
+    from prepare_lora_kit.settings import load_settings
+
+    configured = load_settings().hardware.seedvr2_submodule_dir
+    if configured:
+        return Path(configured).expanduser()
     return Path(__file__).resolve().parents[3] / "third_party" / "seedvr2"
+
+
+def default_seedvr2_model_dir() -> Path:
+    """Checkpoint cache directory, settings-aware. See :func:`default_seedvr2_submodule_dir`."""
+    from prepare_lora_kit.settings import load_settings
+
+    configured = load_settings().hardware.seedvr2_model_dir
+    return Path(configured or DEFAULT_SEEDVR2_MODEL_DIR).expanduser()
+
+
+def default_seedvr2_cuda_device() -> str | None:
+    """Configured GPU selection, or ``None`` to let the worker pick device 0."""
+    from prepare_lora_kit.settings import load_settings
+
+    return load_settings().hardware.cuda_device
 
 
 class SeedVR2Upscaler:
@@ -43,9 +70,9 @@ class SeedVR2Upscaler:
     ) -> None:
         self.resolution = resolution
         self.submodule_dir = Path(submodule_dir).expanduser() if submodule_dir else default_seedvr2_submodule_dir()
-        self.model_dir = Path(model_dir).expanduser() if model_dir else Path(DEFAULT_SEEDVR2_MODEL_DIR).expanduser()
+        self.model_dir = Path(model_dir).expanduser() if model_dir else default_seedvr2_model_dir()
         self.dit_model = dit_model
-        self.cuda_device = cuda_device
+        self.cuda_device = cuda_device if cuda_device else default_seedvr2_cuda_device()
         self.batch_size = batch_size
         self.vae_tiled = vae_tiled
         self.cache_models = cache_models

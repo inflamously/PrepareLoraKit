@@ -39,10 +39,13 @@ def _load_open_clip(spec: catalog.EmbeddingModel):
     import torch
     import open_clip
 
+    from prepare_lora_kit.settings.hub import hub_error_context
+
     device = _device(torch)
-    model, _, preprocess = open_clip.create_model_and_transforms(
-        spec.arch, pretrained=spec.open_clip_pretrained
-    )
+    with hub_error_context(spec.arch):
+        model, _, preprocess = open_clip.create_model_and_transforms(
+            spec.arch, pretrained=spec.open_clip_pretrained
+        )
     model.eval().to(device)
     tokenizer = open_clip.get_tokenizer(spec.arch)
     return model, preprocess, tokenizer, device
@@ -71,9 +74,12 @@ def _embed_dinov2(spec, paths: list[Path], cancel_check):
     from PIL import Image
     from transformers import AutoImageProcessor, AutoModel
 
+    from prepare_lora_kit.settings.hub import hub_error_context
+
     device = _device(torch)
-    processor = AutoImageProcessor.from_pretrained(spec.hf_repo)
-    model = AutoModel.from_pretrained(spec.hf_repo).eval().to(device)
+    with hub_error_context(spec.hf_repo):
+        processor = AutoImageProcessor.from_pretrained(spec.hf_repo)
+        model = AutoModel.from_pretrained(spec.hf_repo).eval().to(device)
     rows = []
     with torch.no_grad():
         for p in paths:
@@ -114,7 +120,10 @@ def _embed_qwen(spec, paths: list[Path], cancel_check):
             "pip install 'sentence-transformers[image]'"
         ) from exc
 
-    model = SentenceTransformer(spec.hf_repo, device=_device(torch), trust_remote_code=True)
+    from prepare_lora_kit.settings.hub import hub_error_context
+
+    with hub_error_context(spec.hf_repo):
+        model = SentenceTransformer(spec.hf_repo, device=_device(torch), trust_remote_code=True)
     rows = []
     batch_size = 8
     for start in range(0, len(paths), batch_size):

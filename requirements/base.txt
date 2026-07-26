@@ -14,6 +14,7 @@ torchvision>=0.16
 transformers>=4.57          # Qwen3-VL / InternVL3 native Auto-class support
 accelerate>=0.27            # required at runtime by transformers device_map
 diffusers>=0.30
+huggingface_hub>=0.27       # auth_check + get_token; used directly by settings/hub.py
 open_clip_torch>=2.24
 sentence-transformers[image]>=5.4   # Qwen3-VL multimodal coverage embeddings (Curate step)
 scikit-learn>=1.3

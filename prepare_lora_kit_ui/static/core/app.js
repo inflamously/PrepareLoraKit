@@ -8,6 +8,7 @@ import {
   loadLibrary,
   showShellView,
 } from "../library/controller.js";
+import { bindSettingsEvents } from "../settings/controller.js";
 
 export async function init() {
   const info = await api().app_info();
@@ -16,6 +17,7 @@ export async function init() {
   const projectList = await loadProjects();
   bindEvents();
   bindLibraryEvents();
+  bindSettingsEvents();
 
   if (info.bootstrap) {
     // --mock launches straight into the shell for a specific project.

@@ -46,6 +46,23 @@ export function installErrorSurface() {
 }
 
 /**
+ * Reduce a bridge rejection to one line fit for an inline form error.
+ *
+ * pywebview surfaces Python exceptions with a traceback-ish prefix, so the last
+ * meaningful line is the actual message. Lives here rather than in any one
+ * modal because every modal that saves through the bridge needs it.
+ *
+ * @param {unknown} err
+ * @param {string} [fallback] shown when the error carries no usable text
+ * @returns {string}
+ */
+export function cleanError(err, fallback = "Something went wrong.") {
+  const message = String(err && err.message ? err.message : err);
+  const lines = message.split("\n").map((line) => line.trim()).filter(Boolean);
+  return lines[lines.length - 1] || fallback;
+}
+
+/**
  * Run an async boot function, surfacing any rejection instead of swallowing it.
  * @param {() => Promise<void>} fn
  */

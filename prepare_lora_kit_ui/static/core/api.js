@@ -299,6 +299,64 @@
  */
 
 /**
+ * One `{value, label}` pair for a Settings dropdown.
+ * @typedef {Object} SettingsChoice
+ * @property {string} value
+ * @property {string} label
+ */
+
+/**
+ * The stored settings document. Every field is nullable, and `null` always
+ * means "not configured — use the app default". There is deliberately no token
+ * field: the app reuses whatever the Hugging Face CLI stored.
+ *
+ * @typedef {Object} AppSettingsDocument
+ * @property {number} version
+ * @property {{home: string | null}} huggingface
+ * @property {{vram_tier: string | null, cuda_device: string | null,
+ *             seedvr2_submodule_dir: string | null, seedvr2_model_dir: string | null}} hardware
+ * @property {{caption_model_id: string | null, caption_model_task: string | null,
+ *             t2i_model_id: string | null, vae_model_id: string | null,
+ *             coverage_embedding_model: string | null, seedvr2_dit_model: string | null,
+ *             caption_model_type: string | null}} project_defaults
+ */
+
+/**
+ * Response of `get_settings` / `save_settings`.
+ *
+ * @typedef {Object} SettingsPayload
+ * @property {AppSettingsDocument} settings
+ * @property {Record<string, SettingsChoice[]>} choices  dropdown options per field
+ * @property {Record<string, string>} placeholders  the app default shown when a field is unset
+ * @property {string[]} vram_tiers
+ * @property {string} settings_path
+ * @property {string} login_command  e.g. "hf auth login"
+ * @property {string[]} model_ids  Hub repos worth an access check
+ */
+
+/**
+ * @typedef {Object} HfStatusPayload
+ * @property {{present: boolean, source: "env" | "stored" | null, error: string | null}} token
+ * @property {{ok: boolean, name: string | null, error: string | null}} account
+ * @property {string} login_command
+ */
+
+/**
+ * @typedef {Object} ModelAccessResult
+ * @property {string} repo_id
+ * @property {"ok" | "gated" | "missing" | "unauthorized" | "offline" | "error"} status
+ * @property {string} message
+ * @property {string} url
+ */
+
+/**
+ * @typedef {Object} HardwarePayload
+ * @property {boolean} cuda
+ * @property {number} total_vram_gb
+ * @property {"low" | "mid" | "high" | "max" | null} suggested_tier
+ */
+
+/**
  * @typedef {Object} PyWebviewApi
  * @property {() => Promise<{project_root: string, default_outputs: string, bootstrap: BootstrapPayload | null}>} app_info
  * @property {() => Promise<{projects: ProjectCard[]}>} list_projects
@@ -322,6 +380,11 @@
  * @property {(kind: string, name: string, text: string) => Promise<{saved: boolean, prompts: {name: string, kind: string, text: string}[]}>} save_caption_prompt
  * @property {(kind: string, name: string) => Promise<{deleted: boolean, prompts: {name: string, kind: string, text: string}[]}>} delete_caption_prompt
  * @property {(path: string) => Promise<{opened: boolean, error?: string}>} open_path
+ * @property {() => Promise<SettingsPayload>} get_settings
+ * @property {(payload: object) => Promise<SettingsPayload>} save_settings
+ * @property {() => Promise<HfStatusPayload>} hf_status
+ * @property {(repo_ids?: string[]) => Promise<{results: ModelAccessResult[]}>} check_model_access
+ * @property {() => Promise<HardwarePayload>} detect_hardware
  */
 
 /**

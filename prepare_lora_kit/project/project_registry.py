@@ -151,6 +151,8 @@ def default_project_data(
     input_dir: Path | str | None = None,
     output_dir: Path | str | None = None,
 ) -> dict[str, Any]:
+    from prepare_lora_kit.settings.seeding import apply_settings_to_pipeline
+
     data: dict[str, Any] = {
         "name": name,
     }
@@ -158,7 +160,9 @@ def default_project_data(
         data["input_dir"] = str(input_dir)
     if output_dir is not None:
         data["output_dir"] = str(output_dir)
-    data["pipeline"] = _default_pipeline()
+    # Global settings are seeded here, at write time, and never consulted again:
+    # from now on this project's YAML is the only thing that decides how it runs.
+    data["pipeline"] = apply_settings_to_pipeline(_default_pipeline())
     return data
 
 

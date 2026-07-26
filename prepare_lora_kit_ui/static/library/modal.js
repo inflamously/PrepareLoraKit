@@ -1,5 +1,6 @@
 import { api } from "../core/api.js";
 import { escapeText } from "../core/dom.js";
+import { cleanError } from "../core/errors.js";
 import { closeModal, showModal } from "../components/modal.js";
 
 /**
@@ -120,7 +121,7 @@ export async function openProjectModal({ mode, project = null, onSaved }) {
       await onSaved(result.project);
     } catch (err) {
       saveBtn.disabled = false;
-      errorEl.textContent = cleanError(err);
+      errorEl.textContent = cleanError(err, "Could not save project.");
     }
   });
 
@@ -164,12 +165,4 @@ function folderName(path) {
   // Works for both POSIX and Windows paths; drops any trailing slash.
   const parts = String(path).replace(/[\\/]+$/, "").split(/[\\/]/);
   return parts[parts.length - 1] || "";
-}
-
-function cleanError(err) {
-  const message = String(err && err.message ? err.message : err);
-  // pywebview surfaces Python exceptions with a traceback-ish prefix; keep the
-  // last meaningful line.
-  const lines = message.split("\n").map((l) => l.trim()).filter(Boolean);
-  return lines[lines.length - 1] || "Could not save project.";
 }

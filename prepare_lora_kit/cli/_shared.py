@@ -36,3 +36,9 @@ cli_option_token = click.option("--token", "-t", default=None,
 def cli(ctx):
     """PrepareLoraKit — LoRA dataset preparation pipeline."""
     ctx.ensure_object(CliState)
+    # Before any command runs, and therefore before any step lazily imports
+    # huggingface_hub — which reads HF_HOME once, at import time. Applying this
+    # later would be a silent no-op.
+    from prepare_lora_kit.settings import apply_environment
+
+    apply_environment()

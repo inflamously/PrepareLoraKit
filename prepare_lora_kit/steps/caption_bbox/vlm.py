@@ -104,59 +104,75 @@ def _load(model_id: str, task: str, quantization: str, dtype: str, max_pixels: i
     if key in _CACHE:
         return _CACHE[key]
 
+    from prepare_lora_kit.settings.hub import hub_error_context
+
     from transformers import AutoProcessor
 
     model_kwargs = _model_kwargs(resolved_quantization, resolved_dtype)
     errors: list[str] = []
 
-    if task in {"auto", "image-text-to-text"}:
-        try:
-            processor = AutoProcessor.from_pretrained(model_id, trust_remote_code=True)
-            if not hasattr(processor, "apply_chat_template"):
-                raise RuntimeError("processor has no chat template")
-            model = _load_prompted_model(model_id, model_kwargs)
-            loaded = LoadedCaptionModel(
-                model=model,
-                processor=processor,
-                adapter="image-text-to-text",
-                supports_prompt=True,
-                quantization=resolved_quantization,
-                dtype=str(resolved_dtype).replace("torch.", ""),
-                device=str(_input_device(model)),
-                max_pixels=max_pixels,
-            )
-            model.eval()
-            _CACHE[key] = loaded
-            return loaded
-        except Exception as exc:
-            errors.append(f"image-text-to-text: {exc}")
-            _clear_cuda(torch)
+    # One context for both adapter attempts: a gated repo produces a single
+    # actionable message instead of the same 401 repeated per adapter class.
+    with hub_error_context(model_id):
+        if task in {"auto", "image-text-to-text"}:
+            try:
+                processor = AutoProcessor.from_pretrained(model_id, trust_remote_code=True)
+                if not hasattr(processor, "apply_chat_template"):
+                    raise RuntimeError("processor has no chat template")
+                model = _load_prompted_model(model_id, model_kwargs)
+                loaded = LoadedCaptionModel(
+                    model=model,
+                    processor=processor,
+                    adapter="image-text-to-text",
+                    supports_prompt=True,
+                    quantization=resolved_quantization,
+                    dtype=str(resolved_dtype).replace("torch.", ""),
+                    device=str(_input_device(model)),
+                    max_pixels=max_pixels,
+                )
+                model.eval()
+                _CACHE[key] = loaded
+                return loaded
+            except Exception as exc:
+                if _is_hub_access_error(exc, model_id):
+                    raise
+                errors.append(f"image-text-to-text: {exc}")
+                _clear_cuda(torch)
 
-    if task in {"auto", "image-to-text"}:
-        try:
-            processor = AutoProcessor.from_pretrained(model_id, trust_remote_code=True)
-            model = _load_image_to_text_model(model_id, model_kwargs)
-            loaded = LoadedCaptionModel(
-                model=model,
-                processor=processor,
-                adapter="image-to-text",
-                supports_prompt=False,
-                quantization=resolved_quantization,
-                dtype=str(resolved_dtype).replace("torch.", ""),
-                device=str(_input_device(model)),
-                max_pixels=max_pixels,
-            )
-            model.eval()
-            _CACHE[key] = loaded
-            return loaded
-        except Exception as exc:
-            errors.append(f"image-to-text: {exc}")
-            _clear_cuda(torch)
+        if task in {"auto", "image-to-text"}:
+            try:
+                processor = AutoProcessor.from_pretrained(model_id, trust_remote_code=True)
+                model = _load_image_to_text_model(model_id, model_kwargs)
+                loaded = LoadedCaptionModel(
+                    model=model,
+                    processor=processor,
+                    adapter="image-to-text",
+                    supports_prompt=False,
+                    quantization=resolved_quantization,
+                    dtype=str(resolved_dtype).replace("torch.", ""),
+                    device=str(_input_device(model)),
+                    max_pixels=max_pixels,
+                )
+                model.eval()
+                _CACHE[key] = loaded
+                return loaded
+            except Exception as exc:
+                if _is_hub_access_error(exc, model_id):
+                    raise
+                errors.append(f"image-to-text: {exc}")
+                _clear_cuda(torch)
 
     raise RuntimeError(
         f"Could not load caption model '{model_id}' with supported Hugging Face adapters:\n  "
         + "\n  ".join(errors)
     )
+
+
+def _is_hub_access_error(exc: Exception, model_id: str) -> bool:
+    """A gated or missing repo will not become available on the next adapter class."""
+    from prepare_lora_kit.settings.hub import access_hint
+
+    return access_hint(exc, model_id) is not None
 
 
 def _resolve_dtype(dtype: str, torch):
@@ -201,6 +217,8 @@ def _load_prompted_model(model_id: str, model_kwargs: dict[str, Any]):
             cls = getattr(transformers, class_name)
             return cls.from_pretrained(model_id, trust_remote_code=True, **model_kwargs)
         except Exception as exc:
+            if _is_hub_access_error(exc, model_id):
+                raise
             errors.append(f"{class_name}: {exc}")
     raise RuntimeError("; ".join(errors))
 
@@ -219,6 +237,8 @@ def _load_image_to_text_model(model_id: str, model_kwargs: dict[str, Any]):
             cls = getattr(transformers, class_name)
             return cls.from_pretrained(model_id, trust_remote_code=True, **model_kwargs)
         except Exception as exc:
+            if _is_hub_access_error(exc, model_id):
+                raise
             errors.append(f"{class_name}: {exc}")
     raise RuntimeError("; ".join(errors))
 

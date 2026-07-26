@@ -5,6 +5,7 @@
 @import "./core/foundation.css";
 
 @import "./library/library.css";
+@import "./settings/settings.css";
 @import "./shell/shell.css";
 @import "./project/project.css";
 @import "./job/job.css";

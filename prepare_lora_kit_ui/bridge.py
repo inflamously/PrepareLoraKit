@@ -201,6 +201,58 @@ class UiBridge:
             "prompts": [p.to_dict() for p in caption_prompts.list_prompts(kind)],
         }
 
+    # ── App-wide settings ─────────────────────────────────────────────────────
+    # Global, like the caption-prompt library above: not scoped to any project or
+    # job. get_settings stays cheap — no network, no torch — so the modal opens
+    # instantly; everything slow sits behind its own button below.
+
+    def get_settings(self) -> dict[str, Any]:
+        from prepare_lora_kit.settings import load_settings
+        from prepare_lora_kit.settings.payload import settings_payload
+
+        return settings_payload(load_settings())
+
+    def save_settings(self, payload: dict[str, Any]) -> dict[str, Any]:
+        from prepare_lora_kit.settings import save_settings_dict
+        from prepare_lora_kit.settings.payload import settings_payload
+
+        return settings_payload(save_settings_dict(payload or {}))
+
+    def hf_status(self) -> dict[str, Any]:
+        """Hugging Face login state. Network call — only ever from a button."""
+        from prepare_lora_kit.settings import hub
+
+        return {
+            "token": hub.token_status(),
+            "account": hub.account(),
+            "login_command": hub.login_command(),
+        }
+
+    def check_model_access(self, repo_ids: list[str] | None = None) -> dict[str, Any]:
+        """Can this machine read the configured models? Network call, button-driven."""
+        from prepare_lora_kit.settings import hub, load_settings
+        from prepare_lora_kit.settings.payload import configured_model_ids
+
+        ids = repo_ids if repo_ids else configured_model_ids(load_settings())
+        return {"results": hub.check_repos(list(ids))}
+
+    def detect_hardware(self) -> dict[str, Any]:
+        """Probe VRAM and suggest a tier. Imports torch, so it is button-driven."""
+        from prepare_lora_kit.embedding.vram import total_vram_gb
+
+        total = float(total_vram_gb() or 0.0)
+        if not total:
+            suggested = None
+        elif total <= 16:
+            suggested = "low"
+        elif total <= 24:
+            suggested = "mid"
+        elif total <= 32:
+            suggested = "high"
+        else:
+            suggested = "max"
+        return {"cuda": total > 0, "total_vram_gb": round(total, 1), "suggested_tier": suggested}
+
     def caption_region(self, job_id: str, image_path: str, box: dict[str, Any]) -> dict[str, Any]:
         provider = self.jobs.active_interaction_provider(job_id)
         if provider is None:

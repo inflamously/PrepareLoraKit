@@ -1,0 +1,151 @@
+/* Settings modal.
+
+   Narrower than the review tier — this is a form, not a gallery — but taller
+   than `.modal--compact`, which is fixed at 70vh and would scroll three
+   sections through a keyhole. The body is the only scroller so the header and
+   the action row stay pinned, matching the `.modal` flex contract. */
+
+.settings-modal {
+  width: min(720px, 94vw);
+}
+
+.settings-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 22px;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 18px 4px 18px 0;
+}
+
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.settings-section h3 {
+  border-bottom: 1px solid var(--hairline);
+  padding-bottom: 6px;
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--caption);
+}
+
+.settings-note {
+  color: var(--caption);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.settings-field {
+  gap: 4px;
+}
+
+.settings-help {
+  color: var(--caption);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* A field inside a row shares the line with its button but still takes the
+   slack, so the Detect/Check buttons sit flush right of the control. */
+.settings-row .settings-field {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.settings-status {
+  color: var(--caption);
+  font-size: 0.82rem;
+  min-width: 0;
+}
+
+.settings-status[data-state="ok"] {
+  color: var(--success-500, #4ade80);
+}
+
+.settings-status[data-state="warn"] {
+  color: var(--warning-500, #fbbf24);
+}
+
+.settings-access {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--caption);
+  font-size: 0.8rem;
+}
+
+.settings-access__item {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  border-left: 3px solid var(--hairline);
+  padding-left: 8px;
+}
+
+.settings-access__item[data-state="ok"] {
+  border-left-color: var(--success-500, #4ade80);
+}
+
+.settings-access__item[data-state="gated"],
+.settings-access__item[data-state="unauthorized"] {
+  border-left-color: var(--warning-500, #fbbf24);
+}
+
+.settings-access__item[data-state="missing"],
+.settings-access__item[data-state="error"],
+.settings-access__item[data-state="offline"] {
+  border-left-color: var(--danger-500, #f87171);
+}
+
+.settings-access__id {
+  flex: 0 0 auto;
+  font-family: var(--font-mono, monospace);
+  color: var(--text);
+}
+
+.settings-access__msg {
+  min-width: 0;
+  white-space: pre-wrap;
+}
+
+.settings-error {
+  flex: 0 0 auto;
+  color: var(--danger-500, #f87171);
+  font-size: 0.85rem;
+  min-height: 1em;   /* reserve the line so showing an error never shifts layout */
+}
+
+.settings-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 10px;
+  border-top: 1px solid var(--hairline);
+  padding-top: 14px;
+}
+
+.settings-path {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--caption);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.75rem;
+}
