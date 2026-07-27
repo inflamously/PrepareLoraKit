@@ -7,11 +7,14 @@ thread is blocked inside ``PipelineJob.request_input`` waiting for the modal,
 pywebview dispatches each bridge call on its own thread — so two quick clicks
 would otherwise race into the same CUDA pipeline.
 
-All heavy imports are function-local (see :mod:`.loader`).
+This module owns the *contract* — locking, caching, seeds, truncation, and the
+status it publishes while a load blocks. Its neighbours own the rest: heavy
+diffusers construction in :mod:`.loader`, everything said to torch in
+:mod:`.runtime_env`, and the live load progress in :mod:`.load_status`. All
+heavy imports stay function-local.
 """
 from __future__ import annotations
 
-import gc
 import os
 import threading
 import time
@@ -19,10 +22,18 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from prepare_lora_kit.report import reporter
-from prepare_lora_kit.steps.caption_verifier import catalog, loader
+from prepare_lora_kit.steps.caption_verifier import (
+    catalog,
+    load_status,
+    loader,
+    runtime_env,
+)
 from prepare_lora_kit.steps.caption_verifier.plan import GenerationPlan, resolve_plan
 
 _CACHE: dict[tuple, "LoadedT2IPipeline"] = {}
+# How often the load republishes itself. Faster than the UI's 800 ms poll would
+# only burn ticks the frontend never reads.
+_PROGRESS_INTERVAL_S = 1.0
 
 
 @dataclass
@@ -141,9 +152,9 @@ class T2IRuntime:
             if key is not None:
                 _CACHE.pop(key, None)
             if loaded is not None:
-                _free_pipe(loaded.pipe)
+                runtime_env.free_pipe(loaded.pipe)
             self._set_status("idle", "Text-to-image model unloaded.")
-        _release_memory()
+        runtime_env.release_memory()
 
     # --- generation -------------------------------------------------------
 
@@ -187,26 +198,32 @@ class T2IRuntime:
                 "guidance_scale": call_guidance,
                 "width": call_width,
                 "height": call_height,
-                "generator": _generator(resolved_seed),
+                "generator": runtime_env.cpu_generator(resolved_seed),
             }
             negative = (
                 negative_prompt if negative_prompt is not None else self._negative_prompt
             )
             if plan.supports_negative_prompt and negative:
                 kwargs["negative_prompt"] = negative
+            started = time.perf_counter()
             if cancel_check is not None:
-                callback = _step_callback(cancel_check, self._set_status, call_steps)
+                callback = _step_callback(
+                    cancel_check, self._set_status, call_steps, plan, started,
+                )
                 if callback is not None:
                     kwargs["callback_on_step_end"] = callback
 
-            self._set_status("generating", f"Rendering with {plan.model_id}…")
-            started = time.perf_counter()
+            self._set_status(
+                "generating", f"Rendering with {plan.model_id}…", plan=plan,
+            )
             try:
                 result = _invoke(loaded.pipe, kwargs)
             finally:
-                _release_memory()
+                runtime_env.release_memory()
             elapsed_ms = int((time.perf_counter() - started) * 1000)
-            self._set_status("ready", f"Rendered in {elapsed_ms / 1000:.1f}s.")
+            self._set_status(
+                "ready", f"Rendered in {elapsed_ms / 1000:.1f}s.", plan=plan,
+            )
 
             return GeneratedImage(
                 image=result,
@@ -228,7 +245,10 @@ class T2IRuntime:
         if self._loaded is not None:
             return self._loaded
 
-        has_cuda, total_gb, free_gb, has_bnb = _probe_environment()
+        # Emitted before probing: importing torch and waking the CUDA driver is
+        # already seconds of silence, and this is the first click of the run.
+        self._set_status("resolving", "Checking GPU and resolving the model…")
+        has_cuda, total_gb, free_gb, has_bnb = runtime_env.probe_environment()
         model_id, model = catalog.resolve(self._requested_id, total_gb)
         plan = resolve_plan(
             model,
@@ -252,6 +272,7 @@ class T2IRuntime:
             plan.model_id, plan.quantization, plan.dtype, plan.offload, plan.device,
         )
         cached = _CACHE.get(key)
+        ready = f"{plan.model_id} ready."
         if cached is None:
             reporter.info(
                 f"T2I model load: {plan.model_id} (family={plan.family}, "
@@ -259,8 +280,14 @@ class T2IRuntime:
                 f"offload={plan.offload}, cuda={has_cuda}, "
                 f"total_vram_gb={total_gb:.1f}, free_vram_gb={free_gb:.1f})"
             )
-            self._set_status("loading", f"Loading {plan.model_id}…")
-            pipe = loader.load_pipeline(plan)
+            pipe, load_seconds = self._load_pipeline(plan)
+            reporter.ok(
+                f"T2I model loaded in {load_status.format_elapsed(load_seconds)}."
+            )
+            ready = (
+                f"{plan.model_id} ready "
+                f"(loaded in {load_status.format_elapsed(load_seconds)})."
+            )
             cached = LoadedT2IPipeline(
                 pipe=pipe, plan=plan, device=loader.pipeline_device(pipe),
             )
@@ -269,18 +296,78 @@ class T2IRuntime:
         self._plan = cached.plan
         self._loaded = cached
         self._key = key
-        self._set_status("ready", f"{plan.model_id} ready.")
+        self._set_status("ready", ready, plan=cached.plan)
         return cached
 
-    def _set_status(self, phase: str, message: str) -> None:
-        self._status = {
+    def _load_pipeline(self, plan: GenerationPlan) -> tuple[Any, float]:
+        """Load ``plan``'s pipeline, narrating the wait. Returns ``(pipe, seconds)``.
+
+        A 9B FLUX.2 klein at nf4 is a ten-minute call that returns nothing until
+        it is done, and the modal's only other signal is a spinner — so without
+        the heartbeat and the tqdm tap in :mod:`.load_status` a slow load and a
+        dead one are the same picture.
+        """
+        started = time.perf_counter()
+        message = f"Loading {plan.model_id}…"
+
+        def _tick(progress: load_status.LoadProgress) -> None:
+            self._set_status(
+                "loading", message, plan=plan,
+                detail=progress.detail,
+                progress=progress.fraction,
+                elapsed_s=int(time.perf_counter() - started),
+            )
+
+        _tick(load_status.LoadProgress())
+        try:
+            with load_status.watch(_tick, interval=_PROGRESS_INTERVAL_S):
+                pipe = loader.load_pipeline(plan)
+        except Exception as exc:
+            # Without this the banner sits on "Loading…" for the rest of the
+            # run: the exception surfaces on the RPC thread as a rejected
+            # promise, and nothing else ever writes the status again.
+            self._set_status(
+                "failed", f"Loading {plan.model_id} failed: {exc}", plan=plan,
+                elapsed_s=int(time.perf_counter() - started),
+            )
+            raise
+        return pipe, time.perf_counter() - started
+
+    def _set_status(
+        self,
+        phase: str,
+        message: str,
+        *,
+        plan: GenerationPlan | None = None,
+        **extra: Any,
+    ) -> None:
+        """Publish one status snapshot.
+
+        Rebuilt from scratch every time, so a stale ``detail`` or ``progress``
+        can never outlive the phase that produced it. ``plan`` is passed
+        explicitly during the load, when ``self._plan`` is not set yet but the
+        resolved device and quantization are already worth showing.
+        """
+        plan = plan or self._plan
+        status: dict[str, Any] = {
             "phase": phase,
             "message": message,
-            "model_id": catalog.normalize_id(self._requested_id),
+            "model_id": plan.model_id if plan else catalog.normalize_id(self._requested_id),
         }
+        if plan is not None:
+            status.update({
+                "family": plan.family,
+                "device": plan.device,
+                "quantization": plan.quantization,
+                "dtype": plan.dtype,
+                "offload": plan.offload,
+            })
+        status.update({k: v for k, v in extra.items() if v is not None})
+
+        self._status = status
         if self._status_callback is not None:
             try:
-                self._status_callback(dict(self._status))
+                self._status_callback(dict(status))
             except Exception:  # pragma: no cover - status is best effort
                 pass
 
@@ -288,40 +375,12 @@ class T2IRuntime:
 def unload() -> None:
     """Drop every cached pipeline (module-level teardown)."""
     for cached in list(_CACHE.values()):
-        _free_pipe(cached.pipe)
+        runtime_env.free_pipe(cached.pipe)
     _CACHE.clear()
-    _release_memory()
+    runtime_env.release_memory()
 
 
 # --- helpers ---------------------------------------------------------------
-
-def _probe_environment() -> tuple[bool, float, float, bool]:
-    """``(has_cuda, total_gb, free_gb, has_bitsandbytes)``.
-
-    Isolated so tests can stub the whole environment in one place.
-    """
-    from prepare_lora_kit.steps.caption_verifier.plan import bitsandbytes_available
-
-    try:
-        import torch
-    except Exception:
-        return False, 0.0, 0.0, False
-
-    if not torch.cuda.is_available():
-        return False, 0.0, 0.0, False
-
-    total = free = 0.0
-    try:
-        total = float(torch.cuda.get_device_properties(0).total_memory) / (1024 ** 3)
-    except Exception:
-        pass
-    try:
-        free_bytes, _ = torch.cuda.mem_get_info()
-        free = float(free_bytes) / (1024 ** 3)
-    except Exception:
-        pass
-    return True, total, free, bitsandbytes_available()
-
 
 def _coerce_int(value: int | None, fallback: int) -> int:
     if value is None:
@@ -333,21 +392,6 @@ def _resolve_seed(seed: int | None) -> int:
     if seed is None:
         return int.from_bytes(os.urandom(4), "big")
     return int(seed) % (2 ** 32)
-
-
-def _generator(seed: int):
-    """Always a CPU generator.
-
-    A CUDA generator is unreliable once accelerate's offload hooks shuffle
-    modules between devices, and CPU seeding makes a seed reproducible across
-    machines — which matters when a verdict is meant to be evidence.
-    """
-    try:
-        import torch
-
-        return torch.Generator("cpu").manual_seed(int(seed))
-    except Exception:
-        return None
 
 
 def _invoke(pipe, kwargs: dict):
@@ -407,45 +451,22 @@ def _prompt_tokens(pipe, text: str, plan: GenerationPlan) -> tuple[int | None, b
     return count, bool(limit and count > limit)
 
 
-def _step_callback(cancel_check, set_status, total_steps: int):
+def _step_callback(cancel_check, set_status, total_steps: int, plan, started: float):
     """Abort between denoising steps so Cancel does not wait out a full render.
 
     ``callback_on_step_end`` is present on the SD, SDXL and FLUX.2 klein
-    pipelines; a pipeline without it simply loses the early abort.
+    pipelines; a pipeline without it simply loses the early abort — and, with
+    it, the only per-step progress a render ever reports.
     """
 
     def _callback(pipe, step_index, timestep, callback_kwargs):
         cancel_check()
-        set_status("generating", f"Denoising {step_index + 1}/{total_steps}")
+        done = step_index + 1
+        set_status(
+            "generating", f"Denoising {done}/{total_steps}", plan=plan,
+            progress=(done / total_steps) if total_steps else None,
+            elapsed_s=int(time.perf_counter() - started),
+        )
         return callback_kwargs
 
     return _callback
-
-
-def _free_pipe(pipe) -> None:
-    try:
-        free_hooks = getattr(pipe, "maybe_free_model_hooks", None)
-        if free_hooks is not None:
-            free_hooks()
-    except Exception:  # pragma: no cover - best effort
-        pass
-
-
-def _release_memory() -> None:
-    gc.collect()
-    torch = _loaded_torch()
-    if torch is None:
-        return
-    try:
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-            torch.cuda.ipc_collect()
-    except Exception:  # pragma: no cover - best effort
-        pass
-
-
-def _loaded_torch():
-    """Reach torch only if something already imported it (never import here)."""
-    import sys
-
-    return sys.modules.get("torch")

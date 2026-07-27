@@ -1,4 +1,5 @@
 import { escapeText } from "../../../core/dom.js";
+import { formatElapsed } from "../../../caption/status.js";
 import { isPreviewStale } from "../utils/previews.js";
 
 // The right pane, top to bottom: the real image beside what the text encoder
@@ -16,7 +17,7 @@ export function renderCaptionPreview(panel, item, view, handlers) {
     return;
   }
 
-  const { preview, status, caption, elapsedSeconds } = view;
+  const { preview, status, caption, elapsedSeconds, jobStatus } = view;
 
   panel.innerHTML = `
     <div class="caption-verify-compare">
@@ -26,7 +27,7 @@ export function renderCaptionPreview(panel, item, view, handlers) {
       </figure>
       <figure class="caption-verify-generated">
         <figcaption>Rendered from caption</figcaption>
-        ${renderGenerated(preview, status, elapsedSeconds, item)}
+        ${renderGenerated(preview, status, elapsedSeconds, item, jobStatus)}
       </figure>
     </div>
     <div class="caption-verify-render">
@@ -44,6 +45,7 @@ export function renderCaptionPreview(panel, item, view, handlers) {
       </div>
     </div>
     <div class="caption-verify-notices">
+      <div id="captionVerifyStatus" class="caption-status hidden"></div>
       <div class="caption-verify-stale" ${isPreviewStale(preview, caption) ? "" : "hidden"}>
         Caption edited since this render
       </div>
@@ -72,6 +74,25 @@ export function setPreviewStale(panel, stale) {
   if (banner) banner.hidden = !stale;
 }
 
+// Ticks the wait label once a second for the same reason: a model load runs for
+// minutes, and rebuilding the pane every second would reload both <img> tags
+// several hundred times over.
+export function setPreviewWaitLabel(panel, { jobStatus, elapsedSeconds }) {
+  const label = panel.querySelector("[data-wait-label]");
+  if (label) label.textContent = waitLabel(jobStatus, elapsedSeconds);
+}
+
+// The first click of a run pays for the model load — up to ten minutes for a 9B
+// FLUX.2 klein. Calling all of that "Rendering…" is not merely unhelpful, it is
+// wrong about what the machine is doing and about how long it will last.
+export function waitLabel(jobStatus, elapsedSeconds) {
+  const clock = formatElapsed(elapsedSeconds);
+  const phase = jobStatus?.phase;
+  if (phase === "resolving") return `Preparing model… ${clock}`;
+  if (phase === "loading") return `Loading model… ${clock}`;
+  return `Rendering… ${clock}`;
+}
+
 function renderImage(uri, alt) {
   if (!uri) {
     return `<div class="caption-verify-placeholder">no image</div>`;
@@ -79,12 +100,12 @@ function renderImage(uri, alt) {
   return `<img src="${escapeText(uri)}" alt="${escapeText(alt)}" />`;
 }
 
-function renderGenerated(preview, status, elapsedSeconds, item) {
+function renderGenerated(preview, status, elapsedSeconds, item, jobStatus) {
   if (status.state === "generating") {
     return `
       <div class="caption-verify-placeholder">
         <div class="caption-verify-spinner"></div>
-        <span>Rendering… ${escapeText(String(elapsedSeconds))}s</span>
+        <span data-wait-label>${escapeText(waitLabel(jobStatus, elapsedSeconds))}</span>
       </div>
     `;
   }

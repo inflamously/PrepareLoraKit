@@ -41,6 +41,33 @@ async function generate({ reroll = false } = {}) {
   await nextTick();
 }
 
+// Holds a render open so the modal stays in its waiting state. The returned
+// release finishes it: leaving one pending would leak the 1 s wait ticker into
+// every later test and keep the runner's event loop alive forever.
+function deferRender() {
+  let resolve;
+  apiCalls.generateHandler = () =>
+    new Promise((settle) => {
+      resolve = settle;
+    });
+  return async () => {
+    resolve({ uri: "http://example.invalid/done.png", seed: 1, caption: "x" });
+    await nextTick();
+  };
+}
+
+// The job poll, which is the only thing that still speaks while a bridge call
+// is blocked inside a model load.
+async function publishStatus(captionStatus) {
+  const { state } = await import(
+    "../../../prepare_lora_kit_ui/static/core/state.js"
+  );
+  state.job = { caption_status: captionStatus };
+  global.dispatchEvent(
+    new window.CustomEvent("plk:job-status", { detail: state.job }),
+  );
+}
+
 describe("caption verify modal", () => {
   beforeEach(async () => {
     ({ apiCalls } = setupInteractionDom());
@@ -436,17 +463,103 @@ describe("caption verify modal", () => {
   it("renders live model status from the job poll", async () => {
     showCaptionVerify(captionVerifyPending(), { onSubmitted: calls() });
 
-    const { state } = await import(
-      "../../../prepare_lora_kit_ui/static/core/state.js"
-    );
-    state.job = {
-      caption_status: { phase: "generating", message: "Denoising 3/4" },
-    };
-    global.dispatchEvent(
-      new window.CustomEvent("plk:job-status", { detail: state.job }),
-    );
+    await publishStatus({ phase: "generating", message: "Denoising 3/4" });
 
     assert.match(layer().querySelector("#captionVerifyStatus").textContent, /Denoising 3\/4/);
+  });
+
+  // The first render of a run pays for the model load: minutes for a 9B FLUX.2
+  // klein, during which the awaited bridge call returns nothing at all. The job
+  // poll is the only channel that stays open, so everything below is about what
+  // it is allowed to leave unsaid.
+  it("names the model load instead of calling it a render", async () => {
+    const release = deferRender();
+    showCaptionVerify(captionVerifyPending(), { onSubmitted: calls() });
+
+    await generate();
+    await publishStatus({
+      phase: "loading",
+      message: "Loading black-forest-labs/FLUX.2-klein-base-9B…",
+      elapsed_s: 612,
+    });
+
+    const placeholder = layer().querySelector(".caption-verify-placeholder");
+    assert.match(placeholder.textContent, /Loading model…/);
+    assert.doesNotMatch(placeholder.textContent, /Rendering…/);
+    await release();
+  });
+
+  it("shows the load's elapsed time, detail and progress", async () => {
+    const release = deferRender();
+    showCaptionVerify(captionVerifyPending(), { onSubmitted: calls() });
+
+    await generate();
+    await publishStatus({
+      phase: "loading",
+      message: "Loading black-forest-labs/FLUX.2-klein-base-9B…",
+      device: "cuda",
+      quantization: "4bit",
+      detail: "Loading checkpoint shards · 3/6",
+      progress: 0.5,
+      elapsed_s: 612,
+    });
+
+    const status = layer().querySelector("#captionVerifyStatus");
+    assert.match(status.textContent, /Loading black-forest-labs/);
+    assert.match(status.textContent, /cuda \/ 4bit/);
+    assert.match(status.textContent, /10m 12s/);
+    assert.match(status.textContent, /Loading checkpoint shards · 3\/6/);
+    assert.equal(
+      status.querySelector(".caption-status__fill").style.width,
+      "50%",
+    );
+    await release();
+  });
+
+  it("omits the progress bar when the phase cannot be measured", async () => {
+    showCaptionVerify(captionVerifyPending(), { onSubmitted: calls() });
+
+    await publishStatus({ phase: "loading", message: "Loading…" });
+
+    const status = layer().querySelector("#captionVerifyStatus");
+    // A bar pinned at 0% reads as "no progress made" — worse than no bar.
+    assert.equal(status.querySelector(".caption-status__bar"), null);
+  });
+
+  it("keeps the wait label ticking without rebuilding the pane", async (t) => {
+    const release = deferRender();
+    showCaptionVerify(captionVerifyPending(), { onSubmitted: calls() });
+    t.mock.timers.enable({ apis: ["setInterval"] });
+
+    await generate();
+    await publishStatus({ phase: "loading", message: "Loading…" });
+    const sourceImage = layer().querySelector(".caption-verify-compare img");
+
+    t.mock.timers.tick(3000);
+
+    assert.match(
+      layer().querySelector(".caption-verify-placeholder").textContent,
+      /Loading model… 3s/,
+    );
+    assert.equal(
+      layer().querySelector(".caption-verify-compare img"),
+      sourceImage,
+      "a rebuilt pane would re-fetch both images once a second for ten minutes",
+    );
+    await release();
+  });
+
+  it("reports a failed load in place of the frozen loading line", async () => {
+    showCaptionVerify(captionVerifyPending(), { onSubmitted: calls() });
+
+    await publishStatus({
+      phase: "failed",
+      message: "Loading FLUX.2-klein failed: Flux2KleinPipeline is not available",
+    });
+
+    const status = layer().querySelector("#captionVerifyStatus");
+    assert.equal(status.dataset.phase, "failed");
+    assert.match(status.textContent, /Flux2KleinPipeline is not available/);
   });
 
   it("stops listening for job status and keys after submitting", async () => {

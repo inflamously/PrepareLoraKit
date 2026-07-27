@@ -4,7 +4,11 @@ import { renderCaptionStatus } from "../../caption/status.js";
 import { closeModal, modalCancelButton, showModal } from "../../components/modal.js";
 import { createCaptionEditor } from "./components/editor.js";
 import { captionVerifyModal } from "./components/modal.js";
-import { renderCaptionPreview, setPreviewStale } from "./components/preview.js";
+import {
+  renderCaptionPreview,
+  setPreviewStale,
+  setPreviewWaitLabel,
+} from "./components/preview.js";
 import { captionVerifyTile, syncCaptionVerifyTiles } from "./components/strip.js";
 import {
   buildSubmitValue,
@@ -52,9 +56,11 @@ class CaptionVerify {
     this.progress = this.modal.querySelector("#captionVerifyProgress");
     this.auto = this.modal.querySelector("#captionVerifyAuto");
 
+    // The job poll is the only channel a model load has: it blocks the bridge
+    // call the modal is awaiting, so nothing comes back on that promise for as
+    // long as the load runs.
     this.onJobStatus = (event) => {
-      const el = this.modal.querySelector("#captionVerifyStatus");
-      if (el) renderCaptionStatus(el, event.detail?.caption_status);
+      this.showJobStatus(event.detail?.caption_status);
     };
     this.onKeyDown = (event) => this.handleKey(event);
   }
@@ -252,11 +258,21 @@ class CaptionVerify {
         status: path ? this.previews.status(path) : { state: "idle", error: "" },
         caption: path ? readCaption(this.captions, path) : "",
         elapsedSeconds: this.elapsedSeconds,
+        jobStatus: state.job?.caption_status,
       },
       { onGenerate: (options) => this.generate(options) },
     );
-    const statusEl = this.modal.querySelector("#captionVerifyStatus");
-    if (statusEl) renderCaptionStatus(statusEl, state.job?.caption_status);
+    // The pane was just rebuilt, so its status element is empty again.
+    this.showJobStatus(state.job?.caption_status);
+  }
+
+  showJobStatus(status) {
+    if (this.closed) return;
+    renderCaptionStatus(this.panel.querySelector("#captionVerifyStatus"), status);
+    setPreviewWaitLabel(this.panel, {
+      jobStatus: status,
+      elapsedSeconds: this.elapsedSeconds,
+    });
   }
 
   async generate({ reroll = false } = {}) {
@@ -299,13 +315,17 @@ class CaptionVerify {
   }
 
   // Without a local counter the modal looks frozen whenever the step emits no
-  // incremental progress of its own.
+  // incremental progress of its own — and the very first render of a run spends
+  // most of its wait inside a model load that reports nothing for minutes.
+  //
+  // Only the label is retouched, never the whole pane: at one rebuild a second
+  // a ten-minute load would re-parse both <img> tags six hundred times.
   startTicker() {
     this.elapsedSeconds = 0;
     this.stopTicker();
     this.ticker = globalThis.setInterval(() => {
       this.elapsedSeconds += 1;
-      if (!this.closed) this.renderPreview();
+      this.showJobStatus(state.job?.caption_status);
     }, 1000);
   }
 

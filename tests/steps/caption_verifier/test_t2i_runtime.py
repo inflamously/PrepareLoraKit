@@ -7,6 +7,7 @@ concurrent RPC thread, family-aware call kwargs, and teardown.
 """
 from __future__ import annotations
 
+import io
 import threading
 import time
 import types
@@ -68,7 +69,9 @@ def _runtime(monkeypatch, pipe=None, model_id=None, **kwargs):
         return pipe
 
     monkeypatch.setattr(t2i.loader, "load_pipeline", fake_load)
-    monkeypatch.setattr(t2i, "_probe_environment", lambda: (True, 24.0, 22.0, True))
+    monkeypatch.setattr(
+        t2i.runtime_env, "probe_environment", lambda: (True, 24.0, 22.0, True),
+    )
     runtime = t2i.T2IRuntime(
         model_id=model_id or "stabilityai/stable-diffusion-xl-base-1.0", **kwargs,
     )
@@ -270,3 +273,178 @@ def test_blank_prompt_is_rejected(monkeypatch):
 
     with pytest.raises(ValueError, match="prompt"):
         runtime.generate("   ")
+
+
+# --- load status -----------------------------------------------------------
+#
+# The first click of a run pays for the model load — ten minutes for a 9B
+# FLUX.2 klein at nf4. The modal has no other signal, so everything below is
+# about the load being *legible* while it blocks, not about the load itself.
+
+def _statuses(monkeypatch, **kwargs):
+    published: list[dict] = []
+    runtime, pipe, loads = _runtime(
+        monkeypatch, status_callback=published.append, **kwargs,
+    )
+    monkeypatch.setattr(t2i, "_PROGRESS_INTERVAL_S", 0.02)
+    return runtime, pipe, published
+
+
+def test_the_loading_status_is_published_before_the_pipeline_returns(monkeypatch):
+    """Published after the load, it would only ever be read as history."""
+    runtime, pipe, published = _statuses(monkeypatch)
+    during: dict[str, list[str]] = {}
+
+    def fake_load(plan):
+        during["phases"] = [entry["phase"] for entry in list(published)]
+        return pipe
+
+    monkeypatch.setattr(t2i.loader, "load_pipeline", fake_load)
+
+    runtime.generate("prompt")
+
+    assert during["phases"] == ["resolving", "loading"]
+    assert published[-1]["phase"] == "ready"
+
+
+def test_the_loading_status_carries_the_resolved_plan(monkeypatch):
+    """``self._plan`` is not set yet mid-load, so the plan is passed explicitly."""
+    runtime, _, published = _statuses(monkeypatch)
+
+    runtime.generate("prompt")
+
+    loading = next(entry for entry in published if entry["phase"] == "loading")
+    assert loading["model_id"] == "stabilityai/stable-diffusion-xl-base-1.0"
+    assert loading["device"] == "cuda"
+    assert loading["family"] == "sdxl"
+
+
+def test_a_slow_load_keeps_republishing_an_elapsed_count(monkeypatch):
+    """A silent load and a hung one are the same picture without this."""
+    runtime, pipe, published = _statuses(monkeypatch)
+
+    def slow_load(plan):
+        deadline = time.perf_counter() + 2.0
+        while time.perf_counter() < deadline:
+            if len([e for e in list(published) if e["phase"] == "loading"]) > 1:
+                break
+            time.sleep(0.01)
+        return pipe
+
+    monkeypatch.setattr(t2i.loader, "load_pipeline", slow_load)
+
+    runtime.generate("prompt")
+
+    ticks = [entry for entry in published if entry["phase"] == "loading"]
+    assert len(ticks) > 1, "the load published once and then went silent"
+    assert all("elapsed_s" in entry for entry in ticks)
+
+
+def test_hugging_face_progress_bars_reach_the_status(monkeypatch):
+    """diffusers' and transformers' bars are the only real progress HF exposes."""
+    from tqdm.auto import tqdm
+
+    runtime, pipe, published = _statuses(monkeypatch)
+
+    def fake_load(plan):
+        bar = tqdm(
+            total=6, desc="Loading checkpoint shards",
+            file=io.StringIO(), mininterval=0,
+        )
+        bar.update(3)
+        deadline = time.perf_counter() + 2.0
+        while time.perf_counter() < deadline:
+            if any(entry.get("detail") for entry in list(published)):
+                break
+            time.sleep(0.01)
+        bar.close()
+        return pipe
+
+    monkeypatch.setattr(t2i.loader, "load_pipeline", fake_load)
+
+    runtime.generate("prompt")
+
+    detailed = [entry for entry in published if entry.get("detail")]
+    assert detailed, "no tqdm-derived detail ever reached the status"
+    assert detailed[-1]["detail"] == "Loading checkpoint shards · 3/6"
+    assert detailed[-1]["progress"] == pytest.approx(0.5)
+
+
+def test_a_failed_load_publishes_a_failed_status(monkeypatch):
+    """The error surfaces on the RPC thread; nothing else rewrites the banner."""
+    runtime, _, published = _statuses(monkeypatch)
+
+    def broken_load(plan):
+        raise RuntimeError("Flux2KleinPipeline is not available")
+
+    monkeypatch.setattr(t2i.loader, "load_pipeline", broken_load)
+
+    with pytest.raises(RuntimeError):
+        runtime.generate("prompt")
+
+    assert published[-1]["phase"] == "failed"
+    assert "Flux2KleinPipeline is not available" in published[-1]["message"]
+
+
+def test_a_cached_pipeline_never_reports_loading_again(monkeypatch):
+    """Only the first render of a run waits on the model; the rest go straight out."""
+    runtime, _, published = _statuses(monkeypatch)
+    runtime.generate("one")
+    published.clear()
+
+    runtime.generate("two")
+
+    phases = [entry["phase"] for entry in published]
+    assert phases[0] == "generating"
+    assert "loading" not in phases and "resolving" not in phases
+
+
+def test_a_stale_detail_never_outlives_its_phase(monkeypatch):
+    """Each snapshot is rebuilt, so "3/6 shards" cannot linger over a render."""
+    runtime, pipe, published = _statuses(monkeypatch)
+
+    def fake_load(plan):
+        bar = tqdm_bar()
+        bar.update(3)
+        deadline = time.perf_counter() + 2.0
+        while time.perf_counter() < deadline:
+            if any(entry.get("detail") for entry in list(published)):
+                break
+            time.sleep(0.01)
+        bar.close()
+        return pipe
+
+    monkeypatch.setattr(t2i.loader, "load_pipeline", fake_load)
+
+    runtime.generate("prompt")
+
+    assert "detail" not in published[-1]
+
+
+def tqdm_bar():
+    from tqdm.auto import tqdm
+
+    return tqdm(
+        total=6, desc="Loading checkpoint shards", file=io.StringIO(), mininterval=0,
+    )
+
+
+def test_denoising_steps_report_progress(monkeypatch):
+    runtime, _, published = _statuses(monkeypatch)
+    seen: list[dict] = []
+
+    class SteppingPipe(FakePipe):
+        def __call__(self, **kwargs):
+            callback = kwargs.get("callback_on_step_end")
+            for index in range(kwargs["num_inference_steps"]):
+                callback(self, index, 0, {})
+            return super().__call__(**kwargs)
+
+    pipe = SteppingPipe()
+    monkeypatch.setattr(t2i.loader, "load_pipeline", lambda plan: pipe)
+
+    runtime.generate("prompt", steps=4, cancel_check=lambda: None)
+
+    seen = [entry for entry in published if entry["phase"] == "generating"]
+    assert seen[-1]["message"] == "Denoising 4/4"
+    assert seen[-1]["progress"] == pytest.approx(1.0)

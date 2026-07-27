@@ -255,7 +255,7 @@
 
 /**
  * @typedef {Object} CaptionStatus
- * @property {string} phase
+ * @property {string} phase CaptionBboxStep: loading/captioning/ready/failed. CaptionVerifierStep adds resolving/loading/generating/idle.
  * @property {string} message
  * @property {string | null} model_id
  * @property {string | null} adapter
@@ -265,6 +265,11 @@
  * @property {number | null} max_pixels
  * @property {string | null} [current_image]
  * @property {string | null} [error]
+ * @property {string | null} [family] CaptionVerifierStep only.
+ * @property {string | null} [offload] CaptionVerifierStep only.
+ * @property {string} [detail] Live sub-progress, e.g. "Loading checkpoint shards · 3/6".
+ * @property {number} [progress] 0..1 when the phase can be measured; absent otherwise.
+ * @property {number} [elapsed_s] Seconds spent in this phase so far.
  */
 
 /**

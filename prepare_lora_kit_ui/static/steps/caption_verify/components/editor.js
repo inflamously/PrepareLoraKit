@@ -5,6 +5,10 @@ import { CAPTION_VERDICTS } from "../utils/verdicts.js";
 // image the filmstrip has selected. Built once; selecting another image swaps
 // the textarea's value from the caption store rather than rebuilding the DOM,
 // so focus and scroll position survive navigation.
+//
+// The live model status is deliberately *not* here: it belongs beside the
+// Render button and the spinner it explains, so it lives in the preview pane's
+// notices (`preview.js`).
 export function createCaptionEditor(panel, { onInput, onVerdict } = {}) {
   panel.innerHTML = `
     <div class="caption-verify-editor__panel">
@@ -16,7 +20,6 @@ export function createCaptionEditor(panel, { onInput, onVerdict } = {}) {
       </header>
       <textarea class="nf-input caption-verify-text" data-caption spellcheck="false"
                 aria-label="Caption under test" title="Edit this caption"></textarea>
-      <div id="captionVerifyStatus" class="caption-status"></div>
     </div>
     <div class="caption-verify-verdicts" role="group" aria-label="Verdict">
       ${CAPTION_VERDICTS.map(renderVerdictButton).join("")}

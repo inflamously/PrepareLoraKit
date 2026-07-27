@@ -31,7 +31,9 @@ would be `--force`, which would also invalidate VaeGate → Audit → Buckets �
 | `steps/caption_verifier/catalog.py` | Model catalog: ids, families, pipeline classes, sizing estimates, `auto_select` ladder. Torch-free. |
 | `steps/caption_verifier/plan.py` | Pure VRAM planner: config + environment → `GenerationPlan`. No torch, no GPU. |
 | `steps/caption_verifier/loader.py` | All diffusers imports. Pipeline-class resolution, quantization, placement, memory savers. |
-| `steps/caption_verifier/t2i.py` | `T2IRuntime`: module-level cache + `threading.Lock`, lazy load, seeds, truncation detection, teardown. |
+| `steps/caption_verifier/load_status.py` | Live progress while the load blocks: heartbeat thread + tqdm tap. Torch-free. |
+| `steps/caption_verifier/runtime_env.py` | Everything the runtime says to torch: VRAM probe, CPU generator, hook freeing, cache release. |
+| `steps/caption_verifier/t2i.py` | `T2IRuntime`: module-level cache + `threading.Lock`, lazy load, seeds, truncation detection, status, teardown. |
 | `steps/caption_verifier/generation.py` | The `(prompt, options) -> dict` closure the UI's bridge RPC lands on. Owns preview filenames. |
 | `steps/caption_verifier/captions.py` | Caption discovery and atomic write-back with path containment. |
 | `steps/caption_verifier/reports.py` | Report assembly; every branch emits the same key set. |
@@ -47,7 +49,7 @@ Three regions, one job each (`static/steps/caption_verify/components/`):
 | region | file | holds |
 |---|---|---|
 | editor (left) | `editor.js` | the caption under test — the only editable copy — its char/token counts, and the one verdict control |
-| preview (right) | `preview.js` | source vs render, the render settings strip, Render/Re-roll, and the notices (stale, truncated, error, live model status) |
+| preview (right) | `preview.js` | source vs render, the render settings strip, Render/Re-roll, and the notices (live model status, stale, truncated, error) |
 | filmstrip (footer) | `strip.js` | navigation only: one tile per image, verdict dot, edited marker |
 
 Shortcuts: `1`/`2`/`3` judge the selected image, `←`/`→` move through the strip
@@ -85,6 +87,45 @@ Three locks, each with a distinct job:
 - `provider._generate_lock` is held for the whole render and acquired **non-blocking**: a second
   concurrent request fails fast rather than parking a thread and then drawing a caption the user
   has already changed.
+
+## The load is the wait
+
+The first Render click of a run pays for the model load. For a 9B FLUX.2 klein at nf4 that is
+minutes — first-run download, shard reads, quantization, offload wiring — inside one
+`loader.load_pipeline` call that returns nothing until it is finished. The bridge call the modal is
+awaiting is blocked for all of it, so the **job poll is the only channel still speaking**.
+
+Three things ride it (`T2IRuntime._set_status` → `job.set_caption_status` → `pollJob`):
+
+| field | what it carries |
+|---|---|
+| `phase` | `resolving` → `loading` → `generating` → `ready`, or `failed` |
+| `detail` | the current tqdm bar, e.g. `Loading checkpoint shards · 3/6` or `model-00002-of-00006.safetensors · 2.0 GB / 4.0 GB` |
+| `progress` / `elapsed_s` | fraction for the bar, seconds for the clock |
+
+Every snapshot is rebuilt from scratch, so a `detail` from the load can never linger over a render.
+
+`load_status.watch()` supplies the two signals the load itself does not:
+
+- a **heartbeat** (1 s, matched to the UI's 800 ms poll) that re-publishes the current phase with a
+  fresh `elapsed_s`. Without it a slow load and a hung one are the same screen;
+- a **tqdm tap**, since a tqdm bar is the only progress Hugging Face exposes. It patches
+  `tqdm.std.tqdm.__init__`/`update`, **not** `tqdm.auto.tqdm`: diffusers, transformers and
+  huggingface_hub each bound `tqdm.auto.tqdm` into their own module namespace at import time, so
+  rebinding it now would reach none of them — but every one of those names is a subclass that
+  inherits `update` and calls `super().__init__()`. The tap is restored in a `finally`, acquired
+  non-blocking (a second tap skips rather than unpatching out of order), and every callback is
+  swallowed: losing the detail line must never cost the load.
+
+A load that raises publishes `failed` on the way out. The exception surfaces on the RPC thread as a
+rejected promise, and nothing else would ever write the banner again — it would sit on "Loading…"
+for the rest of the run.
+
+Frontend: the status lives in the preview pane's notices (`components/preview.js`), beside the
+button and spinner it explains. The placeholder says **"Loading model… 6m 12s"** while the phase is
+`loading`, not "Rendering…" — the modal's own 1 s ticker retouches that label in place rather than
+re-rendering the pane, which would otherwise re-parse both `<img>` tags several hundred times
+across a ten-minute load.
 
 ## Models and VRAM
 
