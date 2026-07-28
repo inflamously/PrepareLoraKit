@@ -3,7 +3,7 @@ from pathlib import Path
 
 from prepare_lora_kit import invoke
 from prepare_lora_kit.pipeline.configs import CurateConfig
-from prepare_lora_kit.project.project_registry import _default_pipeline
+from prepare_lora_kit.project.defaults import default_pipeline
 from prepare_lora_kit.steps.curate import dedupe
 
 
@@ -58,5 +58,5 @@ def test_invoke_curate_forwards_threshold_config(tmp_path, monkeypatch):
 
 def test_default_dedup_distance_is_conservative():
     assert CurateConfig().dedup_hamming_distance == 3
-    curate = next(s for s in _default_pipeline() if s["type"] == "CurateStep")
+    curate = next(s for s in default_pipeline() if s["type"] == "CurateStep")
     assert curate["dedup_hamming_distance"] == 3

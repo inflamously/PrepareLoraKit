@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import click
 
-from prepare_lora_kit.pipeline import step_config_class, step_prerequisites
+from prepare_lora_kit.pipeline import step_config_class, step_prerequisites, step_slug
 from prepare_lora_kit.cli._shared import (
     cli,
     cli_option_input,
@@ -35,14 +35,14 @@ from prepare_lora_kit.project.steps import (
     "-s",
     "step_name",
     required=True,
-    help="Step to run by type name (e.g. CaptionBboxStep).",
+    help="Step to run, by type name (CaptionBboxStep) or slug (caption_bbox).",
 )
 @click.option(
     "--project",
     "-p",
     "project_name",
     required=True,
-    help="Project config name (configs/projects/<name>.yaml).",
+    help="Project name (~/.prepare_lora_kit/projects/<name>/).",
 )
 @cli_option_input
 @cli_option_output
@@ -106,10 +106,19 @@ def step(
         if config_cls is None:
             raise click.ClickException(f"Unknown step type {step_type}")
         config = config_cls()
-        click.echo(
-            f"'{step_type}' not defined in project '{project.name}' "
-            f"pipeline — using built-in defaults."
-        )
+        if step_type in project.disabled_types:
+            # The tuned <step>.yaml is sitting right there; saying "not defined"
+            # would send the user looking for a file that already exists.
+            slug = step_slug(step_type)
+            click.echo(
+                f"'{step_type}' is disabled in index.yaml — using built-in "
+                f"defaults, not {slug}.yaml. Enable it to use your settings."
+            )
+        else:
+            click.echo(
+                f"'{step_type}' not defined in project '{project.name}' "
+                f"pipeline — using built-in defaults."
+            )
 
     cfg = RunConfig(
         dataset_dir=input_dir,

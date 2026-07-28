@@ -18,18 +18,7 @@ def mark_legacy_import_satisfied(state, output_dir) -> bool:
     return True
 
 
-def step_aliases() -> dict[str, str]:
-    """Return legacy short aliases.
-
-    Numbered aliases were removed with the named workflow refactor. The helper
-    remains for import compatibility with older callers.
-    """
-
-    return {}
-
-
 __all__ = [
     "is_step_satisfied",
     "mark_legacy_import_satisfied",
-    "step_aliases",
 ]

@@ -1,5 +1,6 @@
 """`run` command — dynamic pipeline driven by project config."""
 from __future__ import annotations
+import os
 from pathlib import Path
 
 import click
@@ -22,9 +23,13 @@ def _load_or_create_project(input_dir: Path, project_name: str | None):
     if not click.confirm("Create a default project config?", default=True):
         raise click.Abort()
 
-    config_path = project_registry.write_default_project(name, input_dir=input_dir.expanduser().resolve())
-    click.echo(f"Created: {config_path}")
-    click.echo("Edit it to customize the pipeline, then re-run.")
+    project_dir = project_registry.write_default_project(
+        name, input_dir=input_dir.expanduser().resolve()
+    )
+    click.echo(f"Created: {project_dir}{os.sep}")
+    click.echo("  index.yaml     which steps run, and in what order")
+    click.echo("  <step>.yaml    one file per step, holding its settings")
+    click.echo("Edit them to customize the pipeline, then re-run.")
     click.echo()
 
     if not click.confirm("Run now with defaults?", default=False):

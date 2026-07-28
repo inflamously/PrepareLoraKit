@@ -8,9 +8,10 @@ Core package code lives in `prepare_lora_kit/`. CLI entry points are in
 models are in `project/`, and dataset pipeline stages are split under named
 packages such as `steps/import_step`, `steps/caption_bbox`, and
 `steps/bucket_pools_check`. The browser UI assets live in
-`prepare_lora_kit_ui/static/`. YAML project examples live under
-`configs/projects/`. Tests are in `tests/` and currently use pytest-style
-functions.
+`prepare_lora_kit_ui/static/`. Projects are folders under
+`~/.prepare_lora_kit/projects/<name>/` — one `index.yaml` plus one `<step>.yaml`
+per pipeline step; see `docs/project-config.md`. Tests are in `tests/` and
+currently use pytest-style functions.
 
 ## Build, Test, and Development Commands
 
@@ -19,7 +20,7 @@ functions.
   `pip install -r requirements/seedvr2-windows.txt` (or `-linux`).
 - `python -m pip install -e .`: installs the package locally and registers `plk`.
 - `python main.py --help` or `plk --help`: lists available CLI commands.
-- `python main.py run -i /path/to/images -p example -t token`: runs the full
+- `python main.py run -i /path/to/images -p my-project -t token`: runs the full
   local pipeline from the repo checkout.
 - `pytest`: runs the test suite in `tests/`.
 - `pytest tests/project/test_config.py`: runs one focused test module.

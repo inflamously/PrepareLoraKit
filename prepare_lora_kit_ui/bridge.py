@@ -9,7 +9,7 @@ from typing import Any
 
 from prepare_lora_kit import caption_prompts
 from prepare_lora_kit_ui.paths import PROJECT_ROOT
-from prepare_lora_kit.project import project_registry
+from prepare_lora_kit.project import project_registry, store
 from prepare_lora_kit.project.base import ProjectConfig
 
 from prepare_lora_kit_ui.runner import (
@@ -19,6 +19,16 @@ from prepare_lora_kit_ui.runner import (
     project_payload,
     project_status,
 )
+
+def _card_output_dir(input_dir: Any, output_dir: Any) -> Path | None:
+    """Where a project's outputs land: its own setting, else derived from input."""
+
+    if output_dir:
+        return Path(str(output_dir)).expanduser()
+    if input_dir:
+        return _default_output(Path(str(input_dir)).expanduser())
+    return None
+
 
 def _initials(name: str) -> str:
     """Two-character mono badge derived from a project name."""
@@ -59,35 +69,53 @@ class UiBridge:
         self, name: str, live: dict[str, str] | None = None
     ) -> dict[str, Any]:
         live = live if live is not None else self.jobs.project_statuses()
+        # Identity comes from index.yaml alone — no step file is opened for it.
+        # That is what lets a project with one unparseable <step>.yaml still show
+        # a usable card instead of an error tile with no name or paths.
+        identity, mtime = self._project_identity(name)
+        card_name = identity.get("name") or name
+        input_dir = identity.get("input_dir")
+        out = _card_output_dir(input_dir, identity.get("output_dir"))
+
+        card = {
+            "name": card_name,
+            "input_dir": input_dir,
+            "output_dir": str(out) if out is not None else None,
+            "initials": _initials(card_name),
+            "token": None,
+            "status": "draft",
+            "mtime": mtime,
+        }
+
         try:
             loaded = self._load_project(name)
         except Exception as exc:
-            return {
-                "name": name,
-                "input_dir": None,
-                "output_dir": None,
-                "initials": _initials(name),
-                "token": None,
-                "status": "draft",
-                "mtime": 0,
-                "error": str(exc),
-            }
-        out = (
-            Path(loaded.output_dir).expanduser()
-            if loaded.output_dir
-            else (_default_output(Path(loaded.input_dir).expanduser()) if loaded.input_dir else None)
-        )
-        config_path = project_registry.config_path_for_name(loaded.name)
-        mtime = config_path.stat().st_mtime if config_path.exists() else 0
-        return {
-            "name": loaded.name,
-            "input_dir": loaded.input_dir,
-            "output_dir": str(out) if out is not None else None,
-            "initials": _initials(loaded.name),
-            "token": None,
-            "status": project_status(loaded, out, live.get(loaded.name)),
-            "mtime": mtime,
-        }
+            # Status needs the full pipeline; without it the card stays a draft.
+            card["error"] = str(exc)
+            return card
+
+        card["status"] = project_status(loaded, out, live.get(loaded.name))
+        return card
+
+    def _project_identity(self, name: str) -> tuple[dict[str, Any], float]:
+        """A project's name and dirs, plus the mtime the library sorts by."""
+
+        in_memory = self._projects.get(name)
+        if in_memory is not None:
+            return (
+                {
+                    "name": in_memory.name,
+                    "input_dir": in_memory.input_dir,
+                    "output_dir": in_memory.output_dir,
+                },
+                0,
+            )
+        try:
+            index_path = project_registry.index_path_for_name(name)
+            identity = store.read_index(index_path.parent)
+            return identity, index_path.stat().st_mtime
+        except Exception:
+            return {}, 0
 
     def create_project(self, payload: dict[str, Any]) -> dict[str, Any]:
         project_registry.create_project(

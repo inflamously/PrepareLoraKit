@@ -17,6 +17,7 @@ import yaml
 
 from prepare_lora_kit import paths
 from prepare_lora_kit.settings.model import AppSettings
+from prepare_lora_kit.utils.atomic_yaml import write_yaml_atomic
 
 # Cached by resolved path rather than as a bare value: tests redirect
 # paths.SETTINGS_PATH, and keying on the path means such a redirect can never be
@@ -69,23 +70,9 @@ def save_settings(settings: AppSettings) -> AppSettings:
     """Write settings atomically and refresh the cache. Returns what was stored."""
     global _cache
     path = settings_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    if os.name == "posix":
-        # User config, not a secret (no token is ever stored here) — but there is
-        # no reason for it to be world-readable either.
-        try:
-            path.parent.chmod(0o700)
-        except OSError:
-            pass
-
     # Same tmp+replace dance as steps/caption_verifier/captions.write_caption_atomic:
     # a half-written settings file would break every subsequent launch.
-    tmp = path.with_name(f".{path.name}.plk_tmp")
-    tmp.write_text(
-        yaml.safe_dump(settings.to_dict(), sort_keys=False, allow_unicode=True),
-        encoding="utf-8",
-    )
-    os.replace(tmp, path)
+    write_yaml_atomic(path, settings.to_dict(), secure_parent=True)
     _cache = (path, settings)
     return settings
 

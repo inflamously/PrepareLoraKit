@@ -1,14 +1,21 @@
-"""ProjectConfig — top-level per-project dataset workflow configuration."""
+"""ProjectConfig — top-level per-project dataset workflow configuration.
+
+A project is stored as a folder (see :mod:`prepare_lora_kit.project.store`), but
+this module never touches the filesystem beyond :meth:`ProjectConfig.from_dir`:
+it builds itself from one flat dict of the shape the store assembles, so the
+parsing and validation here are independent of how the config is laid out on
+disk.
+"""
 from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional
-import yaml
 
 from prepare_lora_kit.pipeline.configuration import (
     step_config_class,
     step_definition,
     step_prerequisites,
+    step_slug,
     step_types,
 )
 from prepare_lora_kit.pipeline.configs import ScorerEntry
@@ -35,9 +42,14 @@ class ProjectConfig:
     input_dir: Optional[str] = None
     output_dir: Optional[str] = None
     pipeline: list[PipelineStep] = field(default_factory=list)
+    # Steps the index lists but switches off. Never reaches the engine or the UI
+    # payload — a disabled step is simply absent from ``pipeline``, which is a
+    # state the whole pipeline already handles. This is carried only so error
+    # messages can say "disabled" instead of "missing", which are very different
+    # problems for a user whose tuned <step>.yaml is sitting right there.
+    disabled_types: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
-        self.pipeline = _normalize_pipeline_steps(self.pipeline)
         if not self.name:
             raise ValueError("ProjectConfig: 'name' is required")
         self._validate_pipeline()
@@ -57,8 +69,8 @@ class ProjectConfig:
             index = definition.order
             if index <= previous_index:
                 raise ValueError(
-                    f"Step '{t}' appears out of order. Expected pipeline order: "
-                    f"{', '.join(step_types())}"
+                    f"Step '{t}' appears out of order. Reorder the `pipeline:` list "
+                    f"in index.yaml to match: {', '.join(step_types())}"
                 )
             for req in step_prerequisites(t):
                 if req not in seen:
@@ -70,23 +82,26 @@ class ProjectConfig:
             previous_index = index
 
     @classmethod
-    def from_yaml(cls, path: Path) -> "ProjectConfig":
-        with open(path) as f:
-            data = yaml.safe_load(f) or {}
-        migrated = _migrate_legacy_project_data(data)
-        if migrated:
-            path.write_text(yaml.safe_dump(data, sort_keys=False))
+    def from_data(cls, data: dict[str, Any]) -> "ProjectConfig":
+        """Build a project from one flat dict — no I/O.
 
-        name = data.pop("name")
-        input_dir = data.pop("input_dir", None)
-        output_dir = data.pop("output_dir", None)
-        raw_pipeline = data.pop("pipeline", []) or []
-        raw_pipeline = _normalize_raw_pipeline(raw_pipeline)
+        This is the seam the on-disk layout plugs into: the store assembles a
+        folder into this shape, and everything below is layout-agnostic.
+        """
+        data = dict(data)
+        name = data.get("name")
+        if not name:
+            raise ValueError("Project config is missing 'name'.")
+        input_dir = data.get("input_dir")
+        output_dir = data.get("output_dir")
+        raw_pipeline = data.get("pipeline") or []
 
+        disabled: list[str] = []
         pipeline: list[PipelineStep] = []
         for raw in raw_pipeline:
             raw = dict(raw)
             step_type = raw.pop("type")
+            enabled = bool(raw.pop("enabled", True))
             raw_substeps = raw.pop("substeps", None)
             config_cls = step_config_class(step_type)
             if config_cls is None:
@@ -94,13 +109,15 @@ class ProjectConfig:
                     f"Unknown step type '{step_type}'. "
                     f"Known: {', '.join(sorted(step_types()))}"
                 )
+            if not enabled:
+                # Parked: skipped entirely, and deliberately not validated —
+                # a step you have switched off must not be able to block a load.
+                disabled.append(step_type)
+                continue
             # Type-specific coercions
             if step_type == "QualityGateStep" and raw.get("scorers") is not None:
                 raw["scorers"] = [ScorerEntry(**s) for s in raw["scorers"]]
             if step_type == "BucketPoolsCheckStep":
-                if raw.get("bucket_overrides") is not None and raw.get("resolution_buckets") is None:
-                    raw["resolution_buckets"] = raw.pop("bucket_overrides")
-                raw.pop("bucket_overrides", None)
                 if raw.get("resolution_buckets") is not None:
                     raw["resolution_buckets"] = [tuple(b) for b in raw["resolution_buckets"]]
             config = config_cls(**raw)
@@ -110,105 +127,45 @@ class ProjectConfig:
                     config=config,
                     substeps=normalize_substeps(step_type, raw_substeps, config),
                 )
-
             )
-        return cls(name=name, input_dir=input_dir, output_dir=output_dir, pipeline=pipeline)
 
-
-def _normalize_raw_pipeline(raw_pipeline: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    if raw_pipeline and raw_pipeline[0].get("type") == "QualityGateStep":
-        return [{"type": "ImportStep"}, *raw_pipeline]
-    return raw_pipeline
-
-
-def _normalize_pipeline_steps(pipeline: list[PipelineStep]) -> list[PipelineStep]:
-    if pipeline and pipeline[0].type == "QualityGateStep":
-        import_config_cls = step_config_class("ImportStep")
-        if import_config_cls is None:
-            raise ValueError("Unknown step type 'ImportStep'.")
-        import_config = import_config_cls()
-        import_step = PipelineStep(
-            type="ImportStep",
-            config=import_config,
-            substeps=normalize_substeps("ImportStep", None, import_config),
+        _reject_disabled_prerequisites(pipeline, disabled)
+        return cls(
+            name=name,
+            input_dir=input_dir,
+            output_dir=output_dir,
+            pipeline=pipeline,
+            disabled_types=tuple(disabled),
         )
-        return [import_step, *pipeline]
-    return pipeline
+
+    @classmethod
+    def from_dir(cls, directory: Path) -> "ProjectConfig":
+        """Load a project folder. Advisory notes are dropped; see project_registry.load."""
+
+        from prepare_lora_kit.project import store
+
+        data, _notes = store.read_project_folder(directory)
+        return cls.from_data(data)
 
 
-_STEP_MIGRATIONS: dict[str, str | None] = {
-    "CaptionStep": "CaptionBboxStep",
-    "BucketDryRunStep": "BucketPoolsCheckStep",
-}
+def _reject_disabled_prerequisites(
+    pipeline: list[PipelineStep],
+    disabled: list[str],
+) -> None:
+    """Fail with the actual cause when a prerequisite was switched off.
 
-_SUBSTEP_MIGRATIONS: dict[str, str] = {
-    "s0_import": "import_images",
-    "s1_1_score": "score_images",
-    "s1_2_decide": "review_decisions",
-    "s2_1_dupecheck": "duplicate_check",
-    "s2_2_clipscan": "clip_scan",
-    "s2_3_drop_images": "drop_images",
-    "s3_1_select_candidates": "select_upscale_candidates",
-    "s3_2_upscale": "upscale_images",
-    "s3_3_hallucination_check": "hallucination_check",
-    "s5_1_annotate": "annotate_regions",
-    "s5_2_caption": "caption_images",
-    "s5_3_validate": "validate_captions",
-    "s4_1_reconstruct": "reconstruct_images",
-    "s4_2_review": "review_vae_artifacts",
-    "s4_3_apply_decisions": "apply_vae_decisions",
-    "s6_1_pairing": "check_pairing",
-    "s6_2_corrupt": "check_corrupt_files",
-    "s6_3_caption_quality": "check_caption_quality",
-    "s6_4_resolution": "check_resolution",
-    "s8_1_assign_buckets": "assign_bucket_pools",
-    "s8_2_report_thin_buckets": "report_thin_buckets",
-    "s8_3_cache_info": "write_cache_info",
-    "s9_1_diff": "preview_export_diff",
-    "s9_2_export": "copy_export",
-}
-
-
-def _migrate_legacy_project_data(data: dict[str, Any]) -> bool:
-    """Rewrite legacy project YAML data to the named dataset workflow schema."""
-
-    changed = False
-    raw_pipeline = data.get("pipeline")
-    if not isinstance(raw_pipeline, list):
-        return changed
-
-    migrated_pipeline: list[dict[str, Any]] = []
-    for raw in raw_pipeline:
-        if not isinstance(raw, dict):
-            migrated_pipeline.append(raw)
-            continue
-        item = dict(raw)
-        old_type = str(item.get("type", ""))
-        new_type = _STEP_MIGRATIONS.get(old_type, old_type)
-        if new_type is None:
-            changed = True
-            continue
-        if new_type != old_type:
-            item["type"] = new_type
-            changed = True
-        substeps = item.get("substeps")
-        if isinstance(substeps, list):
-            for index, substep in enumerate(substeps):
-                if isinstance(substep, dict):
-                    old_id = str(substep.get("id", ""))
-                    new_id = _SUBSTEP_MIGRATIONS.get(old_id, old_id)
-                    if new_id != old_id:
-                        substep["id"] = new_id
-                        changed = True
-                elif isinstance(substep, str) and substep in _SUBSTEP_MIGRATIONS:
-                    substeps[index] = _SUBSTEP_MIGRATIONS[substep]
-                    changed = True
-        if item.get("type") == "BucketPoolsCheckStep" and "bucket_overrides" in item:
-            item["resolution_buckets"] = item.pop("bucket_overrides")
-            changed = True
-        migrated_pipeline.append(item)
-
-    if migrated_pipeline != raw_pipeline:
-        data["pipeline"] = migrated_pipeline
-        changed = True
-    return changed
+    ``_validate_pipeline`` would catch this a moment later, but it would report
+    the prerequisite as missing — misleading when the step is sitting in the
+    folder with its settings intact and one word turned it off.
+    """
+    if not disabled:
+        return
+    disabled_set = set(disabled)
+    for step in pipeline:
+        for req in step_prerequisites(step.type):
+            if req in disabled_set:
+                raise ValueError(
+                    f"'{step.type}' requires '{req}', which is disabled in index.yaml. "
+                    f"Set `- {{step: {step_slug(req)}, enabled: true}}`, or disable "
+                    f"{step_slug(step.type)} too."
+                )

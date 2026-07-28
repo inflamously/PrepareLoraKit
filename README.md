@@ -18,13 +18,13 @@ standalone HTML view at [`docs/project-graph.html`](docs/project-graph.html).
 The main workflow is:
 
 ```bash
-plk run --input /path/to/images --project example --token my_trigger
+plk run --input /path/to/images --project my-portraits --token my_trigger
 ```
 
 or, from the repository:
 
 ```bash
-python3 main.py run --input /path/to/images --project example --token my_trigger
+python3 main.py run --input /path/to/images --project my-portraits --token my_trigger
 ```
 
 If `--output` is not supplied, output goes to:
@@ -74,7 +74,7 @@ only when that prerequisite is already satisfied in the selected output state.
 Runs the full pipeline defined by a project config.
 
 ```bash
-plk run -i /path/to/images -p example -t my_trigger
+plk run -i /path/to/images -p my-portraits -t my_trigger
 ```
 
 Important options:
@@ -90,73 +90,72 @@ Important options:
 Runs a single step using the selected project's step config.
 
 ```bash
-plk step -s CaptionBboxStep -p example -i /path/to/images -o outputs/example -t my_trigger
+plk step -s caption_bbox -p my-portraits -i /path/to/images -o outputs/portraits -t my_trigger
 ```
 
-Use the step type name shown in the project pipeline, for example
-`CaptionBboxStep` or `BucketPoolsCheckStep`.
+Use either the step's file name (`caption_bbox`, `bucket_pools_check`) or its
+type name (`CaptionBboxStep`, `BucketPoolsCheckStep`).
 
 `plk projects`
 
-Lists project configs discovered in `configs/projects/`.
+Lists the projects in `~/.prepare_lora_kit/projects/`.
 
 ## Pipeline Stages
 
-Pipeline stages are configured in `configs/projects/<name>.yaml`. The default
-example pipeline has nine stages.
+The default pipeline has ten stages, each configured by its own file inside the
+project folder.
 
-| Step | Type | Purpose | Main outputs |
-| --- | --- | --- | --- |
-| 0 | `ImportStep` | Copies source images into the working dataset. | Working `dataset/`, `ImportStep_report.json` |
-| 1 | `QualityGateStep` | Scores imported images for size, blur, noise, JPEG artifacts, and watermark likelihood. Supports manual review. | Updated `dataset/`, `QualityGateStep_report.json` |
-| 2 | `CurateStep` | Removes perceptual-hash duplicates and creates CLIP coverage plots. | Updated `dataset/`, coverage image, `CurateStep_report.json` |
-| 3 | `UpscaleStep` | Upscales images below the target minimum side with the configured algorithm; unavailable algorithms warn and skip. | Updated images, `UpscaleStep_report.json` |
-| 4 | `CaptionBboxStep` | Opens bbox annotation UI, captions with Qwen VL, enforces concept token when supplied, and writes `.txt` sidecars. | Caption sidecars, `CaptionBboxStep_report.json` |
-| 5 | `VaeGateStep` | Reconstructs images through the target VAE and flags high-frequency loss outliers. | Updated `dataset/`, `VaeGateStep_report.json` |
-| 6 | `AuditStep` | Verifies image-caption pairing, corrupt files, caption length, and minimum resolution. | `AuditStep_report.json` |
-| 7 | `BucketPoolsCheckStep` | Simulates bucket assignment and flags thin buckets before training. | Bucket report, optional `cache_info.json` |
-| 8 | `ExportStep` | Previews and copies the prepared dataset to a clean export folder. | Optional export folder |
+| Step | Type | File | Purpose | Main outputs |
+| --- | --- | --- | --- | --- |
+| 0 | `ImportStep` | `import.yaml` | Copies source images into the working dataset. | Working `dataset/`, `ImportStep_report.json` |
+| 1 | `QualityGateStep` | `quality_gate.yaml` | Scores imported images for size, blur, noise, JPEG artifacts, and watermark likelihood. Supports manual review. | Updated `dataset/`, `QualityGateStep_report.json` |
+| 2 | `CurateStep` | `curate.yaml` | Removes perceptual-hash duplicates and creates CLIP coverage plots. | Updated `dataset/`, coverage image, `CurateStep_report.json` |
+| 3 | `UpscaleStep` | `upscale.yaml` | Upscales images below the target minimum side with the configured algorithm; unavailable algorithms warn and skip. | Updated images, `UpscaleStep_report.json` |
+| 4 | `CaptionBboxStep` | `caption_bbox.yaml` | Opens bbox annotation UI, captions with Qwen VL, enforces concept token when supplied, and writes `.txt` sidecars. | Caption sidecars, `CaptionBboxStep_report.json` |
+| 5 | `CaptionVerifierStep` | `caption_verifier.yaml` | Renders each caption with a text-to-image model so you can see what the text encoder made of it. | Preview renders, `CaptionVerifierStep_report.json` |
+| 6 | `VaeGateStep` | `vae_gate.yaml` | Reconstructs images through the target VAE and flags high-frequency loss outliers. | Updated `dataset/`, `VaeGateStep_report.json` |
+| 7 | `AuditStep` | `audit.yaml` | Verifies image-caption pairing, corrupt files, caption length, and minimum resolution. | `AuditStep_report.json` |
+| 8 | `BucketPoolsCheckStep` | `bucket_pools_check.yaml` | Simulates bucket assignment and flags thin buckets before training. | Bucket report, optional `cache_info.json` |
+| 9 | `ExportStep` | `export.yaml` | Previews and copies the prepared dataset to a clean export folder. | Optional export folder |
 
-Ordering and dependency rules are enforced when project configs load. Export
-only requires import, so a dataset can be exported after import even if no image
-changing step ran. Duplicate step types are rejected. Legacy configs that start
-with `QualityGateStep` are loaded with `ImportStep` inserted in memory.
+Ordering and dependency rules are enforced when a project loads. Export only
+requires import, so a dataset can be exported after import even if no image
+changing step ran. Duplicate step types are rejected.
 
 ## Configuration Model
 
-Project configs live in:
+Each project is a folder outside the checkout, alongside your app settings:
 
 ```text
-configs/projects/
+~/.prepare_lora_kit/projects/<name>/
+├── index.yaml          name, input/output dirs, and which steps run
+└── <step>.yaml         one file per step, holding its settings
 ```
 
-A project config chooses:
-
-- the project name,
-- optional input and output folders,
-- the ordered list of pipeline steps,
-- step-specific settings.
-
-Example:
+`index.yaml` chooses the project name, its optional input and output folders, and
+the ordered list of steps — each of which can be parked with `enabled: false`
+without losing its settings:
 
 ```yaml
-name: example
+name: my-portraits
+input_dir: D:/datasets/portraits
 
 pipeline:
-  - type: ImportStep
-  - type: QualityGateStep
-  - type: CurateStep
-  - type: UpscaleStep
-  - type: CaptionBboxStep
-  - type: VaeGateStep
-  - type: AuditStep
-  - type: BucketPoolsCheckStep
-  - type: ExportStep
+  - {step: import, enabled: true}
+  - {step: quality_gate, enabled: true}
+  - {step: curate, enabled: true}
+  - {step: upscale, enabled: false}
+  - {step: caption_bbox, enabled: true}
+  # ...
 ```
+
+See [`docs/project-config.md`](docs/project-config.md) for the full format, and
+[`docs/settings.md`](docs/settings.md) for the app-wide settings that seed a new
+project.
 
 Network and training configuration are intentionally separate from the dataset
 project. Dataset-specific model and bucket choices live in the relevant step
-configs, such as `VaeGateStep`, `AuditStep`, and `BucketPoolsCheckStep`.
+files, such as `vae_gate.yaml`, `audit.yaml`, and `bucket_pools_check.yaml`.
 
 ## Output Layout
 
@@ -273,18 +272,18 @@ high-VRAM systems, or `cpu` for lower peak VRAM.
 
 ## Extension Points
 
-Add a new project preset:
+Add a new project:
 
-1. Copy `configs/projects/example.yaml`.
-2. Rename it to `configs/projects/<name>.yaml`.
-3. Set `name: <name>`.
-4. Adjust the pipeline and step settings.
-5. Run with `plk run -i <dataset> -p <name>`.
+1. Run `plk run -i <dataset>` and accept the prompt, or use **New project** in the UI.
+2. Edit `~/.prepare_lora_kit/projects/<name>/<step>.yaml` to adjust step settings.
+3. Park any step you do not want with `enabled: false` in `index.yaml`.
+4. Run with `plk run -i <dataset> -p <name>`.
 
 Add a new pipeline step:
 
 1. Add a step config dataclass under `prepare_lora_kit_pipeline/configs/`.
-2. Register it in `STEP_DEFINITIONS` in `prepare_lora_kit_pipeline/configuration.py`.
+2. Register it in `STEP_DEFINITIONS` in `prepare_lora_kit_pipeline/configuration.py`,
+   including a `slug` — it names the step's file inside every project folder.
 3. Implement the step module under `prepare_lora_kit/steps/`.
 4. Add an invoke adapter module in `prepare_lora_kit/invoke/`.
 5. Add substeps to `prepare_lora_kit/project/pipeline/substeps.py`.

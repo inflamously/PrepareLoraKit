@@ -17,7 +17,6 @@ from prepare_lora_kit.project.pipeline import (  # noqa: F401
     is_step_satisfied,
     mark_legacy_import_satisfied,
     normalize_substeps,
-    step_aliases,
     substep_aliases,
     substep_payloads,
 )
@@ -34,7 +33,6 @@ __all__ = [
     "is_step_satisfied",
     "mark_legacy_import_satisfied",
     "normalize_substeps",
-    "step_aliases",
     "substep_aliases",
     "substep_payloads",
 ]

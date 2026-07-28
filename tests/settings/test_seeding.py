@@ -6,6 +6,7 @@ import yaml
 from prepare_lora_kit import settings
 from prepare_lora_kit.pipeline.configuration import step_config_class
 from prepare_lora_kit.project import project_registry
+from prepare_lora_kit.project.defaults import default_pipeline
 from prepare_lora_kit.project.base import ProjectConfig
 from prepare_lora_kit.settings.model import AppSettings
 from prepare_lora_kit.settings.seeding import _SEEDS, apply_settings_to_pipeline
@@ -13,6 +14,10 @@ from prepare_lora_kit.settings.seeding import _SEEDS, apply_settings_to_pipeline
 
 def _step(pipeline, step_type):
     return next(step for step in pipeline if step["type"] == step_type)
+
+
+def _step_file(directory, slug):
+    return yaml.safe_load((directory / f"{slug}.yaml").read_text(encoding="utf-8"))
 
 
 def test_every_seed_targets_a_real_step_field():
@@ -28,12 +33,12 @@ def test_every_seed_targets_a_real_step_field():
 
 def test_default_settings_reproduce_todays_pipeline_exactly():
     """With nothing configured the feature must be a complete no-op."""
-    raw = project_registry._default_pipeline()
+    raw = default_pipeline()
 
-    assert apply_settings_to_pipeline(raw, AppSettings()) == project_registry._default_pipeline()
+    assert apply_settings_to_pipeline(raw, AppSettings()) == default_pipeline()
 
 
-def test_configured_defaults_are_seeded_into_a_new_project(tmp_path):
+def test_configured_defaults_are_seeded_into_a_new_project(isolated_projects):
     settings.save_settings_dict(
         {
             "hardware": {"vram_tier": "low"},
@@ -46,33 +51,34 @@ def test_configured_defaults_are_seeded_into_a_new_project(tmp_path):
         }
     )
 
-    path = project_registry.write_default_project("seeded", tmp_path / "seeded.yaml")
-    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    directory = project_registry.write_default_project("seeded")
 
-    assert _step(data["pipeline"], "CaptionBboxStep")["caption_model_id"] == "Qwen/Qwen3-VL-4B-Instruct"
-    assert _step(data["pipeline"], "CaptionBboxStep")["vram_tier"] == "low"
-    assert _step(data["pipeline"], "CaptionVerifierStep")["vram_tier"] == "low"
-    assert _step(data["pipeline"], "VaeGateStep")["vae_model_id"] == "stabilityai/sdxl-vae"
-    assert _step(data["pipeline"], "CurateStep")["coverage_embedding_model"] == "ViT-B-32"
-    assert _step(data["pipeline"], "AuditStep")["caption_model_type"] == "clip"
+    # Read the step files directly: this also proves each seed landed in the
+    # right *file*, not merely somewhere in the project.
+    assert _step_file(directory, "caption_bbox")["caption_model_id"] == "Qwen/Qwen3-VL-4B-Instruct"
+    assert _step_file(directory, "caption_bbox")["vram_tier"] == "low"
+    assert _step_file(directory, "caption_verifier")["vram_tier"] == "low"
+    assert _step_file(directory, "vae_gate")["vae_model_id"] == "stabilityai/sdxl-vae"
+    assert _step_file(directory, "curate")["coverage_embedding_model"] == "ViT-B-32"
+    assert _step_file(directory, "audit")["caption_model_type"] == "clip"
 
 
-def test_a_seeded_project_still_loads_and_validates(tmp_path):
+def test_a_seeded_project_still_loads_and_validates(isolated_projects):
     settings.save_settings_dict(
         {"project_defaults": {"caption_model_id": "Qwen/Qwen3-VL-8B-Instruct"}}
     )
-    path = project_registry.write_default_project("seeded", tmp_path / "seeded.yaml")
+    directory = project_registry.write_default_project("seeded")
 
-    config = ProjectConfig.from_yaml(path)
+    config = ProjectConfig.from_dir(directory)
 
     caption = next(s for s in config.pipeline if s.type == "CaptionBboxStep")
     assert caption.config.caption_model_id == "Qwen/Qwen3-VL-8B-Instruct"
 
 
-def test_existing_project_yaml_is_untouched_by_settings(tmp_path):
+def test_existing_project_files_are_untouched_by_settings(isolated_projects):
     """The precedence promise: globals seed creation only, never a live override."""
-    path = project_registry.write_default_project("existing", tmp_path / "existing.yaml")
-    before = path.read_bytes()
+    directory = project_registry.write_default_project("existing")
+    before = {p.name: p.read_bytes() for p in sorted(directory.iterdir())}
 
     settings.save_settings_dict(
         {
@@ -84,16 +90,18 @@ def test_existing_project_yaml_is_untouched_by_settings(tmp_path):
             },
         }
     )
-    config = ProjectConfig.from_yaml(path)
+    config = ProjectConfig.from_dir(directory)
 
-    assert path.read_bytes() == before
+    # Every file, not just one: eleven files is eleven chances for a load-time
+    # self-rewrite to creep back in.
+    assert {p.name: p.read_bytes() for p in sorted(directory.iterdir())} == before
     caption = next(s for s in config.pipeline if s.type == "CaptionBboxStep")
     assert caption.config.caption_model_id is None
     assert caption.config.vram_tier == "auto"
 
 
 def test_apply_does_not_mutate_the_input_list():
-    raw = project_registry._default_pipeline()
+    raw = default_pipeline()
     snapshot = [dict(step) for step in raw]
 
     apply_settings_to_pipeline(raw, AppSettings.from_dict({"hardware": {"vram_tier": "high"}}))
@@ -102,11 +110,11 @@ def test_apply_does_not_mutate_the_input_list():
 
 
 @pytest.mark.parametrize("tier", ["low", "mid", "high", "max"])
-def test_seeded_vram_tier_is_accepted_by_both_step_configs(tier, tmp_path):
+def test_seeded_vram_tier_is_accepted_by_both_step_configs(tier, isolated_projects):
     settings.save_settings_dict({"hardware": {"vram_tier": tier}})
-    path = project_registry.write_default_project("tiered", tmp_path / "tiered.yaml")
+    directory = project_registry.write_default_project("tiered")
 
-    config = ProjectConfig.from_yaml(path)
+    config = ProjectConfig.from_dir(directory)
 
     tiers = {s.type: getattr(s.config, "vram_tier", None) for s in config.pipeline}
     assert tiers["CaptionBboxStep"] == tier

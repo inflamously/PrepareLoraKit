@@ -1,3 +1,5 @@
+import re
+
 import yaml
 import pytest
 
@@ -14,6 +16,9 @@ from prepare_lora_kit.pipeline import (
     is_resume_aware_step_type,
     step_config_class,
     step_prerequisites,
+    step_slug,
+    step_slugs,
+    step_type_for_slug,
     step_types,
 )
 from prepare_lora_kit.project import project_registry
@@ -21,42 +26,51 @@ from prepare_lora_kit.pipeline.configs import UpscaleConfig
 from prepare_lora_kit_ui.runner import project_payload
 
 
-def test_project_config_from_yaml_parses_input_dir(tmp_path):
-    path = tmp_path / "project.yaml"
-    path.write_text("""\
+def _project(yaml_text: str) -> ProjectConfig:
+    """Build a ProjectConfig from inline YAML, without touching disk.
+
+    ``from_data`` is the layout-agnostic seam: the store assembles a project
+    folder into exactly this dict shape, so these tests exercise the real
+    parsing path without needing eleven files on disk.
+    """
+    return ProjectConfig.from_data(yaml.safe_load(yaml_text))
+
+
+def test_project_config_parses_input_dir():
+    yaml_text = """\
 name: sample
 input_dir: /data/images
 pipeline: []
-""")
+"""
 
-    cfg = ProjectConfig.from_yaml(path)
+    cfg = _project(yaml_text)
 
     assert cfg.input_dir == "/data/images"
 
 
-def test_default_project_creation_writes_input_dir_and_pipeline(tmp_path):
+def test_default_project_creation_writes_index_and_step_files(tmp_path):
     input_dir = tmp_path / "images"
-    path = tmp_path / "sample.yaml"
 
-    written = project_registry.write_default_project("sample", path, input_dir)
-    data = yaml.safe_load(written.read_text())
+    directory = project_registry.write_default_project("sample", input_dir)
+    index = yaml.safe_load((directory / "index.yaml").read_text())
 
-    assert data["name"] == "sample"
-    assert data["input_dir"] == str(input_dir)
-    assert [step["type"] for step in data["pipeline"]] == [
-        "ImportStep",
-        "QualityGateStep",
-        "CurateStep",
-        "UpscaleStep",
-        "CaptionBboxStep",
-        "CaptionVerifierStep",
-        "VaeGateStep",
-        "AuditStep",
-        "BucketPoolsCheckStep",
-        "ExportStep",
+    assert index["name"] == "sample"
+    assert index["input_dir"] == str(input_dir)
+    # The index pins the on-disk contract: slugs, in canonical order.
+    assert [entry["step"] for entry in index["pipeline"]] == [
+        "import",
+        "quality_gate",
+        "curate",
+        "upscale",
+        "caption_bbox",
+        "caption_verifier",
+        "vae_gate",
+        "audit",
+        "bucket_pools_check",
+        "export",
     ]
-    upscale = next(step for step in data["pipeline"] if step["type"] == "UpscaleStep")
-    caption = next(step for step in data["pipeline"] if step["type"] == "CaptionBboxStep")
+    upscale = yaml.safe_load((directory / "upscale.yaml").read_text())
+    caption = yaml.safe_load((directory / "caption_bbox.yaml").read_text())
     assert upscale["upscale_target"] == 3072
     assert upscale["upscale_model"] == "seedvr2"
     assert "use_seedvr" not in upscale
@@ -65,24 +79,25 @@ def test_default_project_creation_writes_input_dir_and_pipeline(tmp_path):
     assert caption["vram_tier"] == "auto"
 
 
-def test_project_config_inserts_import_step_for_legacy_quality_first_yaml(tmp_path):
-    path = tmp_path / "project.yaml"
-    path.write_text("""\
+def test_project_config_rejects_a_pipeline_missing_import_step():
+    """Legacy QualityGate-first configs are no longer silently repaired.
+
+    ``_normalize_raw_pipeline`` used to prepend an ImportStep for pre-named-workflow
+    YAML. Projects are folder-shaped now and index.yaml always lists import, so
+    the auto-insertion only masked a genuinely broken index.
+    """
+    yaml_text = """\
 name: sample
 pipeline:
   - type: QualityGateStep
-""")
+"""
 
-    cfg = ProjectConfig.from_yaml(path)
-
-    assert [step.type for step in cfg.pipeline] == ["ImportStep", "QualityGateStep"]
-    assert [substep.id for substep in cfg.pipeline[0].substeps] == ["import_images"]
-    assert [substep.id for substep in cfg.pipeline[1].substeps] == ["score_images", "review_decisions"]
+    with pytest.raises(ValueError, match="QualityGateStep.*ImportStep"):
+        _project(yaml_text)
 
 
-def test_project_config_parses_substep_enabled_flags(tmp_path):
-    path = tmp_path / "project.yaml"
-    path.write_text("""\
+def test_project_config_parses_substep_enabled_flags():
+    yaml_text = """\
 name: sample
 pipeline:
   - type: ImportStep
@@ -92,9 +107,9 @@ pipeline:
       - {id: duplicate_check, enabled: true}
       - {id: clip_scan, enabled: false}
       - {id: drop_images, enabled: true}
-""")
+"""
 
-    cfg = ProjectConfig.from_yaml(path)
+    cfg = _project(yaml_text)
     curate = cfg.pipeline[2]
 
     assert {substep.id: substep.enabled for substep in curate.substeps} == {
@@ -104,52 +119,48 @@ pipeline:
     }
 
 
-def test_project_config_rejects_unknown_substep(tmp_path):
-    path = tmp_path / "project.yaml"
-    path.write_text("""\
+def test_project_config_rejects_unknown_substep():
+    yaml_text = """\
 name: sample
 pipeline:
   - type: ImportStep
     substeps:
       - {id: unknown_substep, enabled: true}
-""")
+"""
 
     with pytest.raises(ValueError, match="unknown substep"):
-        ProjectConfig.from_yaml(path)
+        _project(yaml_text)
 
 
-def test_project_config_maps_legacy_skip_clip_to_curate_substep(tmp_path):
-    path = tmp_path / "project.yaml"
-    path.write_text("""\
+def test_project_config_maps_legacy_skip_clip_to_curate_substep():
+    yaml_text = """\
 name: sample
 pipeline:
   - type: ImportStep
   - type: QualityGateStep
   - type: CurateStep
     skip_clip: true
-""")
+"""
 
-    cfg = ProjectConfig.from_yaml(path)
+    cfg = _project(yaml_text)
     curate = cfg.pipeline[2]
 
     assert {substep.id: substep.enabled for substep in curate.substeps}["clip_scan"] is False
 
 
-def test_project_config_rejects_downstream_step_without_previous_step(tmp_path):
-    path = tmp_path / "project.yaml"
-    path.write_text("""\
+def test_project_config_rejects_downstream_step_without_previous_step():
+    yaml_text = """\
 name: sample
 pipeline:
   - type: CurateStep
-""")
+"""
 
     with pytest.raises(ValueError, match="CurateStep.*QualityGateStep"):
-        ProjectConfig.from_yaml(path)
+        _project(yaml_text)
 
 
-def test_project_config_allows_omitting_optional_upscale_step(tmp_path):
-    path = tmp_path / "project.yaml"
-    path.write_text("""\
+def test_project_config_allows_omitting_optional_upscale_step():
+    yaml_text = """\
 name: sample
 pipeline:
   - type: ImportStep
@@ -157,9 +168,9 @@ pipeline:
   - type: CurateStep
   - type: CaptionBboxStep
   - type: VaeGateStep
-""")
+"""
 
-    cfg = ProjectConfig.from_yaml(path)
+    cfg = _project(yaml_text)
 
     assert [step.type for step in cfg.pipeline] == [
         "ImportStep",
@@ -170,9 +181,8 @@ pipeline:
     ]
 
 
-def test_project_config_rejects_optional_upscale_out_of_order(tmp_path):
-    path = tmp_path / "project.yaml"
-    path.write_text("""\
+def test_project_config_rejects_optional_upscale_out_of_order():
+    yaml_text = """\
 name: sample
 pipeline:
   - type: ImportStep
@@ -180,10 +190,10 @@ pipeline:
   - type: CurateStep
   - type: CaptionBboxStep
   - type: UpscaleStep
-""")
+"""
 
     with pytest.raises(ValueError, match="UpscaleStep.*out of order"):
-        ProjectConfig.from_yaml(path)
+        _project(yaml_text)
 
 
 def test_step_prerequisites_allow_optional_upscale_step():
@@ -221,6 +231,39 @@ def test_step_definitions_drive_configuration_helpers():
         assert step_prerequisites(step_type) == definition.prerequisites
         assert is_optional_step_type(step_type) is definition.optional
         assert is_resume_aware_step_type(step_type) is definition.resume_aware
+
+
+def test_step_slugs_cover_every_definition_and_round_trip():
+    assert step_slugs() == tuple(step_slug(step_type) for step_type in step_types())
+    assert len(set(step_slugs())) == len(STEP_DEFINITIONS)
+    for step_type in step_types():
+        slug = step_slug(step_type)
+        assert re.fullmatch(r"[a-z][a-z0-9_]*", slug), slug
+        assert step_type_for_slug(slug) == step_type
+
+    assert step_slug("NoSuchStep") is None
+    assert step_type_for_slug("no_such_step") is None
+
+
+def test_step_slugs_match_the_documented_file_names():
+    """The slugs are a file-format contract: they name files on disk.
+
+    Deliberately duplicated as a literal rather than derived from
+    ``STEP_DEFINITIONS`` — this test's whole job is to fail when someone edits a
+    slug, forcing a conscious decision about the projects already on disk.
+    """
+    assert step_slugs() == (
+        "import",
+        "quality_gate",
+        "curate",
+        "upscale",
+        "caption_bbox",
+        "caption_verifier",
+        "vae_gate",
+        "audit",
+        "bucket_pools_check",
+        "export",
+    )
 
 
 def test_optional_step_types_marks_upscale_optional():
@@ -292,9 +335,8 @@ def test_upscale_config_rejects_unknown_model():
         UpscaleConfig(upscale_model="nearest")
 
 
-def test_project_config_from_yaml_parses_seedvr2_fields(tmp_path):
-    path = tmp_path / "project.yaml"
-    path.write_text("""\
+def test_project_config_parses_seedvr2_fields():
+    yaml_text = """\
 name: sample
 pipeline:
   - type: ImportStep
@@ -310,9 +352,9 @@ pipeline:
     seedvr2_cache_models: false
     seedvr2_model_residency: cpu
     seedvr2_debug: true
-""")
+"""
 
-    cfg = ProjectConfig.from_yaml(path)
+    cfg = _project(yaml_text)
     upscale = cfg.pipeline[3].config
 
     assert upscale.upscale_model == "seedvr2"
@@ -332,9 +374,8 @@ def test_upscale_config_rejects_unknown_seedvr2_model_residency():
 
 
 @pytest.mark.parametrize("yaml_value", ["", "null", '""'])
-def test_project_config_from_yaml_normalizes_blank_seedvr2_dit_model(tmp_path, yaml_value):
-    path = tmp_path / "project.yaml"
-    path.write_text(f"""\
+def test_project_config_normalizes_blank_seedvr2_dit_model(yaml_value):
+    yaml_text = f"""\
 name: sample
 pipeline:
   - type: ImportStep
@@ -343,9 +384,9 @@ pipeline:
   - type: UpscaleStep
     upscale_model: seedvr2
     seedvr2_dit_model: {yaml_value}
-""")
+"""
 
-    cfg = ProjectConfig.from_yaml(path)
+    cfg = _project(yaml_text)
     upscale = cfg.pipeline[3].config
 
     assert upscale.seedvr2_dit_model == DEFAULT_SEEDVR2_DIT_MODEL
@@ -359,9 +400,8 @@ def test_project_payload_includes_input_dir():
     assert payload["input_dir"] == "/data/images"
 
 
-def test_project_payload_marks_upscale_optional(tmp_path):
-    path = tmp_path / "project.yaml"
-    path.write_text("""\
+def test_project_payload_marks_upscale_optional():
+    yaml_text = """\
 name: sample
 pipeline:
   - type: ImportStep
@@ -370,9 +410,9 @@ pipeline:
   - type: UpscaleStep
   - type: CaptionBboxStep
   - type: VaeGateStep
-""")
+"""
 
-    payload = project_payload(ProjectConfig.from_yaml(path))
+    payload = project_payload(_project(yaml_text))
 
     optional = {step["type"]: step["optional"] for step in payload["steps"]}
     assert optional["UpscaleStep"] is True
@@ -380,13 +420,12 @@ pipeline:
 
 
 def test_project_payload_includes_substep_metadata(tmp_path):
-    path = tmp_path / "project.yaml"
-    path.write_text("""\
+    yaml_text = """\
 name: sample
 pipeline:
   - type: ImportStep
-""")
-    cfg = ProjectConfig.from_yaml(path)
+"""
+    cfg = _project(yaml_text)
 
     payload = project_payload(cfg, tmp_path / "out")
     import_step = next(step for step in payload["steps"] if step["type"] == "ImportStep")

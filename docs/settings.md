@@ -4,17 +4,21 @@ Machine-wide options shared by every project, stored at
 **`~/.prepare_lora_kit/settings.yaml`** (`prepare_lora_kit.paths.SETTINGS_PATH`). Opened from the
 **Settings** button in either appbar.
 
-The file lives outside the checkout so it survives a re-clone and is shared by every working copy.
+The file lives outside the checkout so it survives a re-clone and is shared by every working copy —
+the same reason projects live beside it in `~/.prepare_lora_kit/projects/` (see
+[`project-config.md`](project-config.md)).
 Absent, empty and partial files all resolve to a fully defaulted document: settings are strictly
 additive, and the app behaves exactly as it did before this feature existed until something is
 configured.
 
 ## Two mechanisms, and every field is exactly one of them
 
-**(a) Seeded at project creation.** Copied into a new project's YAML once, by
+**(a) Seeded at project creation.** Copied into a new project's step files once, by
 `settings/seeding.py`, from the single creation choke point `project_registry.default_project_data`.
-Existing projects are never touched, so a run always does exactly what its own YAML says. Change a
-global later and nothing that already exists moves.
+Existing projects are never touched, so a run always does exactly what its own files say. Change a
+global later and nothing that already exists moves. Note a seeded value lands in whichever
+`<step>.yaml` owns it — `vram_tier` seeds two steps, so it appears in both `caption_bbox.yaml` and
+`caption_verifier.yaml`.
 
 **(b) Machine fallback behind an existing null.** For fields that *already* defaulted to `None`
 meaning "app default", the setting replaces a hard-coded constant. No YAML changes meaning — `null`

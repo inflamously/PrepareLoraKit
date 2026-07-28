@@ -7,6 +7,5 @@ in individual modules, which silently breaks when a file moves.
 """
 from pathlib import Path
 
-PACKAGE_ROOT = Path(__file__).resolve().parent   # .../prepare_lora_kit
-PROJECT_ROOT = PACKAGE_ROOT.parent               # repo root (holds configs/, outputs/)
-CONFIGS_DIR = PROJECT_ROOT / "configs"
+PACKAGE_ROOT = Path(__file__).resolve().parent   # .../prepare_lora_kit_ui
+PROJECT_ROOT = PACKAGE_ROOT.parent               # repo root (holds outputs/)

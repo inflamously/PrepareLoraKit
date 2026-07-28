@@ -4,7 +4,6 @@ from __future__ import annotations
 from .steps import (
     is_step_satisfied,
     mark_legacy_import_satisfied,
-    step_aliases,
 )
 from .substeps import (
     SUBSTEP_ORDER_INDEX,
@@ -31,7 +30,6 @@ __all__ = [
     "is_step_satisfied",
     "mark_legacy_import_satisfied",
     "normalize_substeps",
-    "step_aliases",
     "substep_aliases",
     "substep_payloads",
 ]

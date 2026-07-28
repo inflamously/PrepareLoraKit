@@ -18,6 +18,9 @@ def __getattr__(name: str) -> Any:
         "step_config_class",
         "step_definition",
         "step_prerequisites",
+        "step_slug",
+        "step_slugs",
+        "step_type_for_slug",
         "step_types",
     }:
         from prepare_lora_kit.pipeline import configuration
@@ -62,6 +65,9 @@ __all__ = [
     "step_config_class",
     "step_definition",
     "step_prerequisites",
+    "step_slug",
+    "step_slugs",
+    "step_type_for_slug",
     "step_types",
     "validate_pipeline_selection",
 ]
