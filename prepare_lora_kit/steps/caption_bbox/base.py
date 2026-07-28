@@ -17,6 +17,7 @@ from prepare_lora_kit.providers.interaction import InteractionProvider
 from prepare_lora_kit.report import reporter
 from prepare_lora_kit.project.pipeline.substeps import substep_ids_for
 from prepare_lora_kit.utils import image as img_utils
+from prepare_lora_kit.utils.verdict_ledger import VerdictLedger
 
 from prepare_lora_kit.steps.caption_bbox.artifacts import _is_bbox_artifact, save_boxes_sidecar
 from prepare_lora_kit.steps.caption_bbox.regions import make_region_captioner
@@ -68,6 +69,9 @@ class CaptionStep(ABC):
         self.cancel_check = cancel_check
         self.style_mode = not concept_token
         self.enabled = set(enabled_substeps or substep_ids_for("CaptionBboxStep"))
+        # Loaded in run() once the report directory is known; declared here so
+        # the attribute always exists for subclasses and partial runs.
+        self.verdicts: VerdictLedger | None = None
 
     # ── Hooks the subclasses fill in ────────────────────────────────────────────
 
@@ -131,6 +135,10 @@ class CaptionStep(ABC):
     def run(self) -> dict:
         reporter.step_header(self.HEADER)
         output_dir = self._prepare_output_dir()
+        # Beside the report, not under output_dir: for this step output_dir is
+        # the working dataset, and the ledger must land where CaptionVerifierStep
+        # writes it.
+        self.verdicts = VerdictLedger(self._resolved_report_path(output_dir).parent)
         all_images, images = self._collect_source_images()
         if not all_images:
             reporter.warn(f"No images in {self.dataset_dir}")
@@ -144,7 +152,7 @@ class CaptionStep(ABC):
         # Resume: only images that still lack a caption need work (``overwrite`` — set
         # by --force — recaptions everything). When nothing is pending we skip loading
         # any runtime entirely and rebuild the report from the on-disk captions.
-        txt_paths, pending = self._resolve_pending(images, output_dir)
+        txt_paths, pending, flagged = self._resolve_pending(images, output_dir)
         needs_captioning = bool(pending) and "caption_images" in self.enabled
         self.prepare_runtime(needs_captioning)
 
@@ -154,6 +162,7 @@ class CaptionStep(ABC):
                 pending=pending,
                 txt_paths=txt_paths,
                 output_dir=output_dir,
+                flagged=flagged,
             )
             return self._validate_and_save_success(images, result, output_dir=output_dir)
         finally:
@@ -166,6 +175,7 @@ class CaptionStep(ABC):
             pending: list[Path],
             txt_paths: dict[Path, Path],
             output_dir: Path,
+            flagged: dict[Path, str] | None = None,
     ) -> CaptionWorkflowResult:
         result = CaptionWorkflowResult()
         region_captioner = make_region_captioner(
@@ -196,50 +206,70 @@ class CaptionStep(ABC):
             region_captioner=region_captioner,
             result=result,
             cancel_check=self.cancel_check,
+            verdicts=flagged,
         ) if pending else {}
 
         # Phase B — caption each pending, non-skipped image with its annotations.
-        for path in pending:
-            check_cancel(self.cancel_check)
-            txt_path = txt_paths[path]
-            txt_path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            for path in pending:
+                check_cancel(self.cancel_check)
+                txt_path = txt_paths[path]
+                txt_path.parent.mkdir(parents=True, exist_ok=True)
 
-            annotations = resolve_decision(
-                path,
-                txt_path,
-                decisions.get(str(path)),
-                overwrite=self.overwrite,
-                enabled=self.enabled,
-                result=result,
-            )
-            if annotations is None:
-                continue
+                annotations = resolve_decision(
+                    path,
+                    txt_path,
+                    decisions.get(str(path)),
+                    overwrite=self.overwrite,
+                    enabled=self.enabled,
+                    result=result,
+                )
+                if annotations is None:
+                    continue
 
-            _persist_region_caption_edits(
-                annotations,
-                result.captions,
-                concept_token=self.concept_token,
-            )
-            save_boxes_sidecar(path, annotations)
-            caption = self.caption_full_image(
-                path,
-                annotations,
-                images=images,
-                result=result,
-                output_dir=output_dir,
-            )
-            _write_caption(
-                path,
-                txt_path,
-                caption,
-                result.captions,
-                concept_token=self.concept_token,
-                style_mode=self.style_mode,
-                cancel_check=self.cancel_check,
-                annotations=annotations,
-            )
+                _persist_region_caption_edits(
+                    annotations,
+                    result.captions,
+                    concept_token=self.concept_token,
+                )
+                save_boxes_sidecar(path, annotations)
+                caption = self.caption_full_image(
+                    path,
+                    annotations,
+                    images=images,
+                    result=result,
+                    output_dir=output_dir,
+                )
+                _write_caption(
+                    path,
+                    txt_path,
+                    caption,
+                    result.captions,
+                    concept_token=self.concept_token,
+                    style_mode=self.style_mode,
+                    cancel_check=self.cancel_check,
+                    annotations=annotations,
+                )
+                result.recaptioned.append(str(path))
+        finally:
+            # In a finally so a cancel mid-batch still banks the fixes already
+            # written. Failing the other way — a crash before the flush — only
+            # means those images are offered again, never that one is lost.
+            self._resolve_verdicts(result.recaptioned)
 
         return result
+
+    def _resolve_verdicts(self, recaptioned: list[str]) -> None:
+        """Mark the captions these images carried as replaced.
+
+        A verdict describes a specific caption, so rewriting one retires it: the
+        image stops reopening and its thumbnail goes neutral. The verdict text
+        itself is kept as history.
+        """
+        if self.verdicts is None or not recaptioned:
+            return
+        if self.verdicts.mark_resolved(recaptioned):
+            self.verdicts.save()
 
     def _validate_and_save_success(
             self,
@@ -286,21 +316,38 @@ class CaptionStep(ABC):
             self,
             images: list[Path],
             output_dir: Path,
-    ) -> tuple[dict[Path, Path], list[Path]]:
-        """Map each image to its caption ``.txt`` and list which still need one.
+    ) -> tuple[dict[Path, Path], list[Path], dict[Path, str]]:
+        """Map each image to its caption ``.txt`` and list which still need work.
 
         ``pending`` is every image when ``overwrite`` (a --force re-caption);
-        otherwise only images whose caption file does not yet exist — the resume set.
+        otherwise images whose caption file does not yet exist **plus** those the
+        caption verifier judged ``generic`` or ``wrong`` and which have not been
+        re-captioned since. Without that second group a verified dataset has
+        nothing pending at all, so the fix for a bad caption would need --force,
+        which re-captions everything and invalidates VaeGate → Export.
+
+        Also returns those flagged verdicts, so the descriptor builder does not
+        have to re-derive them.
         """
         txt_paths = {
             path: (output_dir / path.relative_to(self.dataset_dir)).with_suffix(".txt")
             for path in images
         }
         if self.overwrite:
-            pending = list(images)
-        else:
-            pending = [path for path in images if not txt_paths[path].exists()]
-        return txt_paths, pending
+            # Everything is pending and nothing is "done", so reopening is moot.
+            return txt_paths, list(images), {}
+
+        flagged = self.verdicts.flagged(images) if self.verdicts else {}
+        # Ordered by ``images`` so reopened files keep their place in the strip.
+        pending = [
+            path for path in images
+            if not txt_paths[path].exists() or path in flagged
+        ]
+        if flagged:
+            reporter.info(
+                f"Reopening {len(flagged)} image(s) flagged by the caption verifier."
+            )
+        return txt_paths, pending, flagged
 
     def _log_caption_mode(self, images: list[Path]) -> None:
         if self.style_mode:

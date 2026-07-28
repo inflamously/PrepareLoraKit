@@ -22,6 +22,9 @@ class CaptionWorkflowResult:
     captions: dict[str, str] = field(default_factory=dict)
     skipped_annotation: list[str] = field(default_factory=list)
     skip_all: bool = False
+    #: Images whose ``.txt`` was rewritten this run, so any caption verdict
+    #: standing against the old text can be retired.
+    recaptioned: list[str] = field(default_factory=list)
 
 
 def gather_decisions(
@@ -34,13 +37,18 @@ def gather_decisions(
         region_captioner: Callable[[Any, dict[str, Any] | None], dict[str, str]],
         result: CaptionWorkflowResult,
         cancel_check: CancelCheck | None,
+        verdicts: dict[Path, str] | None = None,
 ) -> dict[str, dict]:
     """Phase A: collect per-image caption decisions in one batch interaction.
 
     Returns ``{str(path): {"annotations": [...], "skipped": bool}}``. ``skipped``
     means "do not caption this image" (keep any existing caption). Images absent
     from the map are treated the same as skipped by :func:`resolve_decision`.
+
+    ``verdicts`` carries the caption verdicts still in force, which both tint the
+    thumbnail and — see below — decide whether an image counts as already done.
     """
+    verdicts = verdicts or {}
     # Captioning disabled → no interaction; sidecars are preserved in phase B.
     if "caption_images" not in enabled:
         return {}
@@ -54,7 +62,12 @@ def gather_decisions(
             "path": path,
             "name": path.name,
             "annotations": load_boxes_sidecar(path),
-            "done": txt_paths[path].exists() and not overwrite,
+            # A flagged image has a caption, but a bad one, so it must not count
+            # as done: the workspace's effectiveSkipped() submits skipped:true
+            # for an untouched done image, and phase B would then keep the very
+            # caption this reopen exists to replace.
+            "done": txt_paths[path].exists() and not overwrite and path not in verdicts,
+            "verdict": verdicts.get(path),
         }
         for path in images
     ]

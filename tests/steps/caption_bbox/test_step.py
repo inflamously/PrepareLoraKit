@@ -5,6 +5,7 @@ import pytest
 
 from prepare_lora_kit.cancellation import CancelledRun
 from prepare_lora_kit.steps.caption_bbox import step as caption_bbox_step
+from prepare_lora_kit.utils.verdict_ledger import VerdictLedger
 
 
 def _write_image(path: Path, size: tuple[int, int] = (16, 12), color: str = "blue") -> Path:
@@ -328,6 +329,167 @@ def test_caption_bbox_step_skip_all_captions_current_image_only(tmp_path, monkey
     assert not (tmp_path / "b.txt").exists()
     captioned = [e for e in events if e[0] == "image"]
     assert [e[1] for e in captioned] == ["a.png"]
+
+
+# --- reopening images the caption verifier flagged --------------------------
+#
+# The resume set is normally "images with no .txt", which after a verification
+# pass is empty. These pin the one exception: a caption the verifier judged bad
+# comes back for a fix, and stops coming back once it has been rewritten.
+
+def _captioned(tmp_path, monkeypatch, name="image.png"):
+    """Run once so ``name`` ends up with a caption on disk."""
+    _write_image(tmp_path / name)
+    monkeypatch.setattr(
+        caption_bbox_step.vlm, "CaptionRuntime", _fake_runtime_class([]),
+    )
+    caption_bbox_step.run(
+        tmp_path, concept_token="tok", output_dir=tmp_path,
+        caption_model_id="fake/model", spot_check_pct=0,
+        interaction=_BatchProvider(lambda d: {"annotations": [], "skipped": False}),
+    )
+    assert (tmp_path / Path(name).with_suffix(".txt").name).exists()
+
+
+def _rerun(tmp_path, monkeypatch, provider, **kwargs):
+    events = []
+    monkeypatch.setattr(
+        caption_bbox_step.vlm, "CaptionRuntime", _fake_runtime_class(events),
+    )
+    report = caption_bbox_step.run(
+        tmp_path, concept_token="tok", output_dir=tmp_path,
+        caption_model_id="fake/model", interaction=provider, spot_check_pct=0,
+        **kwargs,
+    )
+    return report, events
+
+
+def _ledger(tmp_path):
+    return VerdictLedger(tmp_path)
+
+
+def test_a_flagged_image_is_reopened_even_though_it_has_a_caption(tmp_path, monkeypatch):
+    _captioned(tmp_path, monkeypatch)
+    ledger = _ledger(tmp_path)
+    ledger.record(tmp_path / "image.png", "wrong", caption="whatever")
+    ledger.save()
+
+    provider = _BatchProvider(lambda d: {"annotations": [], "skipped": False})
+    _rerun(tmp_path, monkeypatch, provider)
+
+    assert [Path(d["path"]).name for d in provider.seen] == ["image.png"]
+
+
+def test_a_reopened_image_is_not_marked_done(tmp_path, monkeypatch):
+    """The UI's effectiveSkipped() submits skipped:true for an untouched done
+    image, which would keep the very caption this reopen exists to replace."""
+    _captioned(tmp_path, monkeypatch)
+    ledger = _ledger(tmp_path)
+    ledger.record(tmp_path / "image.png", "generic", caption="whatever")
+    ledger.save()
+
+    provider = _BatchProvider(lambda d: {"annotations": [], "skipped": False})
+    _rerun(tmp_path, monkeypatch, provider)
+
+    assert provider.seen[0]["done"] is False
+    assert provider.seen[0]["verdict"] == "generic"
+
+
+def test_recaptioning_a_flagged_image_rewrites_it_and_resolves_the_flag(tmp_path, monkeypatch):
+    _captioned(tmp_path, monkeypatch)
+    (tmp_path / "image.txt").write_text("stale caption", encoding="utf-8")
+    ledger = _ledger(tmp_path)
+    ledger.record(tmp_path / "image.png", "wrong", caption="stale caption")
+    ledger.save()
+
+    provider = _BatchProvider(lambda d: {"annotations": [], "skipped": False})
+    _rerun(tmp_path, monkeypatch, provider)
+
+    assert (tmp_path / "image.txt").read_text(encoding="utf-8") != "stale caption"
+    entry = _ledger(tmp_path).entry_for(tmp_path / "image.png")
+    assert entry.resolved is True
+    assert entry.verdict == "wrong"      # kept as history
+
+
+def test_a_resolved_image_is_not_reopened_again(tmp_path, monkeypatch):
+    """The second re-run must be a no-op, or the loop never terminates."""
+    _captioned(tmp_path, monkeypatch)
+    ledger = _ledger(tmp_path)
+    ledger.record(tmp_path / "image.png", "wrong", caption="stale")
+    ledger.save()
+    _rerun(tmp_path, monkeypatch,
+           _BatchProvider(lambda d: {"annotations": [], "skipped": False}))
+
+    provider = _BatchProvider(lambda d: {"annotations": [], "skipped": False})
+    _rerun(tmp_path, monkeypatch, provider)
+
+    assert provider.seen == []
+
+
+def test_skipping_a_reopened_image_keeps_its_caption_and_the_flag(tmp_path, monkeypatch):
+    """An explicit skip defers the fix; it must not silently resolve it."""
+    _captioned(tmp_path, monkeypatch)
+    (tmp_path / "image.txt").write_text("stale caption", encoding="utf-8")
+    ledger = _ledger(tmp_path)
+    ledger.record(tmp_path / "image.png", "wrong", caption="stale caption")
+    ledger.save()
+
+    provider = _BatchProvider(lambda d: {"annotations": [], "skipped": True})
+    report, _ = _rerun(tmp_path, monkeypatch, provider)
+
+    assert (tmp_path / "image.txt").read_text(encoding="utf-8") == "stale caption"
+    assert _ledger(tmp_path).is_flagged(tmp_path / "image.png") is True
+    assert str(tmp_path / "image.png") in report["skipped_annotation"]
+
+
+def test_a_correct_verdict_never_reopens_an_image(tmp_path, monkeypatch):
+    _captioned(tmp_path, monkeypatch)
+    ledger = _ledger(tmp_path)
+    ledger.record(tmp_path / "image.png", "correct", caption="fine")
+    ledger.save()
+
+    provider = _BatchProvider(lambda d: {"annotations": [], "skipped": False})
+    _rerun(tmp_path, monkeypatch, provider)
+
+    assert provider.seen == []
+
+
+def test_behaviour_is_unchanged_when_no_ledger_exists(tmp_path, monkeypatch):
+    """Regression guard: the ledger is optional and absent for most projects."""
+    _captioned(tmp_path, monkeypatch)
+
+    provider = _BatchProvider(lambda d: {"annotations": [], "skipped": False})
+    statuses = []
+    _rerun(tmp_path, monkeypatch, provider, caption_status_callback=statuses.append)
+
+    assert provider.seen == []
+    assert statuses == []               # the VLM was never loaded
+    assert not (tmp_path / "caption_verdicts.json").exists()
+
+
+def test_force_resolves_every_rewritten_image(tmp_path, monkeypatch):
+    _captioned(tmp_path, monkeypatch)
+    ledger = _ledger(tmp_path)
+    ledger.record(tmp_path / "image.png", "generic", caption="stale")
+    ledger.save()
+
+    provider = _BatchProvider(lambda d: {"annotations": [], "skipped": False})
+    _rerun(tmp_path, monkeypatch, provider, overwrite=True)
+
+    assert _ledger(tmp_path).entry_for(tmp_path / "image.png").resolved is True
+
+
+def test_only_the_flagged_image_is_reopened(tmp_path, monkeypatch):
+    _captioned(tmp_path, monkeypatch, "good.png")
+    _captioned(tmp_path, monkeypatch, "bad.png")
+    ledger = _ledger(tmp_path)
+    ledger.record(tmp_path / "bad.png", "wrong", caption="stale")
+    ledger.save()
+
+    provider = _BatchProvider(lambda d: {"annotations": [], "skipped": False})
+    _rerun(tmp_path, monkeypatch, provider)
+
+    assert [Path(d["path"]).name for d in provider.seen] == ["bad.png"]
 
 
 def test_caption_bbox_step_requires_model_when_captioning_enabled(tmp_path):
