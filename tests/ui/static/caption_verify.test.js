@@ -446,8 +446,24 @@ describe("caption verify modal", () => {
     assert.ok(!tiles()[1].classList.contains("caption-verify-tile--reviewed"));
   });
 
+  it("does not auto-render on select unless asked", async () => {
+    // A render is a GPU job, and the first of a run also pays for the model
+    // load. Browsing the strip must never start one on its own.
+    showCaptionVerify(captionVerifyPending(), { onSubmitted: calls() });
+
+    assert.equal(layer().querySelector("#captionVerifyAuto").checked, false);
+
+    click(tiles()[1]);
+    await nextTick();
+    press("ArrowRight");
+    await nextTick();
+
+    assert.equal(apiCalls.generated.length, 0);
+  });
+
   it("auto-renders on select only once per image", async () => {
     showCaptionVerify(captionVerifyPending(), { onSubmitted: calls() });
+    layer().querySelector("#captionVerifyAuto").checked = true;
 
     // Opening the modal must not render anything on its own.
     assert.equal(apiCalls.generated.length, 0);
@@ -468,14 +484,20 @@ describe("caption verify modal", () => {
     assert.equal(forSecond.length, 1, "a cached render must not re-fire");
   });
 
-  it("does not auto-render when the toggle is off", async () => {
+  it("stops auto-rendering again when the toggle is turned back off", async () => {
     showCaptionVerify(captionVerifyPending(), { onSubmitted: calls() });
+    const toggle = layer().querySelector("#captionVerifyAuto");
 
-    layer().querySelector("#captionVerifyAuto").checked = false;
+    toggle.checked = true;
     click(tiles()[1]);
     await nextTick();
+    assert.equal(apiCalls.generated.length, 1);
 
-    assert.equal(apiCalls.generated.length, 0);
+    toggle.checked = false;
+    click(tiles()[0]);
+    await nextTick();
+
+    assert.equal(apiCalls.generated.length, 1);
   });
 
   it("renders live model status from the job poll", async () => {

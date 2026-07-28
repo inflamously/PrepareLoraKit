@@ -16,8 +16,12 @@ export function captionVerifyModal(itemCount, settings = {}) {
         <p>${itemCount} captions · <span id="captionVerifyProgress">0 reviewed</span> · ${escapeText(model)}</p>
       </div>
       <div class="modal-actions">
+        <!-- Off by default: the first render of a run also pays for the model
+             load, which is minutes for a 9B model, so merely stepping to the
+             next image must not start one. Same reasoning selectAt() already
+             applies to the image the modal opens on. -->
         <label class="caption-verify-auto">
-          <input type="checkbox" class="nf-check" id="captionVerifyAuto" checked />
+          <input type="checkbox" class="nf-check" id="captionVerifyAuto" />
           Auto-render on select
         </label>
         <button class="primary" id="finishCaptionVerify">Continue</button>
