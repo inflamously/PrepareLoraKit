@@ -92,6 +92,11 @@ def run(
     if not items:
         return _skip("no captioned images")
 
+    # Re-entering the step should remember what was already judged; the step is
+    # the only side that knows where the ledger lives, so it stamps the items
+    # the provider is about to turn into modal payloads.
+    verdicts.seed_initial_verdicts(items, VerdictLedger(target_report.parent))
+
     # Previews are diagnostics, regenerated on demand — wipe stale ones so a
     # re-run never shows a render of a caption that has since been edited.
     shutil.rmtree(preview_root, ignore_errors=True)

@@ -18,7 +18,11 @@ import {
   setCaption,
 } from "./utils/captions.js";
 import { createPreviewStore, isPreviewStale } from "./utils/previews.js";
-import { CAPTION_VERDICTS, normalizeCaptionVerdict } from "./utils/verdicts.js";
+import {
+  CAPTION_VERDICTS,
+  DEFAULT_CAPTION_VERDICT,
+  normalizeCaptionVerdict,
+} from "./utils/verdicts.js";
 
 export function showCaptionVerify(pending, { onSubmitted }) {
   new CaptionVerify(pending, onSubmitted).show();
@@ -39,7 +43,15 @@ class CaptionVerify {
     );
     this.captions = createCaptionStore(this.items);
     this.previews = createPreviewStore();
-    this.reviewed = new Set();
+    // A tile's dot stays neutral until the image is judged, so an unreviewed
+    // gallery does not read as "all approved". A verdict seeded from the ledger
+    // *was* judged — in an earlier session — so it counts as reviewed, or the
+    // remembered answer would be invisible in the strip.
+    this.reviewed = new Set(
+      this.items
+        .filter((item) => this.verdicts[item.path] !== DEFAULT_CAPTION_VERDICT)
+        .map((item) => item.path),
+    );
     this.tilesByPath = new Map();
     // Starts at -1 so the first selectAt() in show() does real work — the
     // same-index early-return would otherwise skip the initial render.

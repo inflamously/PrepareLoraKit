@@ -410,6 +410,24 @@ describe("caption verify modal", () => {
     );
   });
 
+  it("dots a tile whose verdict was remembered from an earlier session", () => {
+    const pending = captionVerifyPending();
+    pending.payload.items[1].initial_verdict = "wrong";
+
+    showCaptionVerify(pending, { onSubmitted: calls() });
+
+    assert.ok(
+      tiles()[1].classList.contains("caption-verify-tile--reviewed"),
+      "a ledger-seeded verdict was judged, just in an earlier run",
+    );
+    assert.ok(tiles()[1].classList.contains("wrong"));
+    assert.ok(
+      !tiles()[0].classList.contains("caption-verify-tile--reviewed"),
+      "the correct default still means unjudged",
+    );
+    assert.match(layer().querySelector("#captionVerifyProgress").textContent, /1 reviewed/);
+  });
+
   it("counts reviewed images in the header and dots only judged tiles", () => {
     showCaptionVerify(captionVerifyPending(), { onSubmitted: calls() });
 

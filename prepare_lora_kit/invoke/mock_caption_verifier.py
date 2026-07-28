@@ -48,6 +48,7 @@ def _mock_caption_verifier(
     preview_root = report_path.parent / PREVIEW_DIR_NAME
 
     items = caption_io.collect_verifiable_images(working_dir)
+    verdicts.seed_initial_verdicts(items, VerdictLedger(report_path.parent))
     generations: dict[str, list[dict]] = {}
     failures: list[dict] = []
 

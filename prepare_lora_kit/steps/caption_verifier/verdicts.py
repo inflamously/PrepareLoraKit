@@ -11,6 +11,38 @@ from pathlib import Path
 
 from prepare_lora_kit.utils.verdict_ledger import VERDICTS, VerdictLedger
 
+# The no-op answer every unjudged item lands on, matching the UI's
+# ``normalizeCaptionVerdict`` fallback and the provider's own default.
+DEFAULT_VERDICT = "correct"
+
+
+def seed_initial_verdicts(items: list[dict], ledger: VerdictLedger) -> int:
+    """Stamp each item with the verdict the review modal should open on.
+
+    Done here rather than in the UI provider because the provider is handed
+    these same dicts and already reads them defensively; the step is the only
+    side that knows where the ledger lives.
+
+    A stored verdict is treated as stale — and the item falls back to the
+    ``correct`` default — when it has been resolved, or when the caption on disk
+    no longer matches the one that was judged. The second check catches an edit
+    made outside the app, where re-offering an old "wrong" would point the user
+    at a caption that no longer says what they rejected.
+    """
+    seeded = 0
+    for item in items or []:
+        entry = ledger.entry_for(item["path"])
+        current = str(item.get("caption") or "").strip()
+        stale = (
+            entry is None
+            or entry.resolved
+            or entry.caption_at_verdict.strip() != current
+        )
+        item["initial_verdict"] = DEFAULT_VERDICT if stale else entry.verdict
+        if not stale:
+            seeded += 1
+    return seeded
+
 
 def record_results(
         ledger: VerdictLedger,

@@ -8,6 +8,8 @@ export const CAPTION_VERDICTS = [
 
 const VALUES = new Set(CAPTION_VERDICTS.map((option) => option.value));
 
+export const DEFAULT_CAPTION_VERDICT = "correct";
+
 // "correct" is the no-op default: reviewCard lands every item on one of the
 // options at construction, so the default must mean "nothing to change".
 export function normalizeCaptionVerdict(value) {

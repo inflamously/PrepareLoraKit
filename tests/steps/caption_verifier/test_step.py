@@ -277,6 +277,56 @@ def test_no_ledger_is_written_when_the_step_skips(dataset, tmp_path):
     assert not (tmp_path / "reports" / "caption_verdicts.json").exists()
 
 
+def test_items_are_seeded_with_the_stored_verdict(dataset, tmp_path):
+    ledger = VerdictLedger(tmp_path / "reports")
+    ledger.record(dataset / "one.png", "wrong", caption="tok, a red cube")
+    ledger.save()
+    provider = Provider()
+
+    _run(dataset, tmp_path, provider)
+
+    seeded = {item["name"]: item["initial_verdict"] for item in provider.received}
+    assert seeded == {"one.png": "wrong", "two.png": "correct"}
+
+
+def test_a_resolved_verdict_is_not_seeded_back(dataset, tmp_path):
+    """It described a caption that has since been replaced."""
+    ledger = VerdictLedger(tmp_path / "reports")
+    ledger.record(dataset / "one.png", "wrong", caption="tok, a red cube")
+    ledger.mark_resolved([dataset / "one.png"])
+    ledger.save()
+    provider = Provider()
+
+    _run(dataset, tmp_path, provider)
+
+    assert provider.received[0]["initial_verdict"] == "correct"
+
+
+def test_a_verdict_is_not_seeded_when_the_caption_changed_underneath(dataset, tmp_path):
+    """Catches an edit made outside the app, where the old answer would mislead."""
+    ledger = VerdictLedger(tmp_path / "reports")
+    ledger.record(dataset / "one.png", "wrong", caption="something else entirely")
+    ledger.save()
+    provider = Provider()
+
+    _run(dataset, tmp_path, provider)
+
+    assert provider.received[0]["initial_verdict"] == "correct"
+
+
+def test_a_verdict_round_trips_across_two_runs(dataset, tmp_path):
+    """The whole point: judge once, and the next visit opens where you left off."""
+    _run(dataset, tmp_path, Provider(results={
+        str(dataset / "two.png"): {"verdict": "generic"},
+    }))
+
+    second = Provider()
+    _run(dataset, tmp_path, second)
+
+    seeded = {item["name"]: item["initial_verdict"] for item in second.received}
+    assert seeded["two.png"] == "generic"
+
+
 # --- artifact containment --------------------------------------------------
 
 def test_generated_previews_never_land_in_the_working_dataset(dataset, tmp_path):

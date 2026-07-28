@@ -74,6 +74,27 @@ def test_caption_verify_emits_the_expected_payload(dataset):
     assert item["thumb_uri"].startswith("http://127.0.0.1:9999/media")
 
 
+def test_initial_verdict_echoes_what_the_step_seeded(dataset):
+    """The step reads the ledger; the provider only forwards its answer."""
+    job = FakeJob()
+    items = _items(dataset)
+    items[0]["initial_verdict"] = "wrong"
+
+    _provider(job).caption_verify(items)
+
+    assert job.requests[0][1]["items"][0]["initial_verdict"] == "wrong"
+
+
+def test_initial_verdict_falls_back_on_an_unknown_value(dataset):
+    job = FakeJob()
+    items = _items(dataset)
+    items[0]["initial_verdict"] = "banana"
+
+    _provider(job).caption_verify(items)
+
+    assert job.requests[0][1]["items"][0]["initial_verdict"] == "correct"
+
+
 def test_caption_verify_marks_blank_captions(dataset):
     (dataset / "one.txt").write_text("", encoding="utf-8")
     job = FakeJob()

@@ -82,7 +82,10 @@ class CaptionVerifyInteractionMixin:
             "caption": caption,
             "caption_path": str(Path(str(caption_path)).resolve()),
             "has_caption": bool(caption.strip()),
-            "initial_verdict": DEFAULT_VERDICT,
+            # Seeded by the step from the verdict ledger so re-entering the
+            # review remembers earlier judgements. Absent for any caller that
+            # hand-builds items (the CLI, tests), hence the default.
+            "initial_verdict": _verdict_or_default(item.get("initial_verdict")),
         })
         return entry
 
@@ -175,6 +178,10 @@ class CaptionVerifyInteractionMixin:
             # would serve a re-roll from the browser cache without revalidating.
             payload.update(_image_payload(Path(str(saved)), self._media_base_url))
         return payload
+
+
+def _verdict_or_default(value: Any) -> str:
+    return str(value) if value in VERDICTS else DEFAULT_VERDICT
 
 
 def _image_size(path: Path) -> tuple[int | None, int | None]:
