@@ -129,6 +129,10 @@ class UiInteractionProvider(CaptionVerifyInteractionMixin, InteractionProvider):
             item = _image_payload(source, self._media_base_url)
             item["annotations"] = _jsonable(descriptor.get("annotations") or [])
             item["done"] = bool(descriptor.get("done"))
+            # "generic" | "wrong" | None — a caption verdict still in force, used
+            # to tint the thumbnail. None covers absent, resolved and "correct"
+            # alike, so a fixed image goes neutral with no extra state.
+            item["verdict"] = descriptor.get("verdict") or None
             items.append(item)
 
         with self._caption_lock:

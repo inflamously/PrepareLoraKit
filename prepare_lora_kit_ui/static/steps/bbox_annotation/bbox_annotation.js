@@ -68,6 +68,7 @@ class Annotator {
       },
       getBusy: () => this.busy,
       getHighlightMissing: () => this.activeState().highlightMissing,
+      getVerdict: () => this.activeState().verdict,
       onChange: this.refresh,
       onEdit: this.markActiveDirty,
       redraw: () => this.canvasController.draw(),

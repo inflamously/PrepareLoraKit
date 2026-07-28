@@ -205,6 +205,78 @@ describe("annotation workspace", () => {
     assert.equal(since.filter((c) => c[0] === "fillRect").length, 5); // 4 bands + chip
   });
 
+  it("tints a thumbnail the caption verifier flagged", () => {
+    showAnnotator(
+      annotationPending("annotation-verdict", [
+        annotationImage("bad", { verdict: "wrong" }),
+        annotationImage("meh", { verdict: "generic" }),
+        annotationImage("fine"),
+      ]),
+      { onSubmitted: calls() },
+    );
+
+    const layer = document.getElementById("modalLayer");
+    const thumb = (i) => layer.querySelector(`.thumb[data-index="${i}"]`);
+    assert.equal(thumb(0).classList.contains("thumb--verdict-wrong"), true);
+    assert.equal(thumb(1).classList.contains("thumb--verdict-generic"), true);
+    assert.equal(thumb(2).className.includes("thumb--verdict"), false);
+    assert.match(thumb(0).title, /flagged this as "wrong"/);
+  });
+
+  it("keeps the verdict tint alongside the active outline and across navigation", () => {
+    showAnnotator(
+      annotationPending("annotation-verdict-nav", [
+        annotationImage("bad", { verdict: "wrong" }),
+        annotationImage("other"),
+      ]),
+      { onSubmitted: calls() },
+    );
+
+    const layer = document.getElementById("modalLayer");
+    const flagged = () => layer.querySelector('.thumb[data-index="0"]');
+    // Both channels at once: which image am I on, and why is it here.
+    assert.equal(flagged().classList.contains("thumb--verdict-wrong"), true);
+    assert.equal(flagged().classList.contains("thumb--current"), true);
+
+    // refreshState() strips a fixed list of badge classes on every repaint; the
+    // verdict must not be collateral damage.
+    layer.querySelector('.thumb[data-index="1"]').click();
+    assert.equal(flagged().classList.contains("thumb--verdict-wrong"), true);
+    assert.equal(flagged().classList.contains("thumb--current"), false);
+  });
+
+  it("says why a flagged image was reopened while no box is selected", () => {
+    showAnnotator(
+      annotationPending("annotation-verdict-status", [
+        annotationImage("bad", { verdict: "generic" }),
+      ]),
+      { onSubmitted: calls() },
+    );
+
+    assert.match(
+      document.getElementById("bboxStatus").textContent,
+      /flagged this caption as "generic"/,
+    );
+  });
+
+  it("submits a flagged image for captioning rather than skipping it", async () => {
+    // The end-to-end guard for the reopen path: the step reports a flagged
+    // image done:false so effectiveSkipped() cannot keep its stale caption.
+    const onSubmitted = calls();
+    showAnnotator(
+      annotationPending("annotation-verdict-submit", [
+        annotationImage("bad", { done: false, verdict: "wrong" }),
+      ]),
+      { onSubmitted },
+    );
+
+    document.getElementById("doneAnnotate").click();
+    await nextTick();
+
+    const submit = apiCalls.submitted.at(-1);
+    assert.equal(submit.value.images["/images/bad.png"].skipped, false);
+  });
+
   it("pre-fills reloaded boxes for already-captioned images", () => {
     showAnnotator(
       annotationPending("annotation-reload", [

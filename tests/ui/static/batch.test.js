@@ -7,6 +7,7 @@ import {
   effectiveSkipped,
   firstUncaptionedIndex,
   imageStripState,
+  imageVerdictClass,
 } from "../../../prepare_lora_kit_ui/static/steps/bbox_annotation/batch.js";
 
 function statesFixture() {
@@ -142,5 +143,49 @@ describe("imageStripState", () => {
     assert.equal(imageStripState(fresh), "has-boxes");
     fresh.skipped = true;
     assert.equal(imageStripState(fresh), "skipped");
+  });
+
+  it("ignores the verdict, which is a separate channel", () => {
+    const [fresh] = statesFixture();
+    fresh.verdict = "wrong";
+    assert.equal(imageStripState(fresh), "empty");
+  });
+});
+
+describe("imageVerdictClass", () => {
+  it("maps a standing verdict to its tint class", () => {
+    const [fresh] = statesFixture();
+    assert.equal(imageVerdictClass(fresh), "");
+    fresh.verdict = "generic";
+    assert.equal(imageVerdictClass(fresh), "thumb--verdict-generic");
+    fresh.verdict = "wrong";
+    assert.equal(imageVerdictClass(fresh), "thumb--verdict-wrong");
+  });
+
+  it("defaults to no verdict when the payload omits one", () => {
+    const [fresh] = statesFixture();
+    assert.equal(fresh.verdict, null);
+  });
+
+  it("carries a verdict off the payload", () => {
+    const [flagged] = createImageStates({
+      images: [{ path: "/f.png", name: "f.png", uri: "u/f", verdict: "wrong" }],
+    });
+    assert.equal(flagged.verdict, "wrong");
+  });
+});
+
+describe("a reopened flagged image", () => {
+  it("is captioned rather than skipped", () => {
+    // The step reports a flagged image as done:false precisely so this holds —
+    // an untouched done image submits skipped:true and keeps its old caption.
+    const [flagged] = createImageStates({
+      images: [
+        { path: "/f.png", name: "f.png", uri: "u/f", done: false, verdict: "wrong" },
+      ],
+    });
+
+    assert.equal(effectiveSkipped(flagged), false);
+    assert.equal(buildSubmitValue([flagged]).images["/f.png"].skipped, false);
   });
 });

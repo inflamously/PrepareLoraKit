@@ -24,6 +24,7 @@ export class BoxPanel {
     setSelected,
     getBusy,
     getHighlightMissing,
+    getVerdict,
     onChange,
     onEdit,
     redraw,
@@ -37,6 +38,8 @@ export class BoxPanel {
     this.setSelected = setSelected;
     this.getBusy = getBusy;
     this.getHighlightMissing = getHighlightMissing;
+    // Caption verdict for the active image, if it was reopened for a fix.
+    this.getVerdict = getVerdict;
     this.onChange = onChange;
     // Fired when the user edits/deletes a box here so the workspace can mark the
     // active image dirty (selection-only changes do not call it).
@@ -127,9 +130,14 @@ export class BoxPanel {
     const selected = this.getSelected();
     const selectedBox = this.boxes[selected];
     const selectedBoxLabel = selectedBox?.label ? ` - ${selectedBox.label}` : "";
+    // With no box selected, say why this image is here if it was reopened — the
+    // only other cue is a 76px ring in the strip, which is easy to walk past.
+    const verdict = this.getVerdict?.();
     this.bboxStatus.textContent = selectedBox
       ? `Selected: Region ${selected + 1}${selectedBoxLabel}`
-      : "No box selected";
+      : verdict
+        ? `The caption verifier flagged this caption as "${verdict}" — re-caption it.`
+        : "No box selected";
     // Selecting/editing a box resets the "missing captions" error state.
     this.bboxStatus.classList.remove("bbox-status--error");
     this.captionBoxButton.disabled = this.getBusy?.() || selected < 0;

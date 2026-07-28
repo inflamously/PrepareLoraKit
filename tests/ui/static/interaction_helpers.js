@@ -137,8 +137,12 @@ export function sourceReviewPending() {
 }
 
 // One image in the workspace batch payload. annotations pre-fill reloaded boxes;
-// done marks an already-captioned image.
-export function annotationImage(name, { annotations = [], done = false } = {}) {
+// done marks an already-captioned image; verdict marks one the caption verifier
+// flagged and reopened (which always arrives done:false, so it is re-captioned).
+export function annotationImage(
+  name,
+  { annotations = [], done = false, verdict = null } = {},
+) {
   const uri = `http://example.invalid/${name}.png`;
   return {
     path: `/images/${name}.png`,
@@ -148,6 +152,7 @@ export function annotationImage(name, { annotations = [], done = false } = {}) {
     view_uri: `${uri}?w=2048`,
     annotations,
     done,
+    verdict,
   };
 }
 

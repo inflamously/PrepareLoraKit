@@ -23,6 +23,10 @@ export function createImageStates(payload) {
     highlightMissing: false,
     // Pre-captioned on a previous run; its boxes were reloaded from disk.
     done: Boolean(image.done),
+    // "generic" | "wrong" | null — a caption verdict still in force. A flagged
+    // image arrives with done:false so it is captioned like a fresh one; this
+    // only says why it came back.
+    verdict: image.verdict || null,
     // Set once the user draws/edits/captions a box here, so an untouched done
     // image is kept (not re-captioned) while an edited one is re-captioned.
     dirty: false,
@@ -74,4 +78,11 @@ export function imageStripState(state) {
   if (state.done && !state.dirty) return "done";
   if (state.boxes.length) return "has-boxes";
   return "empty";
+}
+
+// Verdict tint for a thumbnail. Deliberately separate from imageStripState:
+// the badge tracks workflow progress (done / has-boxes / skipped) while the
+// verdict says why the image was reopened — two channels on one tile.
+export function imageVerdictClass(state) {
+  return state.verdict ? `thumb--verdict-${state.verdict}` : "";
 }

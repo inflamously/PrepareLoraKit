@@ -954,6 +954,8 @@ def test_annotate_dataset_sends_batch_and_parses_decisions(tmp_path):
     b_item = next(i for i in captured["payload"]["images"] if i["name"] == "b.png")
     assert b_item["done"] is True
     assert b_item["annotations"][0]["label"] == "old"
+    # No caption verdict on either image, so the thumbnails stay untinted.
+    assert all(item["verdict"] is None for item in captured["payload"]["images"])
     assert captured["batch_paths"] == {a.resolve(), b.resolve()}
     # Cleared again after the interaction.
     assert provider._batch_paths == set()
@@ -964,3 +966,27 @@ def test_annotate_dataset_sends_batch_and_parses_decisions(tmp_path):
         "skipped": False,
     }
     assert decisions[str(b)] == {"annotations": [], "skipped": True}
+
+
+def test_annotate_dataset_forwards_a_caption_verdict(tmp_path):
+    """The verdict tints the thumbnail so a reopened image explains itself."""
+    image = tmp_path / "flagged.png"
+    Image.new("RGB", (8, 8), "blue").save(image)
+    job = PipelineJob(JobManager(), "verdict-job")
+    provider = UiInteractionProvider(job)
+
+    captured = {}
+
+    def fake_request_input(kind, payload):
+        captured["payload"] = payload
+        return {"images": {}, "skip_all": False}
+
+    job.request_input = fake_request_input  # type: ignore[assignment]
+
+    provider.annotate_dataset(
+        [{"path": image, "name": "flagged.png", "annotations": [],
+          "done": False, "verdict": "generic"}],
+        captioner=lambda *a, **k: {},
+    )
+
+    assert captured["payload"]["images"][0]["verdict"] == "generic"

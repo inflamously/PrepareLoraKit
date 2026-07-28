@@ -1,5 +1,5 @@
 import { escapeText } from "../../core/dom.js";
-import { imageStripState } from "./batch.js";
+import { imageStripState, imageVerdictClass } from "./batch.js";
 
 // Footer strip of image thumbnails for the annotation workspace. Clicking a
 // thumbnail switches the active image; per-thumbnail badges show done / has-boxes
@@ -22,7 +22,14 @@ export class ThumbnailStrip {
       thumb.type = "button";
       thumb.className = "thumb";
       thumb.dataset.index = String(index);
-      thumb.title = state.name || "";
+      // Set here rather than in refreshState: a verdict cannot change while the
+      // modal is open, and refreshState clears a fixed list of badge classes it
+      // would otherwise have to know about.
+      const verdictClass = imageVerdictClass(state);
+      if (verdictClass) thumb.classList.add(verdictClass);
+      thumb.title = verdictClass
+        ? `${state.name || ""} — the caption verifier flagged this as "${state.verdict}"`
+        : state.name || "";
       thumb.innerHTML = `
         <img class="thumb__img" loading="lazy" alt="${escapeText(state.name || "")}"
              src="${escapeText(state.thumbUri || state.uri || "")}" />
