@@ -66,7 +66,6 @@ class CaptionVerify {
     this.strip = this.modal.querySelector("#captionVerifyTiles");
     this.panel = this.modal.querySelector(".caption-verify-preview");
     this.progress = this.modal.querySelector("#captionVerifyProgress");
-    this.auto = this.modal.querySelector("#captionVerifyAuto");
 
     // The job poll is the only channel a model load has: it blocks the bridge
     // call the modal is awaiting, so nothing comes back on that promise for as
@@ -97,8 +96,7 @@ class CaptionVerify {
     this.strip.replaceChildren(...tiles);
 
     if (this.items[0]) {
-      // No auto-render on open: the user may never click Generate at all.
-      this.selectAt(0, { autoRender: false });
+      this.selectAt(0);
     } else {
       this.editor.show(null);
       this.renderPreview();
@@ -133,7 +131,9 @@ class CaptionVerify {
 
   // --- selection ---------------------------------------------------------
 
-  selectAt(index, { autoRender = true } = {}) {
+  // Navigation never renders. A render is a GPU job, and the first of a run also
+  // pays for the model load, so it happens only when the user asks for it.
+  selectAt(index) {
     const item = this.items[index];
     if (!item || index === this.index) return;
     this.index = index;
@@ -146,19 +146,6 @@ class CaptionVerify {
       ?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
     this.showInEditor(item);
     this.renderPreview();
-
-    // Clicking an image must not queue a GPU job per click: only render when
-    // the user opted in, nothing is already running, and this image has no
-    // render yet.
-    if (
-      autoRender &&
-      this.auto?.checked &&
-      !this.inflight &&
-      !this.previews.has(item.path) &&
-      item.has_caption
-    ) {
-      this.generate({ reroll: false });
-    }
   }
 
   step(delta) {

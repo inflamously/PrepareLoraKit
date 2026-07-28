@@ -446,57 +446,23 @@ describe("caption verify modal", () => {
     assert.ok(!tiles()[1].classList.contains("caption-verify-tile--reviewed"));
   });
 
-  it("does not auto-render on select unless asked", async () => {
+  it("never renders on its own — only an explicit Render does", async () => {
     // A render is a GPU job, and the first of a run also pays for the model
-    // load. Browsing the strip must never start one on its own.
+    // load. Opening the modal and browsing the strip must both stay free.
     showCaptionVerify(captionVerifyPending(), { onSubmitted: calls() });
 
-    assert.equal(layer().querySelector("#captionVerifyAuto").checked, false);
+    assert.equal(apiCalls.generated.length, 0);
 
     click(tiles()[1]);
     await nextTick();
     press("ArrowRight");
     await nextTick();
+    press("ArrowLeft");
+    await nextTick();
 
     assert.equal(apiCalls.generated.length, 0);
-  });
 
-  it("auto-renders on select only once per image", async () => {
-    showCaptionVerify(captionVerifyPending(), { onSubmitted: calls() });
-    layer().querySelector("#captionVerifyAuto").checked = true;
-
-    // Opening the modal must not render anything on its own.
-    assert.equal(apiCalls.generated.length, 0);
-
-    click(tiles()[1]);
-    await nextTick();
-    assert.equal(apiCalls.generated.length, 1);
-    assert.equal(apiCalls.generated[0].imagePath, "/images/second.png");
-
-    click(tiles()[0]);
-    await nextTick();
-    click(tiles()[1]);
-    await nextTick();
-
-    const forSecond = apiCalls.generated.filter(
-      (call) => call.imagePath === "/images/second.png",
-    );
-    assert.equal(forSecond.length, 1, "a cached render must not re-fire");
-  });
-
-  it("stops auto-rendering again when the toggle is turned back off", async () => {
-    showCaptionVerify(captionVerifyPending(), { onSubmitted: calls() });
-    const toggle = layer().querySelector("#captionVerifyAuto");
-
-    toggle.checked = true;
-    click(tiles()[1]);
-    await nextTick();
-    assert.equal(apiCalls.generated.length, 1);
-
-    toggle.checked = false;
-    click(tiles()[0]);
-    await nextTick();
-
+    await generate();
     assert.equal(apiCalls.generated.length, 1);
   });
 

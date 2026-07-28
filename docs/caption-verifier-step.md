@@ -70,12 +70,11 @@ dot everywhere would read as "all approved" before the review began.
 review opens on what was already decided. A seeded tile counts as reviewed and
 wears its colour immediately: it *was* judged, just in an earlier session.
 
-**Rendering is always opt-in.** "Auto-render on select" is off by default, so
-neither opening the modal nor moving through the strip starts a render. A render
-is a GPU job, and the first one of a run also pays for the model load — minutes
-for a 9B model — so navigation must never trigger one by itself. With the toggle
-on, `selectAt` renders only when nothing is in flight and that image has no
-render yet, so a click never queues a second job.
+**Nothing renders on its own.** Only Render / Re-roll (or `Ctrl`/`Cmd`+`Enter`)
+starts one — opening the modal and moving through the strip never do. A render is
+a GPU job, and the first of a run also pays for the model load, which is minutes
+for a 9B model; navigation that could trigger that is navigation the user stops
+trusting. `selectAt` is pure view state.
 
 ## Threading
 
