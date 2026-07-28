@@ -28,17 +28,32 @@ class _StaticServer(ThreadingHTTPServer):
 class _StaticHandler(SimpleHTTPRequestHandler):
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
+        self._no_store = False
         if parsed.path == "/media":
             self._serve_media(parsed.query, include_body=True)
             return
+        self._no_store = True
         super().do_GET()
 
     def do_HEAD(self) -> None:
         parsed = urlparse(self.path)
+        self._no_store = False
         if parsed.path == "/media":
             self._serve_media(parsed.query, include_body=False)
             return
+        self._no_store = True
         super().do_HEAD()
+
+    def end_headers(self) -> None:
+        # UI assets are read from the checkout on every run, so a cached copy is
+        # always the stale one. Without an explicit directive the only freshness
+        # signal is Last-Modified, and a webview is free to guess a lifetime from
+        # it — which is how an edited .js keeps serving the old code after a
+        # restart. The flag is reset per request because keep-alive reuses one
+        # handler, and /media sets its own policy.
+        if getattr(self, "_no_store", False):
+            self.send_header("Cache-Control", "no-store")
+        super().end_headers()
 
     def log_message(self, format: str, *args) -> None:
         return

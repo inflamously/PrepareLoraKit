@@ -507,6 +507,39 @@ def test_static_server_serves_local_image_media(tmp_path):
         server.server_close()
 
 
+def test_static_server_never_lets_a_ui_asset_be_cached(tmp_path):
+    """UI assets are read from the checkout, so a cached copy is the stale one.
+
+    With no explicit directive the only freshness signal is Last-Modified, which
+    a webview may use to guess a lifetime — that is how an edited .js keeps
+    serving old code across a restart.
+    """
+    static_dir = tmp_path / "static"
+    static_dir.mkdir()
+    (static_dir / "app.js").write_text("export const x = 1;", encoding="utf-8")
+    image = tmp_path / "preview.png"
+    image.write_bytes(b"png-bytes")
+    server = _static_server(static_dir)
+
+    try:
+        host, port = server.server_address
+        opener = build_opener(ProxyHandler({}))
+        with opener.open(f"http://{host}:{port}/app.js", timeout=2) as response:
+            assert response.headers.get_all("Cache-Control") == ["no-store"]
+
+        # Reset per request: /media sets its own policy, and keep-alive reuses
+        # one handler, so a leaked flag would emit a second header here.
+        media_url = (
+            f"http://{host}:{port}/media?"
+            f"path={quote(str(image.resolve()), safe='')}"
+        )
+        with opener.open(media_url, timeout=2) as response:
+            assert len(response.headers.get_all("Cache-Control")) == 1
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
 def test_static_server_serves_downscaled_variant_with_caching(tmp_path):
     from io import BytesIO
     from urllib.error import HTTPError
