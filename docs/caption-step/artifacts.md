@@ -10,6 +10,13 @@ Part of the [Caption Step reference](README.md).
 - `outputs/<name>/reports/CaptionBboxStep_report.json` — the step report. When
   `report_path` is `None`, the same `CaptionBboxStep_report.json` name is used
   under `output_dir` (`reports.py::_REPORT_NAME`).
+- `outputs/<name>/reports/caption_verdicts.json` — **read, and written only to
+  retire an entry.** Owned by
+  [CaptionVerifierStep](../caption-verifier-step.md); this step reads it to
+  decide which captioned images to reopen, and flips `resolved` on each image it
+  re-captions. Located from `_resolved_report_path(output_dir).parent`, never
+  from `output_dir` — for this step `output_dir` is the working dataset, so
+  deriving it there would put the two steps on different files.
 
 The report payload (`reports.py::build_success_report`) carries `total`,
 `captioned`, `caption_model`, `caption_status`, `skipped_annotation`,

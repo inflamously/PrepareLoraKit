@@ -34,9 +34,36 @@ re-raising.
 reason for this step — the engine re-enters `run()` on every pipeline run, even
 when state says done.
 
-The real resume lives in `_resolve_pending()`: only images lacking a `.txt` are
-pending (all of them when `overwrite`). If nothing is pending, the VLM is never
-loaded at all and the report is rebuilt from the captions already on disk.
+The real resume lives in `_resolve_pending()`. Pending is the union of two sets
+(or every image when `overwrite`):
+
+1. images lacking a `.txt` — the plain resume set;
+2. images the caption verifier judged `generic` or `wrong` and which have not
+   been re-captioned since, read from `reports/caption_verdicts.json`.
+
+If nothing is pending, the VLM is never loaded at all and the report is rebuilt
+from the captions already on disk.
+
+The second set is what makes a bad caption fixable. Without it, a verified
+dataset has nothing pending — every image has a `.txt` — so the only way back
+into the workspace would be `--force`, which re-captions everything and
+invalidates VaeGate → Audit → Buckets → Export for the sake of one caption.
+
+Two consequences worth knowing:
+
+- **A resume run loads the VLM whenever anything is flagged**, and the load
+  happens in `prepare_runtime()` *before* the modal opens. Re-running to fix
+  three images means waiting out the model load first. Deferring it is not a
+  small change: the region-captioner closure needs the runtime *during* the
+  modal, not after it.
+- A flagged image is reported to the workspace as **`done: false`** even though
+  it has a caption. `batch.js::effectiveSkipped` submits `skipped: true` for an
+  untouched *done* image, which would make phase B keep the very caption the
+  reopen exists to replace.
+
+Re-captioning an image marks its ledger entry `resolved`, so it drops out of the
+pending set and its thumbnail goes neutral. An explicit "Skip image" does not:
+the fix is merely deferred, and the image comes back next run.
 
 `--force` reaches the adapter as `overwrite=True`, and
 `resolve_force_invalidated_steps()` also resets this step and everything

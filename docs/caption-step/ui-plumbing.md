@@ -24,9 +24,16 @@ also snapshotted into the report as `caption_status`.
 
 - `annotate_dataset(images, *, captioner)` — sends one `bbox_annotation`
   `request_input` for the whole batch. Each item carries the media payload,
-  prefilled annotations from the reload sidecar, and a `done` flag. It stashes the
-  captioner and batch paths under a lock for the modal's lifetime, clearing them in
-  `finally`.
+  prefilled annotations from the reload sidecar, a `done` flag, and a `verdict`
+  (`"generic" | "wrong" | null`) naming the caption verdict still in force. It
+  stashes the captioner and batch paths under a lock for the modal's lifetime,
+  clearing them in `finally`.
+
+  `verdict` is display-only and never comes back: the annotator does not edit
+  verdicts, and resolution is derived server-side from "a caption was written".
+  `null` covers absent, resolved and `correct` alike, so a fixed image needs no
+  extra state to go neutral. It drives `batch.js::imageVerdictClass` → the
+  `.thumb--verdict-*` inset ring, and the status line via `BoxPanel.getVerdict`.
 - `caption_region(image_path, box)` — the live "caption this box" endpoint.
   Validates the image is in the active batch, crops with PIL from normalized
   coordinates, then calls the stashed `make_region_captioner` closure. Exposed

@@ -214,6 +214,10 @@
  *
  * @typedef {ImagePayload & {seed: number, caption: string, elapsed_ms: number|null, steps: number|null, guidance: number|null, width: number|null, height: number|null, model_id: string|null, truncated: boolean, token_count: number|null}} CaptionPreview
  *
+ * `initial_verdict` is seeded by CaptionVerifierStep from the verdict ledger
+ * (`reports/caption_verdicts.json`), so re-entering the review opens on what was
+ * already decided; it falls back to "correct" when nothing is stored, when the
+ * entry was resolved, or when the caption changed underneath it.
  * @typedef {ImagePayload & {width: number|null, height: number|null, caption: string, caption_path: string, has_caption: boolean, initial_verdict: "correct"|"generic"|"wrong"}} CaptionVerifyItem
  *
  * @typedef {Object} CaptionVerifyPayload
@@ -222,10 +226,20 @@
  * @property {("correct"|"generic"|"wrong")[]} verdicts
  * @property {CaptionVerifyItem[]} items
  *
+ * One image in the bbox annotation batch. `done` marks an already-captioned
+ * image the workspace should leave alone; `verdict` names a caption verdict
+ * still in force, which tints the thumbnail. A flagged image always arrives
+ * `done: false` so it is re-captioned rather than skipped. Display-only — it is
+ * never sent back, since resolution is derived from "a caption was written".
+ * @typedef {ImagePayload & {annotations: Object[], done: boolean, verdict: "generic"|"wrong"|null}} BboxAnnotationItem
+ *
+ * @typedef {Object} BboxAnnotationPayload
+ * @property {BboxAnnotationItem[]} images
+ *
  * @typedef {Object} PendingInput
  * @property {string} id
  * @property {"source_review" | "bbox_annotation" | "vae_review" | "upscale_review" | "curate_details" | "bucket_pool_details" | "export_review" | "caption_verify" | "step_config"} kind
- * @property {ImagePayload | {items: SourceReviewItem[]} | {items: VaeReviewItem[]} | {items: UpscaleReviewItem[]} | CurateDetailsPayload | BucketPoolDetailsPayload | ExportReviewPayload | CaptionVerifyPayload | StepConfigPayload} payload
+ * @property {BboxAnnotationPayload | {items: SourceReviewItem[]} | {items: VaeReviewItem[]} | {items: UpscaleReviewItem[]} | CurateDetailsPayload | BucketPoolDetailsPayload | ExportReviewPayload | CaptionVerifyPayload | StepConfigPayload} payload
  */
 
 /**

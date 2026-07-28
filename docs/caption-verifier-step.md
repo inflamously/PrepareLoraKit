@@ -14,8 +14,13 @@ falls into one of three buckets:
 | `generic` | something plausible but unspecific | weak embedding — replace with a plain geometric description |
 | `wrong` | a different concept entirely | the term is mis-bound — remove it, it is actively harmful |
 
-Verdicts land in `reports/CaptionVerifierStep_report.json`; edited captions are written back to
-`dataset/<stem>.txt`.
+Verdicts land in `reports/CaptionVerifierStep_report.json` **and**
+`reports/caption_verdicts.json`; edited captions are written back to `dataset/<stem>.txt`.
+
+The report is a census of one run and is rebuilt from scratch every time, so it cannot carry a
+verdict forward. The ledger is the durable copy, and it is what closes the loop: `CaptionBboxStep`
+reads it on its next run, reopens the images judged `generic` or `wrong`, and tints their
+thumbnails — see [Verdict lifecycle](#verdict-lifecycle).
 
 ## Where it sits
 
@@ -38,6 +43,8 @@ would be `--force`, which would also invalidate VaeGate → Audit → Buckets �
 | `steps/caption_verifier/generation.py` | The `(prompt, options) -> dict` closure the UI's bridge RPC lands on. Owns preview filenames. |
 | `steps/caption_verifier/captions.py` | Caption discovery and atomic write-back with path containment. |
 | `steps/caption_verifier/reports.py` | Report assembly; every branch emits the same key set. |
+| `utils/verdict_ledger.py` | `VerdictLedger`: the durable verdict document, shared with `CaptionBboxStep`. Torch-free. |
+| `steps/caption_verifier/verdicts.py` | Verifier-side glue — seeding the modal from the ledger, recording its answers into it. |
 | `steps/caption_verifier/step.py` | `run()` orchestration. |
 
 UI: `prepare_lora_kit_ui/runner/caption_verify_interaction.py` (provider mixin),
@@ -58,6 +65,10 @@ Shortcuts: `1`/`2`/`3` judge the selected image, `←`/`→` move through the st
 from anywhere in the modal. A tile's verdict dot stays neutral until that image
 is actually judged — every item starts on the `correct` default, so a coloured
 dot everywhere would read as "all approved" before the review began.
+
+`initial_verdict` is seeded from the ledger by the step, so re-entering the
+review opens on what was already decided. A seeded tile counts as reviewed and
+wears its colour immediately: it *was* judged, just in an earlier session.
 
 ## Threading
 
@@ -182,9 +193,48 @@ FLUX.2 klein is a 9B transformer plus a Qwen3 text encoder. At nf4 with
 a 16 GB card. Never call `.to(device)` once offload hooks are installed — `_apply_placement`
 keeps those branches mutually exclusive.
 
+## Verdict lifecycle
+
+`reports/caption_verdicts.json` — one entry per judged image, keyed by resolved absolute path:
+
+```json
+{"version": 1, "entries": {"…/dataset/3.png": {
+  "verdict": "wrong", "caption_at_verdict": "tok, a red cube",
+  "updated_at": "2026-07-28T14:03:11", "resolved": false}}}
+```
+
+**`resolved` means exactly one thing: the caption this verdict judged has since been replaced.**
+Everything else follows from it — a resolved entry stops reopening the image, stops tinting its
+thumbnail, and stops seeding the review modal. The verdict text is kept forever as history.
+
+| event | effect |
+|---|---|
+| user judges an image | entry recorded, `resolved: false` |
+| user judges **and edits** the caption in the same modal | entry recorded `resolved: true` — see below |
+| `CaptionBboxStep` rewrites the caption | `resolved: true` |
+| user hits "Skip image" on a reopened one | unchanged; it comes back next run |
+| image not re-judged this run | untouched — verdict, caption and timestamp all survive |
+
+*Flag + edit is self-resolving.* The user marking a caption `wrong` and fixing it by hand in the
+same session has already done the work; leaving it flagged would send `CaptionBboxStep` back to
+overwrite the text they typed — and this modal is the one place the app lets a human write directly
+into training data. *Flag without edit* is what reopens for the VLM.
+
+Seeding is defensive in the same direction: `initial_verdict` falls back to `correct` when the
+entry is resolved **or** when `caption_at_verdict` no longer matches the caption on disk, which
+catches an edit made outside the app. Re-offering a stale `wrong` would point the user at a caption
+that no longer says what they rejected.
+
+The file lives beside the report and is located from the resolved report path's parent, never from
+`output_dir`: `report_path_for(output_dir)` has no `reports/` segment, and `CaptionBboxStep`'s
+`output_dir` is the working dataset, so deriving it from `output_dir` would put the two steps on
+different files. Writes are atomic (tmp + `os.replace`) and a missing or corrupt file degrades to
+empty rather than raising — a diagnostic document must never take a step down.
+
 ## Artifacts
 
 Renders go to `reports/CaptionVerifierStep_previews/<stem>_<hash>/gen_<seed>_<nnn>.png`.
+Verdicts go to `reports/caption_verdicts.json`. Neither is ever written inside `dataset/`.
 
 Two rules that look like details and are not:
 
@@ -207,6 +257,9 @@ The only step that lets a human free-type directly into training data, so:
 - Originals are backed up once to `CaptionVerifierStep_previews/captions_before/`.
 - Text is stored **as typed** apart from `.strip()`. The trigger token is not re-injected and
   captions are not re-normalized — removing a term the encoder mis-binds is the entire point.
+- An edit written here resolves that image's verdict, so `CaptionBboxStep` will not later reopen it
+  and hand the hand-typed text back to the VLM. See
+  [Verdict lifecycle](#verdict-lifecycle).
 
 ## Failure behaviour
 
