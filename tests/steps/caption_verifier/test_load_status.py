@@ -172,6 +172,80 @@ def test_a_nested_watch_leaves_the_outer_tap_intact():
     assert (tqdm.__init__, tqdm.update) == before
 
 
+# --- the weight tracker ----------------------------------------------------
+#
+# The tap is the only place the bars exist, so the tracker is fed from here
+# rather than by the caller. It is sampled per tick, not per bar: diffusers
+# advances a shard bar from a thread pool and the frontend reads 800 ms apart.
+
+class FakeTracker:
+    def __init__(self, sampled=(3, 10)):
+        self.bars = []
+        self._sampled = sampled
+
+    def note(self, bar):
+        self.bars.append(bar)
+
+    def snapshot(self):
+        return self._sampled
+
+
+def _first_tick(weights, *, drive=None):
+    ticks: list[load_status.LoadProgress] = []
+    seen = threading.Event()
+
+    def callback(progress):
+        ticks.append(progress)
+        seen.set()
+
+    with load_status.watch(callback, interval=0.02, weights=weights):
+        if drive is not None:
+            drive()
+        assert seen.wait(2.0), "no tick arrived"
+    return ticks[-1]
+
+
+def test_the_tracker_is_stamped_onto_every_tick():
+    assert _first_tick(FakeTracker()).weights == (3, 10)
+
+
+def test_the_tracker_sees_the_bars_the_tap_catches():
+    from tqdm.auto import tqdm
+
+    tracker = FakeTracker()
+
+    def drive():
+        bar = tqdm(total=6, desc="Loading checkpoint shards",
+                   file=io.StringIO(), mininterval=0)
+        bar.update(3)
+        bar.close()
+
+    _first_tick(tracker, drive=drive)
+
+    assert tracker.bars, "the tracker never saw the bar the detail line read"
+
+
+def test_a_tracker_with_nothing_to_report_leaves_the_tick_alone():
+    """An unmeasurable checkpoint costs the figure, never the heartbeat."""
+    assert _first_tick(FakeTracker(sampled=None)).weights is None
+
+
+def test_a_broken_tracker_never_stops_the_heartbeat():
+    class Exploding:
+        def note(self, bar):
+            raise RuntimeError("scan failed")
+
+        def snapshot(self):
+            raise RuntimeError("scan failed")
+
+    def drive():
+        from tqdm.auto import tqdm
+
+        tqdm(total=2, desc="shards", file=io.StringIO(), mininterval=0).close()
+
+    assert _first_tick(Exploding(), drive=drive).weights is None
+
+
 # --- formatting ------------------------------------------------------------
 
 @pytest.mark.parametrize("seconds, expected", [

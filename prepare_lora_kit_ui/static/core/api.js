@@ -270,6 +270,8 @@
  * @property {string} [detail] Live sub-progress, e.g. "Loading checkpoint shards · 3/6".
  * @property {number} [progress] 0..1 when the phase can be measured; absent otherwise.
  * @property {number} [elapsed_s] Seconds spent in this phase so far.
+ * @property {number} [weights_loaded_bytes] Checkpoint weights loaded so far. Both weight fields are absent until the files are on disk and measurable.
+ * @property {number} [weights_total_bytes] Size on disk of the weight files this load reads.
  */
 
 /**

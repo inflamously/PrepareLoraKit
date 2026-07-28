@@ -99,12 +99,22 @@ def _from_single_file(pipeline_cls, path: str, kwargs: dict):
     return loader(path, **single)
 
 
+def skipped_components(plan: GenerationPlan) -> tuple[str, ...]:
+    """Components this loader passes as ``None``, so the load never reads them.
+
+    diffusers drops them from ``init_dict``, which is both the thing it iterates
+    and the thing :mod:`.weights` counts against — so a component missing from
+    here would inflate the weight total and shift every position in it.
+    """
+    return ("safety_checker",) if plan.family == "sd15" else ()
+
+
 def _from_pretrained_kwargs(diffusers, plan: GenerationPlan) -> dict:
     import torch
 
     kwargs: dict[str, Any] = {"torch_dtype": _torch_dtype(torch, plan.dtype)}
 
-    if plan.family == "sd15":
+    if "safety_checker" in skipped_components(plan):
         # A false-positive safety trip returns a black image, which reads as
         # "the model doesn't know this term" — an actively misleading verdict.
         kwargs["safety_checker"] = None

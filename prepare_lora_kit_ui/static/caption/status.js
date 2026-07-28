@@ -23,6 +23,8 @@ export function renderCaptionStatus(element, status) {
   if (elapsed) parts.push(elapsed);
 
   const nodes = [line("caption-status__line", parts.join(" - "))];
+  const weights = weightsLine(status);
+  if (weights) nodes.push(line("caption-status__weights", weights));
   if (status.detail) nodes.push(line("caption-status__detail", status.detail));
   const bar = progressBar(status.progress);
   if (bar) nodes.push(bar);
@@ -38,6 +40,37 @@ export function formatElapsed(seconds) {
   const total = Math.max(0, Math.floor(seconds));
   if (total < 60) return `${total}s`;
   return `${Math.floor(total / 60)}m ${String(total % 60).padStart(2, "0")}s`;
+}
+
+// How much of the checkpoint is in, for the minutes a big one spends landing.
+// The detail line below counts whatever unit the current tqdm bar happens to
+// use — shards of an unnamed component — so this is the only line that says how
+// far through the *load* it is.
+//
+// Skipped rather than zeroed when the step publishes nothing: "0.0 / 0.0 GB"
+// reads as a checkpoint with no weights in it. The step omits both fields
+// whenever it cannot measure the files, which includes the whole first-run
+// download, when nothing is loaded because nothing has arrived yet.
+function weightsLine(status) {
+  const loaded = Number(status.weights_loaded_bytes);
+  const total = Number(status.weights_total_bytes);
+  if (!Number.isFinite(loaded) || !Number.isFinite(total) || total <= 0) return "";
+  const done = Math.min(Math.max(loaded, 0), total);
+  const percent = Math.round((done / total) * 100);
+  return `Weights ${formatSizePair(done, total)} · ${percent}%`;
+}
+
+// "6.2 / 9.4 GB" — both figures in the total's unit, so the pair reads as one
+// measurement rather than two. Mirrors load_status._bytes on the Python side,
+// which formats the download line the same way.
+const SIZE_UNITS = ["B", "KB", "MB", "GB", "TB"];
+
+function formatSizePair(loaded, total) {
+  let step = 0;
+  while (total >= 1024 ** (step + 1) && step < SIZE_UNITS.length - 1) step += 1;
+  const scale = 1024 ** step;
+  const digits = step <= 1 ? 0 : 1;
+  return `${(loaded / scale).toFixed(digits)} / ${(total / scale).toFixed(digits)} ${SIZE_UNITS[step]}`;
 }
 
 function line(className, text) {

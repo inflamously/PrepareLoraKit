@@ -6,9 +6,11 @@ import { CAPTION_VERDICTS } from "../utils/verdicts.js";
 // the textarea's value from the caption store rather than rebuilding the DOM,
 // so focus and scroll position survive navigation.
 //
-// The live model status is deliberately *not* here: it belongs beside the
-// Render button and the spinner it explains, so it lives in the preview pane's
-// notices (`preview.js`).
+// The live model status rides along here rather than beside the Render button
+// that starts it: the preview pane is the only column that scrolls, and its
+// notices row sits below two figures, so a ten-minute load would announce
+// itself off-screen. Above the textarea, not below it, so a long caption can
+// never push it down.
 export function createCaptionEditor(panel, { onInput, onVerdict } = {}) {
   panel.innerHTML = `
     <div class="caption-verify-editor__panel">
@@ -18,6 +20,7 @@ export function createCaptionEditor(panel, { onInput, onVerdict } = {}) {
         </span>
         <span class="caption-verify-editor__count" id="captionVerifyCount"></span>
       </header>
+      <div id="captionVerifyStatus" class="caption-status hidden"></div>
       <textarea class="nf-input caption-verify-text" data-caption spellcheck="false"
                 aria-label="Caption under test" title="Edit this caption"></textarea>
     </div>

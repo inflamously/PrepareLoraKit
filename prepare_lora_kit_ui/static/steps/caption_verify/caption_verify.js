@@ -262,13 +262,16 @@ class CaptionVerify {
       },
       { onGenerate: (options) => this.generate(options) },
     );
-    // The pane was just rebuilt, so its status element is empty again.
+    // The pane was just rebuilt, so its wait label is back to whatever the
+    // template guessed without a job status to read.
     this.showJobStatus(state.job?.caption_status);
   }
 
+  // The status badge lives in the editor column and the wait label in the
+  // preview pane, so this reaches for the modal rather than either one.
   showJobStatus(status) {
     if (this.closed) return;
-    renderCaptionStatus(this.panel.querySelector("#captionVerifyStatus"), status);
+    renderCaptionStatus(this.modal.querySelector("#captionVerifyStatus"), status);
     setPreviewWaitLabel(this.panel, {
       jobStatus: status,
       elapsedSeconds: this.elapsedSeconds,

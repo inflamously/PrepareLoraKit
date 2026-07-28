@@ -27,6 +27,7 @@ from prepare_lora_kit.steps.caption_verifier import (
     load_status,
     loader,
     runtime_env,
+    weights,
 )
 from prepare_lora_kit.steps.caption_verifier.plan import GenerationPlan, resolve_plan
 
@@ -309,18 +310,26 @@ class T2IRuntime:
         """
         started = time.perf_counter()
         message = f"Loading {plan.model_id}…"
+        loaded_weights = weights.WeightProgress(
+            plan.model_id, skip=loader.skipped_components(plan),
+        )
 
         def _tick(progress: load_status.LoadProgress) -> None:
+            done, total = progress.weights or (None, None)
             self._set_status(
                 "loading", message, plan=plan,
                 detail=progress.detail,
-                progress=progress.fraction,
+                progress=_load_fraction(progress),
                 elapsed_s=int(time.perf_counter() - started),
+                weights_loaded_bytes=done,
+                weights_total_bytes=total,
             )
 
         _tick(load_status.LoadProgress())
         try:
-            with load_status.watch(_tick, interval=_PROGRESS_INTERVAL_S):
+            with load_status.watch(
+                _tick, interval=_PROGRESS_INTERVAL_S, weights=loaded_weights,
+            ):
                 pipe = loader.load_pipeline(plan)
         except Exception as exc:
             # Without this the banner sits on "Loading…" for the rest of the
@@ -381,6 +390,21 @@ def unload() -> None:
 
 
 # --- helpers ---------------------------------------------------------------
+
+def _load_fraction(progress: load_status.LoadProgress) -> float | None:
+    """The bar's fraction for a load: weights first, tqdm second.
+
+    A tqdm fraction belongs to one component, so a bar driven by it walks 0→100%
+    once per component and lands back at the start each time — on a pipeline with
+    four of them that reads as three restarts. Weight bytes are measured against
+    the whole checkpoint, so the same bar only ever moves forward.
+    """
+    if progress.weights:
+        done, total = progress.weights
+        if total > 0:
+            return min(1.0, done / total)
+    return progress.fraction
+
 
 def _coerce_int(value: int | None, fallback: int) -> int:
     if value is None:

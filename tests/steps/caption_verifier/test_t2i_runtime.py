@@ -7,10 +7,12 @@ concurrent RPC thread, family-aware call kwargs, and teardown.
 """
 from __future__ import annotations
 
+import dataclasses
 import io
 import threading
 import time
 import types
+from contextlib import contextmanager
 
 import pytest
 from PIL import Image
@@ -448,3 +450,74 @@ def test_denoising_steps_report_progress(monkeypatch):
     seen = [entry for entry in published if entry["phase"] == "generating"]
     assert seen[-1]["message"] == "Denoising 4/4"
     assert seen[-1]["progress"] == pytest.approx(1.0)
+
+
+# --- weights ---------------------------------------------------------------
+#
+# A 9B load spends minutes inside one opaque call. How much of the checkpoint
+# has actually landed is the one thing the elapsed counter cannot say.
+
+def test_the_loading_status_reports_weights_loaded(monkeypatch):
+    runtime, _, published = _statuses(monkeypatch)
+    _measure(monkeypatch, (6_200_000_000, 9_400_000_000))
+
+    runtime.generate("prompt")
+
+    assert _last_loading(published)["weights_loaded_bytes"] == 6_200_000_000
+    assert _last_loading(published)["weights_total_bytes"] == 9_400_000_000
+
+
+def test_the_progress_bar_follows_the_weights_not_the_current_bar(monkeypatch):
+    """A tqdm fraction restarts per component; the checkpoint fraction cannot."""
+    runtime, _, published = _statuses(monkeypatch)
+    _measure(
+        monkeypatch, (6_000_000_000, 8_000_000_000),
+        # The bar for the component in flight has only just started.
+        progress=t2i.load_status.LoadProgress(detail="shards", fraction=0.1),
+    )
+
+    runtime.generate("prompt")
+
+    loading = _last_loading(published)
+    assert loading["progress"] == pytest.approx(0.75)
+    assert loading["detail"] == "shards"
+
+
+def test_status_omits_weights_when_the_checkpoint_cannot_be_measured(monkeypatch):
+    """A first-run download has nothing loaded; "0 / 0 GB" would claim it does."""
+    runtime, _, published = _statuses(monkeypatch)
+    _measure(monkeypatch, None)
+
+    runtime.generate("prompt")
+
+    assert all("weights_loaded_bytes" not in entry for entry in published)
+    assert all("weights_total_bytes" not in entry for entry in published)
+
+
+def _last_loading(published):
+    """The newest ``loading`` snapshot.
+
+    Not the first: that one is published before the watcher even starts, so it
+    is the only tick of a load that can carry no measurement.
+    """
+    return [entry for entry in published if entry["phase"] == "loading"][-1]
+
+
+def _measure(monkeypatch, sampled, *, progress=None):
+    """Make the load's weight tracker report ``sampled`` on every tick.
+
+    Patches ``watch`` rather than the tracker: the wiring under test is that
+    ``_load_pipeline`` hands one to the watcher at all, and that whatever comes
+    back on a tick reaches the published status.
+    """
+
+    @contextmanager
+    def fake_watch(callback, *, interval=1.0, weights=None):
+        assert weights is not None, "the load must give the watcher a tracker"
+        tick = progress or t2i.load_status.LoadProgress()
+        if sampled is not None:
+            tick = dataclasses.replace(tick, weights=sampled)
+        callback(tick)
+        yield
+
+    monkeypatch.setattr(t2i.load_status, "watch", fake_watch)

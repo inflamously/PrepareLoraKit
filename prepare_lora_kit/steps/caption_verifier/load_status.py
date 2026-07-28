@@ -6,11 +6,14 @@ returns nothing at all until it is finished. The review modal polls the job
 every 800 ms, so unless something emits *during* that call the UI shows one
 frozen line, which is indistinguishable from a hang.
 
-Two signals, one context manager:
+Three signals, one context manager:
 
 * a **heartbeat**, so the elapsed counter keeps moving even while the load has
   nothing to say. This is the part that makes "slow" readable as slow;
-* a **tqdm tap**, because a tqdm bar is the only progress Hugging Face exposes.
+* a **tqdm tap**, because a tqdm bar is the only progress Hugging Face exposes;
+* the **weights loaded so far**, when the caller passes a tracker to convert
+  those bars into bytes (:mod:`.weights`). A bar says "3/6 shards of whichever
+  component this is"; bytes say how much of the checkpoint is in.
 
 The tap patches ``tqdm.std.tqdm`` rather than ``tqdm.auto.tqdm`` on purpose:
 diffusers, transformers and huggingface_hub each did ``from tqdm.auto import
@@ -26,8 +29,8 @@ from __future__ import annotations
 
 import threading
 from contextlib import contextmanager
-from dataclasses import dataclass
-from typing import Any, Callable, Iterator
+from dataclasses import dataclass, replace
+from typing import Any, Callable, Iterator, Protocol
 
 _UNITS = ("B", "KB", "MB", "GB", "TB")
 
@@ -39,23 +42,47 @@ _TAP_LOCK = threading.Lock()
 
 @dataclass(frozen=True)
 class LoadProgress:
-    """What to say about a load in flight, if anything."""
+    """What to say about a load in flight, if anything.
+
+    ``weights`` is ``(loaded_bytes, total_bytes)`` and only ever set by the
+    watcher — :func:`describe_bar` reads one bar, which cannot know what the
+    rest of the checkpoint weighs.
+    """
 
     detail: str | None = None
     fraction: float | None = None
+    weights: tuple[int, int] | None = None
 
 
 ProgressCallback = Callable[[LoadProgress], None]
 
 
+class WeightTracker(Protocol):
+    """The slice of :class:`weights.WeightProgress` the watcher drives."""
+
+    def note(self, bar: Any) -> None: ...
+
+    def snapshot(self) -> tuple[int, int] | None: ...
+
+
 @contextmanager
-def watch(callback: ProgressCallback, *, interval: float = 1.0) -> Iterator[None]:
+def watch(
+    callback: ProgressCallback,
+    *,
+    interval: float = 1.0,
+    weights: WeightTracker | None = None,
+) -> Iterator[None]:
     """Call ``callback`` every ``interval`` seconds while the block runs.
 
     The callback always receives the most recent progress seen, so a caller can
     stamp its own elapsed time onto every tick without the load cooperating.
+
+    ``weights`` also receives every bar, and is sampled onto each tick. It is
+    fed here rather than by the caller because the bars only exist inside the
+    tap, and it is sampled on the tick rather than on the bar because a shard
+    bar can fire hundreds of times a second on a thread pool.
     """
-    watcher = _Watcher(callback, interval)
+    watcher = _Watcher(callback, interval, weights)
     watcher.start()
     try:
         with _tqdm_tap(watcher.note):
@@ -67,9 +94,15 @@ def watch(callback: ProgressCallback, *, interval: float = 1.0) -> Iterator[None
 class _Watcher:
     """Timer thread plus the last tqdm bar it was told about."""
 
-    def __init__(self, callback: ProgressCallback, interval: float) -> None:
+    def __init__(
+        self,
+        callback: ProgressCallback,
+        interval: float,
+        weights: WeightTracker | None = None,
+    ) -> None:
         self._callback = callback
         self._interval = max(0.1, float(interval))
+        self._weights = weights
         self._lock = threading.Lock()
         self._progress = LoadProgress()
         self._stop = threading.Event()
@@ -89,6 +122,8 @@ class _Watcher:
 
     def note(self, bar: Any) -> None:
         """Record a tqdm bar. Runs on whichever thread drives the bar."""
+        if self._weights is not None:
+            _safe(self._weights.note, bar)
         progress = describe_bar(bar)
         if progress is None:
             return
@@ -101,9 +136,19 @@ class _Watcher:
             with self._lock:
                 progress = self._progress
             try:
-                self._callback(progress)
+                self._callback(self._weigh(progress))
             except Exception:  # pragma: no cover - progress is best effort
                 pass
+
+    def _weigh(self, progress: LoadProgress) -> LoadProgress:
+        """Stamp the current weight total onto a tick, if there is one."""
+        if self._weights is None:
+            return progress
+        try:
+            sampled = self._weights.snapshot()
+        except Exception:  # pragma: no cover - progress is best effort
+            return progress
+        return replace(progress, weights=sampled) if sampled else progress
 
 
 @contextmanager

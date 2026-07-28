@@ -32,6 +32,7 @@ would be `--force`, which would also invalidate VaeGate → Audit → Buckets �
 | `steps/caption_verifier/plan.py` | Pure VRAM planner: config + environment → `GenerationPlan`. No torch, no GPU. |
 | `steps/caption_verifier/loader.py` | All diffusers imports. Pipeline-class resolution, quantization, placement, memory savers. |
 | `steps/caption_verifier/load_status.py` | Live progress while the load blocks: heartbeat thread + tqdm tap. Torch-free. |
+| `steps/caption_verifier/weights.py` | Turns those tqdm bars into weight bytes loaded, against the checkpoint's real size on disk. Torch-free, cache-only. |
 | `steps/caption_verifier/runtime_env.py` | Everything the runtime says to torch: VRAM probe, CPU generator, hook freeing, cache release. |
 | `steps/caption_verifier/t2i.py` | `T2IRuntime`: module-level cache + `threading.Lock`, lazy load, seeds, truncation detection, status, teardown. |
 | `steps/caption_verifier/generation.py` | The `(prompt, options) -> dict` closure the UI's bridge RPC lands on. Owns preview filenames. |
@@ -48,8 +49,8 @@ Three regions, one job each (`static/steps/caption_verify/components/`):
 
 | region | file | holds |
 |---|---|---|
-| editor (left) | `editor.js` | the caption under test — the only editable copy — its char/token counts, and the one verdict control |
-| preview (right) | `preview.js` | source vs render, the render settings strip, Render/Re-roll, and the notices (live model status, stale, truncated, error) |
+| editor (left) | `editor.js` | the live model status, the caption under test — the only editable copy — its char/token counts, and the one verdict control |
+| preview (right) | `preview.js` | source vs render, the render settings strip, Render/Re-roll, and the notices about this render (stale, truncated, error) |
 | filmstrip (footer) | `strip.js` | navigation only: one tile per image, verdict dot, edited marker |
 
 Shortcuts: `1`/`2`/`3` judge the selected image, `←`/`→` move through the strip
@@ -95,17 +96,44 @@ minutes — first-run download, shard reads, quantization, offload wiring — in
 `loader.load_pipeline` call that returns nothing until it is finished. The bridge call the modal is
 awaiting is blocked for all of it, so the **job poll is the only channel still speaking**.
 
-Three things ride it (`T2IRuntime._set_status` → `job.set_caption_status` → `pollJob`):
+Four things ride it (`T2IRuntime._set_status` → `job.set_caption_status` → `pollJob`):
 
 | field | what it carries |
 |---|---|
 | `phase` | `resolving` → `loading` → `generating` → `ready`, or `failed` |
 | `detail` | the current tqdm bar, e.g. `Loading checkpoint shards · 3/6` or `model-00002-of-00006.safetensors · 2.0 GB / 4.0 GB` |
 | `progress` / `elapsed_s` | fraction for the bar, seconds for the clock |
+| `weights_loaded_bytes` / `weights_total_bytes` | how much of the checkpoint is in, e.g. `Weights 6.2 / 9.4 GB · 66%` |
+
+The weight pair comes from `weights.WeightProgress`, which converts the load's own tqdm bars into
+bytes. **The total is exact** — the size on disk of the weight files this load reads, taken from the
+Hugging Face cache, not from the `params_b` estimates in `catalog.py` (those are for picking a
+quantization tier and are wrong by whatever the format and the quantization decided). The loaded
+figure is component-granular: `Loading pipeline components...` says how many components are done, and
+this turns each into its real size, because a VAE and a 9B transformer are one step of that bar
+apiece and two orders of magnitude apart. Inside the big ones, `Loading checkpoint shards` refines it
+further — which is exactly where the wait is.
+
+`progress` is derived from the same pair whenever it is available. A raw tqdm fraction belongs to one
+component, so a bar driven by it runs 0→100% once per component; measured against the whole
+checkpoint it only ever moves forward. For the same reason the byte figure is high-watermarked.
+
+Both fields are omitted (never zeroed) when the checkpoint cannot be measured: a single-file model
+id, an unreadable cache, and the whole of a first-run download — during which nothing is loaded
+because nothing has arrived yet, and the download's own byte counts are already on the `detail` line.
+`WeightProgress` re-reads the cache on each tick until it succeeds, so the line appears by itself the
+moment the files land. It never imports torch, diffusers or `huggingface_hub` at module scope, and it
+never makes a Hub request — a network round trip on the heartbeat would buy a status line at the cost
+of the thing it describes.
+
+Components the loader passes as `None` (SD 1.5's `safety_checker`) are declared by
+`loader.skipped_components`, the same function that builds the kwargs. diffusers drops them from
+`init_dict`, which is both what it iterates and what this counts against, so a missing entry would
+inflate the total and shift every position in it.
 
 Every snapshot is rebuilt from scratch, so a `detail` from the load can never linger over a render.
 
-`load_status.watch()` supplies the two signals the load itself does not:
+`load_status.watch()` supplies the signals the load itself does not:
 
 - a **heartbeat** (1 s, matched to the UI's 800 ms poll) that re-publishes the current phase with a
   fresh `elapsed_s`. Without it a slow load and a hung one are the same screen;
@@ -115,14 +143,19 @@ Every snapshot is rebuilt from scratch, so a `detail` from the load can never li
   rebinding it now would reach none of them — but every one of those names is a subclass that
   inherits `update` and calls `super().__init__()`. The tap is restored in a `finally`, acquired
   non-blocking (a second tap skips rather than unpatching out of order), and every callback is
-  swallowed: losing the detail line must never cost the load.
+  swallowed: losing the detail line must never cost the load;
+- a **weight tracker** (`weights=`), fed every bar the tap sees and sampled once per tick rather than
+  per bar — diffusers advances a shard bar from a thread pool, hundreds of times a second, and the
+  frontend reads 800 ms apart.
 
 A load that raises publishes `failed` on the way out. The exception surfaces on the RPC thread as a
 rejected promise, and nothing else would ever write the banner again — it would sit on "Loading…"
 for the rest of the run.
 
-Frontend: the status lives in the preview pane's notices (`components/preview.js`), beside the
-button and spinner it explains. The placeholder says **"Loading model… 6m 12s"** while the phase is
+Frontend: the status sits above the caption box (`components/editor.js`), not beside the Render
+button that starts it — the preview pane is the only column that scrolls, so a status parked at the
+bottom of its notices is below the fold on a short window, which is exactly where a ten-minute load
+must not be. The placeholder says **"Loading model… 6m 12s"** while the phase is
 `loading`, not "Rendering…" — the modal's own 1 s ticker retouches that label in place rather than
 re-rendering the pane, which would otherwise re-parse both `<img>` tags several hundred times
 across a ten-minute load.

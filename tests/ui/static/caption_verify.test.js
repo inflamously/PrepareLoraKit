@@ -468,6 +468,40 @@ describe("caption verify modal", () => {
     assert.match(layer().querySelector("#captionVerifyStatus").textContent, /Denoising 3\/4/);
   });
 
+  // The preview pane is the only scrolling column and its notices row is last
+  // in it, under two 200px+ figures — on a short window a ten-minute load would
+  // report itself below the fold. The caption column never scrolls.
+  it("keeps the model status in the caption column, above the textarea", async () => {
+    showCaptionVerify(captionVerifyPending(), { onSubmitted: calls() });
+
+    await publishStatus({ phase: "loading", message: "Loading…" });
+
+    const status = layer().querySelector("#captionVerifyStatus");
+    assert.ok(
+      status.closest(".caption-verify-editor__panel"),
+      "the badge belongs to the column that cannot scroll it out of view",
+    );
+    assert.ok(
+      status.compareDocumentPosition(editor()) &
+        window.Node.DOCUMENT_POSITION_FOLLOWING,
+      "a badge below the caption box gets pushed around by its content",
+    );
+  });
+
+  it("keeps the status on screen while a render rebuilds the preview", async () => {
+    const release = deferRender();
+    showCaptionVerify(captionVerifyPending(), { onSubmitted: calls() });
+
+    await publishStatus({ phase: "loading", message: "Loading…" });
+    await generate();
+
+    assert.match(
+      layer().querySelector("#captionVerifyStatus").textContent,
+      /Loading…/,
+    );
+    await release();
+  });
+
   // The first render of a run pays for the model load: minutes for a 9B FLUX.2
   // klein, during which the awaited bridge call returns nothing at all. The job
   // poll is the only channel that stays open, so everything below is about what
@@ -514,6 +548,54 @@ describe("caption verify modal", () => {
       "50%",
     );
     await release();
+  });
+
+  // How far through a load that has been going for six minutes actually is, is
+  // the one thing an elapsed counter cannot say. The detail line below counts
+  // shards of an unnamed component; only this counts the checkpoint.
+  const GB = 1024 ** 3;
+
+  it("reports how much of the checkpoint has loaded", async () => {
+    showCaptionVerify(captionVerifyPending(), { onSubmitted: calls() });
+
+    await publishStatus({
+      phase: "loading",
+      message: "Loading…",
+      weights_loaded_bytes: 6.2 * GB,
+      weights_total_bytes: 9.4 * GB,
+    });
+
+    assert.match(
+      layer().querySelector("#captionVerifyStatus").textContent,
+      /Weights 6\.2 \/ 9\.4 GB · 66%/,
+    );
+  });
+
+  it("says nothing about weights when the step cannot measure them", async () => {
+    showCaptionVerify(captionVerifyPending(), { onSubmitted: calls() });
+
+    await publishStatus({ phase: "loading", message: "Loading…" });
+
+    // "0.0 / 0.0 GB" would read as a checkpoint with no weights in it, and a
+    // first-run download publishes nothing until the files are on disk.
+    assert.equal(layer().querySelector(".caption-status__weights"), null);
+  });
+
+  it("scales both weight figures to one unit", async () => {
+    showCaptionVerify(captionVerifyPending(), { onSubmitted: calls() });
+
+    await publishStatus({
+      phase: "loading",
+      message: "Loading…",
+      weights_loaded_bytes: 512 * 1024 * 1024,
+      weights_total_bytes: 2 * GB,
+    });
+
+    // "512.0 MB / 2.0 GB" is two measurements; this is one.
+    assert.match(
+      layer().querySelector(".caption-status__weights").textContent,
+      /Weights 0\.5 \/ 2\.0 GB · 25%/,
+    );
   });
 
   it("omits the progress bar when the phase cannot be measured", async () => {

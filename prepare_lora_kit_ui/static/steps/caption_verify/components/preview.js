@@ -2,10 +2,6 @@ import { escapeText } from "../../../core/dom.js";
 import { formatElapsed } from "../../../caption/status.js";
 import { isPreviewStale } from "../utils/previews.js";
 
-// The right pane, top to bottom: the real image beside what the text encoder
-// made of its caption, then the render controls, then anything the run wants to
-// say about it. The caption itself is deliberately absent — the editor on the
-// left owns the one copy, so there is nothing here to read twice or desync.
 export function renderCaptionPreview(panel, item, view, handlers) {
   if (!item) {
     panel.innerHTML = `
@@ -45,7 +41,6 @@ export function renderCaptionPreview(panel, item, view, handlers) {
       </div>
     </div>
     <div class="caption-verify-notices">
-      <div id="captionVerifyStatus" class="caption-status hidden"></div>
       <div class="caption-verify-stale" ${isPreviewStale(preview, caption) ? "" : "hidden"}>
         Caption edited since this render
       </div>

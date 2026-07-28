@@ -77,6 +77,18 @@
   letter-spacing: 0;
 }
 
+.caption-verify-editor .caption-status {
+  flex: 0 0 auto;
+  border: 1px solid rgba(56, 214, 160, 0.32);
+  border-radius: var(--radius-md);
+  padding: 8px 10px;
+  font-size: 12px;
+}
+
+.caption-verify-editor .caption-status[data-phase="failed"] {
+  border-color: rgba(255, 92, 106, 0.45);
+}
+
 /* .nf-input hard-sets height: var(--control-h-md); step_config.css overrides it
    the same way for its prompt textarea. */
 .caption-verify-text {
@@ -290,19 +302,6 @@
   color: #ffd7dc;
   padding: 8px 10px;
   font-size: 12px;
-}
-
-/* job.css styles .caption-status as a full-width run banner; inside the pane it
-   has to read as one of the notice boxes above it. */
-.caption-verify-preview .caption-status {
-  border: 1px solid rgba(56, 214, 160, 0.32);
-  border-radius: var(--radius-md);
-  padding: 8px 10px;
-  font-size: 12px;
-}
-
-.caption-verify-preview .caption-status[data-phase="failed"] {
-  border-color: rgba(255, 92, 106, 0.45);
 }
 
 .caption-verify-empty {

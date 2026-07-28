@@ -22,6 +22,16 @@
   color: #ffd0d0;
 }
 
+/* Sits between the phase and its detail: a measurement rather than a step in
+   the load, so it is tabular and quiet but not as faint as the detail. */
+.caption-status__weights {
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: var(--weight-regular, 400);
+  opacity: 0.9;
+  font-variant-numeric: tabular-nums;
+}
+
 /* The load detail is supporting evidence for the line above it — never louder
    than the phase it belongs to. */
 .caption-status__detail {
