@@ -25,8 +25,10 @@ from prepare_lora_kit.providers.interaction import InteractionProvider
 from prepare_lora_kit.report import reporter
 from prepare_lora_kit.steps.caption_verifier import captions as caption_io
 from prepare_lora_kit.steps.caption_verifier import reports
+from prepare_lora_kit.steps.caption_verifier import verdicts
 from prepare_lora_kit.steps.caption_verifier.generation import make_caption_generator
 from prepare_lora_kit.steps.caption_verifier.t2i import T2IRuntime
+from prepare_lora_kit.utils.verdict_ledger import VerdictLedger
 
 STEP_TYPE = "CaptionVerifierStep"
 PREVIEW_DIR_NAME = "CaptionVerifierStep_previews"
@@ -169,6 +171,16 @@ def run(
             reporter.warn(
                 f"Caption not written ({entry['reason']}): {Path(entry['path']).name}"
             )
+
+    # After the edits so a hand-fixed caption is recorded as already resolved,
+    # and beside the report rather than in it: the report is rebuilt from
+    # scratch every run, so it cannot carry a verdict forward.
+    if results:
+        ledger = VerdictLedger(target_report.parent)
+        verdicts.record_results(
+            ledger, items=items, results=results, applied=applied,
+        )
+        ledger.save()
 
     if not keep_previews:
         # Prune before building the report so it can never cite a deleted file.

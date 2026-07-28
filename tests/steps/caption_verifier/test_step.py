@@ -17,6 +17,7 @@ from PIL import Image
 from prepare_lora_kit.cancellation import CancelledRun
 from prepare_lora_kit.steps.caption_verifier import step as verifier_step
 from prepare_lora_kit.utils import image as img_utils
+from prepare_lora_kit.utils.verdict_ledger import VerdictLedger
 
 
 class FakeRuntime:
@@ -189,6 +190,91 @@ def test_run_does_not_write_captions_when_the_apply_substep_is_disabled(dataset,
     assert (dataset / "one.txt").read_text(encoding="utf-8") == "tok, a red cube"
     assert report["statistics"]["captions_edited"] == 0
     assert report["substeps"]["apply_caption_edits"]["enabled"] is False
+
+
+# --- the verdict ledger ----------------------------------------------------
+#
+# The report is rebuilt from scratch every run, so it cannot carry a verdict
+# into the next one. The ledger is what CaptionBboxStep later reads to decide
+# which captioned images to reopen, which makes these the tests that keep the
+# verify → fix loop working.
+
+def test_run_writes_verdicts_to_the_ledger(dataset, tmp_path):
+    provider = Provider(results={
+        str(dataset / "one.png"): {"verdict": "wrong"},
+        str(dataset / "two.png"): {"verdict": "correct"},
+    })
+
+    _run(dataset, tmp_path, provider)
+
+    ledger = VerdictLedger(tmp_path / "reports")
+    assert ledger.verdict_for(dataset / "one.png") == "wrong"
+    assert ledger.verdict_for(dataset / "two.png") == "correct"
+    assert ledger.is_flagged(dataset / "one.png") is True
+    assert ledger.is_flagged(dataset / "two.png") is False
+
+
+def test_an_image_not_re_judged_keeps_its_earlier_verdict(dataset, tmp_path):
+    """A second pass that judges only one image must not wipe the other."""
+    _run(dataset, tmp_path, Provider(results={
+        str(dataset / "one.png"): {"verdict": "wrong"},
+        str(dataset / "two.png"): {"verdict": "generic"},
+    }))
+
+    _run(dataset, tmp_path, Provider(results={
+        str(dataset / "one.png"): {"verdict": "correct"},
+    }))
+
+    ledger = VerdictLedger(tmp_path / "reports")
+    assert ledger.verdict_for(dataset / "one.png") == "correct"
+    assert ledger.verdict_for(dataset / "two.png") == "generic"
+
+
+def test_a_flag_edited_in_the_same_review_is_recorded_resolved(dataset, tmp_path):
+    """flag + edit means the user already fixed it by hand.
+
+    Leaving it flagged would send CaptionBboxStep back to overwrite the text
+    they typed — the one place the app lets a human write training data.
+    """
+    provider = Provider(results={
+        str(dataset / "one.png"): {"verdict": "wrong", "caption": "a red cube"},
+    })
+
+    _run(dataset, tmp_path, provider)
+
+    entry = VerdictLedger(tmp_path / "reports").entry_for(dataset / "one.png")
+    assert entry.verdict == "wrong"
+    assert entry.resolved is True
+    assert entry.caption_at_verdict == "a red cube"
+
+
+def test_a_flag_without_an_edit_stays_unresolved(dataset, tmp_path):
+    provider = Provider(results={str(dataset / "one.png"): {"verdict": "wrong"}})
+
+    _run(dataset, tmp_path, provider)
+
+    entry = VerdictLedger(tmp_path / "reports").entry_for(dataset / "one.png")
+    assert entry.resolved is False
+    assert entry.caption_at_verdict == "tok, a red cube"
+
+
+def test_ledger_records_the_original_caption_when_edits_are_disabled(dataset, tmp_path):
+    """Nothing was written, so the verdict still describes the on-disk text."""
+    provider = Provider(results={
+        str(dataset / "one.png"): {"verdict": "wrong", "caption": "rewritten"},
+    })
+
+    _run(dataset, tmp_path, provider, enabled_substeps=["verify_captions"])
+
+    entry = VerdictLedger(tmp_path / "reports").entry_for(dataset / "one.png")
+    assert entry.caption_at_verdict == "tok, a red cube"
+    assert entry.resolved is False
+
+
+def test_no_ledger_is_written_when_the_step_skips(dataset, tmp_path):
+    _run(dataset, tmp_path, None)
+
+    assert not (tmp_path / "reports" / "caption_verdicts.json").exists()
 
 
 # --- artifact containment --------------------------------------------------

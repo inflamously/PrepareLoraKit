@@ -32,6 +32,7 @@ def _mock_caption_verifier(
     from prepare_lora_kit.report import reporter
     from prepare_lora_kit.steps.caption_verifier import captions as caption_io
     from prepare_lora_kit.steps.caption_verifier import reports
+    from prepare_lora_kit.steps.caption_verifier import verdicts
     from prepare_lora_kit.steps.caption_verifier.loader import preview_dir_for
     from prepare_lora_kit.steps.caption_verifier.step import (
         BACKUP_DIR_NAME,
@@ -39,6 +40,7 @@ def _mock_caption_verifier(
         STEP_TYPE,
     )
     from prepare_lora_kit.project.pipeline.substeps import substep_ids_for
+    from prepare_lora_kit.utils.verdict_ledger import VerdictLedger
 
     reporter.step_header("Caption Verifier — Text-Encoder Probe (mock)")
     enabled = set(enabled_substeps or substep_ids_for(STEP_TYPE))
@@ -101,6 +103,15 @@ def _mock_caption_verifier(
         applied, rejected = caption_io.apply_caption_edits(
             working_dir, edits, backup_dir=preview_root / BACKUP_DIR_NAME,
         )
+
+    # Same ledger write as the real step, so --mock exercises the whole
+    # verify → reopen-in-CaptionBbox loop on a machine with no GPU.
+    if results:
+        ledger = VerdictLedger(report_path.parent)
+        verdicts.record_results(
+            ledger, items=items, results=results, applied=applied,
+        )
+        ledger.save()
 
     report_data = reports.build_report(
         items=items,
