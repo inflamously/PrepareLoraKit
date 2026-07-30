@@ -32,9 +32,13 @@ export function renderSteps() {
 function renderStep(step) {
   const row = document.createElement("div");
   const disabled = isActiveJob() ? "disabled" : "";
-  const running = state.job?.current_step === step.type;
-  const completed = state.job?.completed_steps?.includes(step.type);
-  const invalidated = state.job?.invalidated_steps?.includes(step.type);
+  // Only a job still in flight may override the persisted status. A finished
+  // job's snapshot sticks around for its log panel, and letting it keep painting
+  // badges meant a step stayed "done" after its run-state and report were gone.
+  const job = liveJob();
+  const running = job?.current_step === step.type;
+  const completed = job?.completed_steps?.includes(step.type);
+  const invalidated = job?.invalidated_steps?.includes(step.type);
   const status = completed
     ? "done"
     : running
@@ -73,7 +77,7 @@ function renderStep(step) {
         attention ? ` <span class="nf-step__hint">&middot; recommended</span>` : ""
       }</small>
     </div>
-    <span class="step-status nf-step__status ${pillClass(status)}">${escapeText(status)}</span>
+    <span class="step-status nf-step__status ${pillClass(status)}"${statusTitle(step, status)}>${escapeText(status)}</span>
     <button class="nf-step__help" type="button" title="What does this step do?" aria-label="Step help">?</button>
     <div class="substep-list">
       ${availableSubsteps.map((substep) => renderSubstep(step, substep, disabled)).join("")}
@@ -122,9 +126,10 @@ function renderStep(step) {
 }
 
 function renderSubstep(step, substep, disabled) {
-  const running = state.job?.current_substep === substep.id;
-  const completed = state.job?.completed_substeps?.[step.type]?.includes(substep.id);
-  const invalidated = state.job?.invalidated_steps?.includes(step.type);
+  const job = liveJob();
+  const running = job?.current_substep === substep.id;
+  const completed = job?.completed_substeps?.[step.type]?.includes(substep.id);
+  const invalidated = job?.invalidated_steps?.includes(step.type);
   const status = completed
     ? "done"
     : running
@@ -148,6 +153,18 @@ function renderSubstep(step, substep, disabled) {
   `;
 }
 
+// The run that is still producing status, or null once it has finished.
+function liveJob() {
+  return state.job && !TERMINAL_STATUSES.has(state.job.status) ? state.job : null;
+}
+
+// Why a step is not simply "done" — e.g. it ran but its report says it found
+// nothing to do. Empty for every status the word already explains.
+function statusTitle(step, status) {
+  if (status !== step.status || !step.status_reason) return "";
+  return ` title="${escapeText(step.status_reason)}"`;
+}
+
 function pillClass(status) {
   if (status === "done" || status === "completed") {
     return "nf-pill nf-pill--done";
@@ -155,7 +172,14 @@ function pillClass(status) {
   if (status === "running") {
     return "nf-pill nf-pill--info";
   }
-  if (status === "waiting" || status === "queued" || status === "cancelling") {
+  // `stale` is a warning, not a failure: the step ran, but the report backing
+  // that claim is gone, so the run-state can no longer be trusted.
+  if (
+    status === "waiting" ||
+    status === "queued" ||
+    status === "cancelling" ||
+    status === "stale"
+  ) {
     return "nf-pill nf-pill--warning";
   }
   if (status === "failed" || status === "cancelled" || status === "error") {

@@ -6,6 +6,7 @@ from pathlib import Path
 
 from prepare_lora_kit.invoke.working_dataset import _require_working_dataset
 from prepare_lora_kit.pipeline.configs import QualityGateConfig
+from prepare_lora_kit.report import step_report_path
 
 
 def invoke_quality_gate_step(working_dir: Path, output_dir: Path, cfg: QualityGateConfig,
@@ -18,7 +19,7 @@ def invoke_quality_gate_step(working_dir: Path, output_dir: Path, cfg: QualityGa
         auto_only=cfg.auto_only,
         manual_all=cfg.manual_all,
         scorers=[dataclasses.asdict(s) for s in cfg.scorers],
-        report_path=output_dir / "reports" / "QualityGateStep_report.json",
+        report_path=step_report_path(output_dir, "QualityGateStep"),
         interaction=_kw.get("interaction"),
         enabled_substeps=_kw.get("enabled_substeps"),
         cancel_check=_kw.get("cancel_check"),

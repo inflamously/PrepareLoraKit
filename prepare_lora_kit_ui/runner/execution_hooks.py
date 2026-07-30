@@ -5,9 +5,14 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from prepare_lora_kit.pipeline.execution import ExecutionHooks, ExecutionResult
+from prepare_lora_kit.pipeline.execution import (
+    ExecutionHooks,
+    ExecutionResult,
+    describe_skip,
+)
 from prepare_lora_kit.project.base import PipelineStep
 from prepare_lora_kit.project.config_schema import apply_overrides, has_schema
+from prepare_lora_kit.report import step_report_path
 from prepare_lora_kit_ui.runner.job import PipelineJob
 
 
@@ -87,10 +92,7 @@ class UiJobHooks:
     def step_skip(self, step: PipelineStep, substeps: list[str], reason: str) -> None:
         self._job.skipped_steps.append(step.type)
         self._job.skipped_substeps[step.type] = list(substeps)
-        if reason == "legacy_import":
-            self._job.add_log("ImportStep satisfied by existing working dataset")
-        else:
-            self._job.add_log(f"{step.type} already done; skipping")
+        self._job.add_log(describe_skip(step.type, reason))
 
     def resolve_config(self, step: PipelineStep) -> Any:
         if not self._pause_for_config or not has_schema(step.type):
@@ -106,14 +108,20 @@ class UiJobHooks:
             self._job.add_log(
                 "AuditStep found issues; review reports/AuditStep_report.json"
             )
-        if step.type == "CurateStep" and isinstance(result, dict):
+        if step.type == "CurateStep" and self._has_curate_findings(result):
             self._interaction.curate_details(
-                result, output_dir / "reports" / "CurateStep_report.json"
+                result, step_report_path(output_dir, "CurateStep")
             )
         if step.type == "BucketPoolsCheckStep" and self._has_bucket_assignments(result):
             self._interaction.bucket_pool_details(
-                result, output_dir / "reports" / "BucketPoolsCheckStep_report.json"
+                result, step_report_path(output_dir, "BucketPoolsCheckStep")
             )
+
+    @staticmethod
+    def _has_curate_findings(result: Any) -> bool:
+        """No modal for a step that reported no work — there is nothing to show."""
+
+        return isinstance(result, dict) and bool(result) and not result.get("skipped")
 
     @staticmethod
     def _has_bucket_assignments(result: Any) -> bool:

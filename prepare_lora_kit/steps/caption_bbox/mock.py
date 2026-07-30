@@ -9,6 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from prepare_lora_kit.report import step_report_path
 from prepare_lora_kit.steps.caption_bbox.base import CaptionStep
 from prepare_lora_kit.steps.caption_bbox.workflow import CaptionWorkflowResult
 
@@ -60,7 +61,7 @@ def _mock_caption(
         concept_token=concept_token,
         output_dir=working_dir,
         overwrite=force,
-        report_path=output_dir / "reports" / "CaptionBboxStep_report.json",
+        report_path=step_report_path(output_dir, "CaptionBboxStep"),
         interaction=interaction,
         enabled_substeps=enabled_substeps,
         cancel_check=cancel_check,

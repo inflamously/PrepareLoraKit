@@ -187,6 +187,117 @@ def test_force_error_leaves_selected_and_downstream_state_invalidated(
     assert not persisted.is_done("CurateStep")
 
 
+def _quality_gate_cfg(tmp_path, **overrides) -> RunConfig:
+    """A ready-to-run QualityGateStep selection with its prerequisite satisfied."""
+
+    output_dir = tmp_path / "out"
+    (output_dir / "dataset").mkdir(parents=True, exist_ok=True)
+    RunState(output_dir).mark_done("ImportStep")
+    return RunConfig(
+        dataset_dir=tmp_path / "input",
+        output_dir=output_dir,
+        project=_project(),
+        selected_steps=["QualityGateStep"],
+        **overrides,
+    )
+
+
+def _run_quality_gate(cfg: RunConfig, step_result, hooks: ExecutionHooks | None = None):
+    with patch.dict(
+            "prepare_lora_kit.pipeline.STEP_INVOKE_MAP",
+            {"QualityGateStep": MagicMock(return_value=step_result)},
+            clear=True,
+    ):
+        return execute_pipeline(cfg, hooks)
+
+
+def test_completed_step_records_a_completed_outcome(tmp_path):
+    cfg = _quality_gate_cfg(tmp_path)
+
+    result = _run_quality_gate(cfg, {"image.png": {"kept": True}})
+
+    record = RunState(cfg.resolved_output_dir).get("QualityGateStep")
+    assert result.completed_steps == ["QualityGateStep"]
+    assert record["status"] == "done"
+    assert record["outcome"] == "completed"
+    assert record["substeps"]["score_images"]["status"] == "done"
+
+
+@pytest.mark.parametrize(
+    ("step_result", "reason"),
+    [
+        ({"skipped": True, "reason": "no images"}, "no images"),
+        ({}, "step wrote an empty report"),
+    ],
+)
+def test_step_that_did_no_work_is_not_recorded_as_completed(tmp_path, step_result, reason):
+    cfg = _quality_gate_cfg(tmp_path)
+
+    result = _run_quality_gate(cfg, step_result)
+
+    record = RunState(cfg.resolved_output_dir).get("QualityGateStep")
+    assert result.completed_steps == []
+    assert result.skipped_steps == ["QualityGateStep"]
+    # Still `done`, so prerequisites and resume keep working; the outcome is what
+    # tells the UI the step produced nothing.
+    assert record["status"] == "done"
+    assert record["outcome"] == "skipped"
+    assert record["outcome_reason"] == reason
+    assert record["substeps"]["score_images"] == {"status": "skipped", "reason": reason}
+
+
+def test_per_image_skip_lists_do_not_make_a_step_look_skipped(tmp_path):
+    """UpscaleStep's ``skipped`` is a list of images, not a verdict on the step."""
+
+    cfg = _quality_gate_cfg(tmp_path)
+
+    result = _run_quality_gate(cfg, {"upscaled": ["a.png"], "skipped": ["b.png"]})
+
+    assert result.completed_steps == ["QualityGateStep"]
+    assert RunState(cfg.resolved_output_dir).get("QualityGateStep")["outcome"] == "completed"
+
+
+def test_skip_hook_receives_the_reported_reason(tmp_path):
+    skips: list[tuple[str, list[str], str]] = []
+    cfg = _quality_gate_cfg(tmp_path)
+    hooks = ExecutionHooks(
+        step_skip=lambda step, substeps, reason: skips.append(
+            (step.type, list(substeps), reason)
+        )
+    )
+
+    _run_quality_gate(cfg, {"skipped": True, "reason": "no images"}, hooks)
+
+    # review_decisions is off by default under auto_only, so only score_images ran.
+    assert skips == [("QualityGateStep", ["score_images"], "no images")]
+
+
+def test_force_run_discards_reports_of_invalidated_steps(tmp_path):
+    output_dir = tmp_path / "out"
+    (output_dir / "dataset").mkdir(parents=True)
+    reports_dir = output_dir / "reports"
+    reports_dir.mkdir()
+    for name in (
+            "ImportStep_report.json",
+            "QualityGateStep_report.json",
+            "CurateStep_report.json",
+            "coverage_umap.png",
+    ):
+        (reports_dir / name).write_text("{}", encoding="utf-8")
+    state = RunState(output_dir)
+    for step_type in ("ImportStep", "QualityGateStep", "CurateStep"):
+        state.mark_done(step_type)
+
+    cfg = _quality_gate_cfg(tmp_path, force=True)
+    _run_quality_gate(cfg, {"image.png": {"kept": True}})
+
+    assert (reports_dir / "ImportStep_report.json").exists()
+    # Not a step report — the engine has no business deleting run artifacts.
+    assert (reports_dir / "coverage_umap.png").exists()
+    assert not (reports_dir / "QualityGateStep_report.json").exists()
+    assert not (reports_dir / "CurateStep_report.json").exists()
+
+
 def test_force_validation_uses_projected_state_without_mutating_manifest(tmp_path):
     output_dir = tmp_path / "out"
     (output_dir / "dataset").mkdir(parents=True)

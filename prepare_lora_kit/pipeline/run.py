@@ -1,7 +1,12 @@
 """CLI compatibility wrapper around the shared pipeline execution engine."""
 from __future__ import annotations
 
-from prepare_lora_kit.pipeline.execution import ExecutionHooks, RunConfig, execute_pipeline
+from prepare_lora_kit.pipeline.execution import (
+    ExecutionHooks,
+    RunConfig,
+    describe_skip,
+    execute_pipeline,
+)
 from prepare_lora_kit.project.base import PipelineStep
 from prepare_lora_kit.report import reporter
 
@@ -19,10 +24,7 @@ class CliExecutionHooks:
     def on_skip(
             self, step: PipelineStep, _substeps: list[str], reason: str
     ) -> None:
-        if reason == "legacy_import":
-            reporter.info("ImportStep satisfied by existing working dataset.")
-        else:
-            reporter.info(f"{step.type} already done — skipping (use --force to re-run).")
+        reporter.info(describe_skip(step.type, reason))
 
     def post_step(self, step: PipelineStep, result, _output_dir) -> None:
         if step.type == "AuditStep" and isinstance(result, dict) and not result.get("pass"):

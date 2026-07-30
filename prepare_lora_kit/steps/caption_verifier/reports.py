@@ -9,8 +9,8 @@ from pathlib import Path
 from typing import Any
 
 from prepare_lora_kit.project.pipeline.substeps import substep_ids_for
+from prepare_lora_kit.report import step_report_path
 
-_REPORT_NAME = "CaptionVerifierStep_report.json"
 STEP_TYPE = "CaptionVerifierStep"
 VERDICTS = ("correct", "generic", "wrong")
 
@@ -28,7 +28,14 @@ _EMPTY_MODEL = {
 
 
 def report_path_for(output_dir: Path) -> Path:
-    return Path(output_dir) / _REPORT_NAME
+    """Where this step's report goes when the caller did not name a path.
+
+    The same ``reports/<StepType>_report.json`` every invoker passes explicitly.
+    The default used to drop the ``reports/`` segment, which put the report — and
+    with it the verdict ledger and the previews, both located from its parent —
+    somewhere nothing else would look.
+    """
+    return step_report_path(output_dir, STEP_TYPE)
 
 
 def build_report(

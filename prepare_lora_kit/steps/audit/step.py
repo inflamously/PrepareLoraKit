@@ -12,7 +12,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from prepare_lora_kit.cancellation import CancelCheck, check_cancel
-from prepare_lora_kit.report import reporter
+from prepare_lora_kit.report import reporter, step_report_path
 from prepare_lora_kit.steps.audit.checks import (
     check_captions,
     check_corrupt,
@@ -97,5 +97,5 @@ def run(
         },
     }
     check_cancel(cancel_check)
-    reporter.save_report(report_data, report_path or (dataset_dir / "step6_report.json"))
+    reporter.save_report(report_data, report_path or step_report_path(dataset_dir, "AuditStep"))
     return report_data

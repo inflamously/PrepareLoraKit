@@ -7,7 +7,9 @@
  * @property {string} id
  * @property {string} label
  * @property {boolean} enabled
- * @property {string} status
+ * @property {"pending" | "done" | "skipped"} status What this substep did on the
+ *   last run. `pending` covers "never ran" — including substeps of a parent that
+ *   is itself done, which a partial run leaves behind.
  * @property {string[]} prerequisites
  * @property {boolean} optional
  */
@@ -22,7 +24,15 @@
  * @typedef {Object} StepPayload
  * @property {string} type
  * @property {Record<string, unknown>} config
- * @property {string} status
+ * @property {"pending" | "done" | "skipped" | "stale"} status Persisted run-state
+ *   status. `skipped` is a step that ran but whose own report said it did no work
+ *   (an empty dataset, a disabled substep); it is still `done` for prerequisites
+ *   and resume, so a plain re-run skips it until `force`. `stale` is a step whose
+ *   run state claims a run whose `reports/<StepType>_report.json` is no longer on
+ *   disk — the record outlived its evidence and the step wants re-running.
+ * @property {string} status_reason Why the step is not plainly done — the reason
+ *   its report gave, or which report has gone missing. Empty string when the
+ *   status speaks for itself.
  * @property {string[]} prerequisites
  * @property {boolean} optional
  * @property {SubstepPayload[]} substeps

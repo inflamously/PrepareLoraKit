@@ -9,7 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from prepare_lora_kit.cancellation import CancelCheck, CancelledRun, check_cancel
-from prepare_lora_kit.report import reporter
+from prepare_lora_kit.report import reporter, step_report_path
 from prepare_lora_kit.steps.curate.coverage import _coverage_embeddings, _save_pca, _save_umap
 from prepare_lora_kit.steps.curate.dedupe import (
     _compute_hashes,
@@ -48,14 +48,16 @@ def run(
     output_dir.mkdir(parents=True, exist_ok=True)
     # Reports + coverage plot land beside the report (the flat run dir under the
     # pipeline), never inside the working image dir.
-    report_path = report_path or (output_dir / "step2_report.json")
+    report_path = report_path or step_report_path(output_dir, "CurateStep")
     artifact_dir = report_path.parent
     artifact_dir.mkdir(parents=True, exist_ok=True)
 
     images = img_utils.iter_images(dataset_dir)
     if not images:
         reporter.warn(f"No images in {dataset_dir}")
-        return {}
+        report_data = _build_skipped_report("no images", enabled, skip_clip=skip_clip)
+        reporter.save_report(report_data, report_path)
+        return report_data
 
     pairs = []
     to_drop: set[Path] = set()
@@ -110,6 +112,30 @@ def run(
     check_cancel(cancel_check)
     reporter.save_report(report_data, report_path)
     return report_data
+
+
+def _build_skipped_report(reason: str, enabled: set[str], *, skip_clip: bool) -> dict:
+    """A no-work report with the same key set as a successful one.
+
+    Written rather than returned bare: a step that leaves no report behind is
+    indistinguishable on disk from one that never ran, which is exactly the
+    mismatch the "done" badge used to paper over.
+    """
+    return {
+        "skipped": True,
+        "reason": reason,
+        "duplicate_pairs": [],
+        "dropped_duplicates": [],
+        "duplicate_drop_candidates": [],
+        "kept_images": [],
+        "coverage_image": None,
+        "coverage": None,
+        "substeps": {
+            "duplicate_check": {"enabled": "duplicate_check" in enabled},
+            "clip_scan": {"enabled": (not skip_clip) and "clip_scan" in enabled},
+            "drop_images": {"enabled": "drop_images" in enabled},
+        },
+    }
 
 
 def _find_duplicate_drops(

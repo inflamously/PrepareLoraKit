@@ -4,6 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from prepare_lora_kit.pipeline import step_types
+from prepare_lora_kit.project.pipeline.substeps import substep_ids_for
 from prepare_lora_kit.utils.state import RunState
 from prepare_lora_kit_ui.e2e.assets import (
     prepare_root,
@@ -58,11 +59,24 @@ def create_mock_ui_fixture(
 
 
 def seed_state(output_dir: Path, selected_steps: list[str]) -> None:
+    """Pretend every step before the one under test already ran.
+
+    Substeps are marked individually so the fixture's records have the same shape
+    a real run leaves; a record with no substeps map reads as a pre-substep
+    legacy manifest. Deliberately *no* ``outcome``: these steps did not execute
+    and left no report, and claiming they did would earn them a ``stale`` badge
+    from the report cross-check.
+    """
     ordered_steps = list(step_types())
     first_index = min(ordered_steps.index(step) for step in selected_steps)
     state = RunState(output_dir)
     for step_type in ordered_steps[:first_index]:
-        state.mark_done(step_type, {"mock_fixture": True})
+        substeps = substep_ids_for(step_type)
+        for substep_id in substeps:
+            state.mark_substep_done(step_type, substep_id)
+        state.mark_done(
+            step_type, {"enabled_substeps": substeps, "mock_fixture": True}
+        )
 
 
 def needs_seeded_captions(selected_steps: list[str]) -> bool:

@@ -200,11 +200,19 @@ class RunState:
         return s.to_dict() if s is not None else {}
 
     def get_substep(self, step: str, substep: str) -> dict:
+        """One substep's record, or ``{}`` when it has not run.
+
+        The parent-status fallback below is *only* for manifests written before
+        steps tracked substeps at all. Once a record carries a ``substeps`` map,
+        that map is the whole truth: applying the fallback per-substep made every
+        substep a step never ran — because it was disabled, or because the user
+        selected a subset — report ``done`` the moment its parent did.
+        """
         parent = self.get(step)
-        substeps = parent.get("substeps") if isinstance(parent.get("substeps"), dict) else {}
-        data = substeps.get(substep)
-        if isinstance(data, dict):
-            return data
+        substeps = parent.get("substeps")
+        if isinstance(substeps, dict):
+            data = substeps.get(substep)
+            return data if isinstance(data, dict) else {}
         if parent.get("status") == "done":
             return {"status": "done", "legacy_parent_done": True}
         if parent.get("status") == "skipped":

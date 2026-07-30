@@ -15,11 +15,12 @@ from typing import Any
 from prepare_lora_kit.cancellation import CancelCheck, check_cancel
 from prepare_lora_kit.project.pipeline.substeps import substep_ids_for
 from prepare_lora_kit.providers.interaction import InteractionProvider
-from prepare_lora_kit.report import reporter
+from prepare_lora_kit.report import reporter, step_report_path
 from prepare_lora_kit.steps.caption_bbox.artifacts import _is_bbox_artifact, save_boxes_sidecar
 from prepare_lora_kit.steps.caption_bbox.regions import make_region_captioner
 from prepare_lora_kit.steps.caption_bbox.reports import (
-    _REPORT_NAME,
+    STEP_TYPE,
+    build_skipped_report,
     build_success_report,
     save_success_report,
 )
@@ -141,7 +142,9 @@ class CaptionStep(ABC):
         all_images, images = self._collect_source_images()
         if not all_images:
             reporter.warn(f"No images in {self.dataset_dir}")
-            return {}
+            report_data = build_skipped_report("no images", self.enabled)
+            save_success_report(report_data, self.report_path, output_dir)
+            return report_data
 
         self._log_caption_mode(images)
 
@@ -355,4 +358,4 @@ class CaptionStep(ABC):
             reporter.info(f"Captioning {len(images)} images. Concept token: '{self.concept_token}'")
 
     def _resolved_report_path(self, output_dir: Path) -> Path:
-        return self.report_path or (output_dir / _REPORT_NAME)
+        return self.report_path or step_report_path(output_dir, STEP_TYPE)

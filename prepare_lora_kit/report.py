@@ -1,7 +1,8 @@
-"""Rich-based console reporting."""
+"""Rich-based console reporting, and where a step's JSON report lives."""
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
@@ -9,10 +10,47 @@ from rich import box
 from rich.console import Console
 from rich.table import Table
 
+REPORTS_DIR_NAME = "reports"
+
 
 def load_report(path: Path) -> Any:
     with path.open() as f:
         return json.load(f)
+
+
+def reports_dir_for(output_dir: Path) -> Path:
+    """The folder holding every step report for one run."""
+
+    return Path(output_dir) / REPORTS_DIR_NAME
+
+
+def step_report_path(output_dir: Path, step_type: str) -> Path:
+    """Where ``step_type`` writes its report.
+
+    The single source of the ``<StepType>_report.json`` convention. Callers used
+    to spell it out, which let a report be written where nothing would look for
+    it — and let the engine miss one when discarding invalidated state.
+    """
+    return reports_dir_for(output_dir) / f"{step_type}_report.json"
+
+
+def discard_step_reports(output_dir: Path, step_types: Iterable[str]) -> list[Path]:
+    """Delete the reports of steps whose run-state was just invalidated.
+
+    A report outlives the state that describes it otherwise: ``--force`` resets
+    the run-state of the selected step and everything downstream, but the old
+    JSON stayed on disk describing a run that no longer happened. Returns the
+    paths actually removed. Only ``<StepType>_report.json`` files are touched —
+    coverage plots, previews and the caption verdict ledger are run artifacts
+    that outlive a single step and are not the engine's to delete.
+    """
+    removed: list[Path] = []
+    for step_type in step_types:
+        path = step_report_path(output_dir, step_type)
+        if path.is_file():
+            path.unlink()
+            removed.append(path)
+    return removed
 
 
 class Reporter:

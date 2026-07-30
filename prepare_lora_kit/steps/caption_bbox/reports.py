@@ -5,9 +5,9 @@ from pathlib import Path
 from typing import Any
 
 from prepare_lora_kit.project.pipeline.substeps import substep_ids_for
-from prepare_lora_kit.report import reporter
+from prepare_lora_kit.report import reporter, step_report_path
 
-_REPORT_NAME = "CaptionBboxStep_report.json"
+STEP_TYPE = "CaptionBboxStep"
 
 
 def substep_status(enabled: set[str]) -> dict[str, dict[str, bool]]:
@@ -48,10 +48,29 @@ def build_success_report(
     return report
 
 
+def build_skipped_report(reason: str, enabled: set[str]) -> dict[str, Any]:
+    """A no-work report with the same key set as a successful one."""
+
+    return {
+        "skipped": True,
+        "reason": reason,
+        "total": 0,
+        "captioned": 0,
+        "caption_model": {},
+        "caption_status": {},
+        "skipped_annotation": [],
+        "missing_token": [],
+        "short_captions": [],
+        "long_captions": [],
+        "spot_check_sample": [],
+        "substeps": substep_status(enabled),
+    }
+
+
 def save_success_report(
     report_data: dict[str, Any], report_path: Path | None, output_dir: Path,
 ) -> None:
-    reporter.save_report(report_data, report_path or (output_dir / _REPORT_NAME))
+    reporter.save_report(report_data, report_path or step_report_path(output_dir, STEP_TYPE))
 
 
 def _save_failure_report(

@@ -367,7 +367,9 @@ def _rerun(tmp_path, monkeypatch, provider, **kwargs):
 
 
 def _ledger(tmp_path):
-    return VerdictLedger(tmp_path)
+    # Beside the report, never inside the dataset — the step resolves it from the
+    # report path's parent, and the report defaults to <output_dir>/reports/.
+    return VerdictLedger(tmp_path / "reports")
 
 
 def test_a_flagged_image_is_reopened_even_though_it_has_a_caption(tmp_path, monkeypatch):

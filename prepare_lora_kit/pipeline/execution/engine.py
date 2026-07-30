@@ -14,6 +14,13 @@ from prepare_lora_kit.pipeline.execution.models import (
     ExecutionResult,
     RunConfig,
 )
+from prepare_lora_kit.pipeline.execution.outcome import (
+    SKIP_ALREADY_DONE,
+    SKIP_LEGACY_IMPORT,
+    StepOutcome,
+    persist_step_outcome,
+    step_outcome,
+)
 from prepare_lora_kit.pipeline.execution.selection import (
     resolve_selected_steps,
     resolve_selected_substeps,
@@ -21,6 +28,7 @@ from prepare_lora_kit.pipeline.execution.selection import (
 from prepare_lora_kit.pipeline.validation import validate_pipeline_selection
 from prepare_lora_kit.project.base import PipelineStep
 from prepare_lora_kit.project.pipeline import mark_legacy_import_satisfied
+from prepare_lora_kit.report import discard_step_reports, reports_dir_for
 from prepare_lora_kit.utils.accelerator import release_accelerator_memory
 from prepare_lora_kit.utils.state import RunState
 
@@ -50,11 +58,11 @@ class StepSkipPolicy:
         if step_type == "ImportStep" and mark_legacy_import_satisfied(
                 self._state, self._output_dir
         ):
-            return "legacy_import"
+            return SKIP_LEGACY_IMPORT
         if is_resume_aware_step_type(step_type):
             return None
         if self._state.is_done(step_type):
-            return "already_done"
+            return SKIP_ALREADY_DONE
         return None
 
 
@@ -103,6 +111,10 @@ class PipelineExecutor:
         state = RunState(output_dir)
         if self._cfg.force:
             state.reset_steps(invalidated_steps)
+            # The report and the run-state describe the same run, so they are
+            # invalidated together — otherwise the reports folder keeps
+            # describing work the UI now shows as pending.
+            discard_step_reports(output_dir, invalidated_steps)
             if self._hooks.steps_invalidated is not None:
                 self._hooks.steps_invalidated(invalidated_steps)
         return _ExecutionContext(
@@ -111,7 +123,7 @@ class PipelineExecutor:
             selected_steps=set(selected_steps),
             selected_substeps=selected_substeps,
             state=state,
-            result=ExecutionResult(output_dir, output_dir / "reports"),
+            result=ExecutionResult(output_dir, reports_dir_for(output_dir)),
             invoke_kwargs=self._invoke_kwargs(),
         )
 
@@ -134,7 +146,7 @@ class PipelineExecutor:
             self._run_post_step(step, step_result, context.output_dir)
         finally:
             release_accelerator_memory()
-        self._record_completion(context, step, substeps)
+        self._record_completion(context, step, substeps, step_outcome(step_result))
 
     def _invoke_step(
             self,
@@ -183,16 +195,34 @@ class PipelineExecutor:
             context: _ExecutionContext,
             step: PipelineStep,
             substeps: list[str],
+            outcome: StepOutcome,
+    ) -> None:
+        """Persist a step that ran, then publish it as done or as no-work.
+
+        A step reporting that it did nothing (an empty report, or one flagged
+        ``skipped``) is published through the skip hooks rather than the
+        completion hooks, so the run log and the step badge say the same thing
+        its report does.
+        """
+        persist_step_outcome(context.state, step.type, substeps, outcome)
+        if outcome.completed:
+            self._publish_completion(context, step, substeps)
+        else:
+            self._record_skip(context.result, step, substeps, outcome.reason)
+
+    def _publish_completion(
+            self,
+            context: _ExecutionContext,
+            step: PipelineStep,
+            substeps: list[str],
     ) -> None:
         # Step invokers currently run their selected substeps as one transaction.
         # Publish their individual completion only after that invocation succeeds.
         completed_substeps = context.result.completed_substeps.setdefault(step.type, [])
         for substep_id in substeps:
-            context.state.mark_substep_done(step.type, substep_id)
             completed_substeps.append(substep_id)
             if self._hooks.substep_complete is not None:
                 self._hooks.substep_complete(step, substep_id)
-        context.state.mark_done(step.type, {"enabled_substeps": substeps})
         context.result.completed_steps.append(step.type)
         if self._hooks.step_complete is not None:
             self._hooks.step_complete(step, substeps)

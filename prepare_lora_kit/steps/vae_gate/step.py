@@ -15,7 +15,7 @@ import numpy as np
 
 from prepare_lora_kit.cancellation import CancelCheck, CancelledRun, check_cancel
 from prepare_lora_kit.providers.interaction import InteractionProvider
-from prepare_lora_kit.report import reporter
+from prepare_lora_kit.report import reporter, step_report_path
 from prepare_lora_kit.steps.vae_gate.hf_loss import _hf_loss
 from prepare_lora_kit.steps.vae_gate.review import _manual_flag_decision, _save_review_artifacts
 from prepare_lora_kit.steps.vae_gate.vae import _encode_decode, _load_vae, _to_lab_l
@@ -53,7 +53,7 @@ def run(
 
     output_dir = output_dir or dataset_dir
     output_dir.mkdir(parents=True, exist_ok=True)
-    target_report = report_path or (output_dir / "step4_report.json")
+    target_report = report_path or step_report_path(output_dir, "VaeGateStep")
     preview_root = (
         (report_path.parent if report_path else output_dir) / "VaeGateStep_previews"
     )

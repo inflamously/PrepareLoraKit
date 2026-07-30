@@ -5,6 +5,7 @@ from pathlib import Path
 
 from prepare_lora_kit.invoke.working_dataset import _require_working_dataset
 from prepare_lora_kit.pipeline.configs import CaptionBboxConfig
+from prepare_lora_kit.report import step_report_path
 
 
 def invoke_caption_bbox_step(working_dir: Path, output_dir: Path, cfg: CaptionBboxConfig,
@@ -17,7 +18,7 @@ def invoke_caption_bbox_step(working_dir: Path, output_dir: Path, cfg: CaptionBb
             concept_token=concept_token,
             output_dir=working_dir,
             overwrite=bool(_kw.get("force", False)),
-            report_path=output_dir / "reports" / "CaptionBboxStep_report.json",
+            report_path=step_report_path(output_dir, "CaptionBboxStep"),
             enabled_substeps=_kw.get("enabled_substeps"),
             cancel_check=_kw.get("cancel_check"),
             interaction=_kw.get("interaction"),
@@ -41,7 +42,7 @@ def invoke_caption_bbox_step(working_dir: Path, output_dir: Path, cfg: CaptionBb
         max_new_tokens=cfg.max_new_tokens,
         spot_check_pct=cfg.spot_check_pct,
         overwrite=bool(_kw.get("force", False)),
-        report_path=output_dir / "reports" / "CaptionBboxStep_report.json",
+        report_path=step_report_path(output_dir, "CaptionBboxStep"),
         interaction=_kw.get("interaction"),
         enabled_substeps=_kw.get("enabled_substeps"),
         cancel_check=_kw.get("cancel_check"),

@@ -155,6 +155,9 @@ copied verbatim.
 
 ## Related
 
+- [`docs/run-state-and-reports.md`](run-state-and-reports.md) — what `done`,
+  `skipped` and `pending` mean on a step, and why the badge and
+  `reports/<StepType>_report.json` always agree.
 - [`docs/settings.md`](settings.md) — app-wide settings, and which of them seed a
   *new* project's files at creation time. Changing a global later never rewrites
   an existing project; its own files are the only thing that decides how it runs.

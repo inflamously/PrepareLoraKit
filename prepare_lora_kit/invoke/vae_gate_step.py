@@ -5,6 +5,7 @@ from pathlib import Path
 
 from prepare_lora_kit.invoke.working_dataset import _require_working_dataset
 from prepare_lora_kit.pipeline.configs import VaeGateConfig
+from prepare_lora_kit.report import step_report_path
 
 
 def invoke_vae_gate_step(working_dir: Path, output_dir: Path, cfg: VaeGateConfig,
@@ -29,7 +30,7 @@ def invoke_vae_gate_step(working_dir: Path, output_dir: Path, cfg: VaeGateConfig
         outlier_sigma=cfg.outlier_sigma,
         hf_cutoff_fraction=cfg.hf_cutoff_fraction,
         seed=cfg.seed,
-        report_path=output_dir / "reports" / "VaeGateStep_report.json",
+        report_path=step_report_path(output_dir, "VaeGateStep"),
         interaction=_kw.get("interaction"),
         diff_amplification=cfg.diff_amplification,
         gaussian_blur_sigma=cfg.gaussian_blur_sigma,

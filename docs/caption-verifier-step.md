@@ -232,10 +232,10 @@ catches an edit made outside the app. Re-offering a stale `wrong` would point th
 that no longer says what they rejected.
 
 The file lives beside the report and is located from the resolved report path's parent, never from
-`output_dir`: `report_path_for(output_dir)` has no `reports/` segment, and `CaptionBboxStep`'s
-`output_dir` is the working dataset, so deriving it from `output_dir` would put the two steps on
-different files. Writes are atomic (tmp + `os.replace`) and a missing or corrupt file degrades to
-empty rather than raising — a diagnostic document must never take a step down.
+`output_dir`: `CaptionBboxStep`'s `output_dir` is the working dataset while this step's is the run
+folder, so deriving it from `output_dir` would put the two steps on different files. Writes are
+atomic (tmp + `os.replace`) and a missing or corrupt file degrades to empty rather than raising —
+a diagnostic document must never take a step down.
 
 ## Artifacts
 

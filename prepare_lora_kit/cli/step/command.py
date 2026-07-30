@@ -109,8 +109,13 @@ def step(
     out_dir = cfg.resolved_output_dir
     working_dir = out_dir / "dataset"
 
-    from prepare_lora_kit.pipeline.execution import resolve_force_invalidated_steps
-    from prepare_lora_kit.report import reporter
+    from prepare_lora_kit.pipeline.execution import (
+        describe_skip,
+        persist_step_outcome,
+        resolve_force_invalidated_steps,
+        step_outcome,
+    )
+    from prepare_lora_kit.report import discard_step_reports, reporter, reports_dir_for
     from prepare_lora_kit.utils.state import RunState
 
     state = RunState(out_dir)
@@ -119,7 +124,11 @@ def step(
         return
 
     if force:
-        state.reset_steps(resolve_force_invalidated_steps(project, [step_type]))
+        invalidated = resolve_force_invalidated_steps(project, [step_type])
+        state.reset_steps(invalidated)
+        # Same rule as the pipeline engine: a report never outlives the run-state
+        # that describes it.
+        discard_step_reports(out_dir, invalidated)
 
     shared_kw = {"concept_token": token, "original_dir": input_dir, "force": force}
 
@@ -147,10 +156,12 @@ def step(
             "Integrity audit found issues — review "
             "reports/AuditStep_report.json before training."
         )
-    for substep_id in enabled_substeps:
-        state.mark_substep_done(step_type, substep_id)
-    state.mark_done(step_type, {"enabled_substeps": enabled_substeps})
-    reporter.ok(f"{step_type} complete. Report in {out_dir / 'reports'}.")
+    outcome = step_outcome(result)
+    persist_step_outcome(state, step_type, enabled_substeps, outcome)
+    if outcome.completed:
+        reporter.ok(f"{step_type} complete. Report in {reports_dir_for(out_dir)}.")
+    else:
+        reporter.warn(describe_skip(step_type, outcome.reason))
 
 
 def _resolve_step_config(project, step_type: str, match):

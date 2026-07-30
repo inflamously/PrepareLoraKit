@@ -89,6 +89,28 @@ def test_bucket_pools_check_disabled_assignment_writes_skipped_report(tmp_path):
     assert not (output_dir / "cache_info.json").exists()
 
 
+def test_bucket_pools_check_empty_dataset_writes_skipped_report(tmp_path):
+    dataset_dir = tmp_path / "dataset"
+    output_dir = tmp_path / "output"
+    report_path = tmp_path / "reports" / "BucketPoolsCheckStep_report.json"
+    dataset_dir.mkdir()
+
+    report = run(
+        dataset_dir,
+        [(512, 512)],
+        output_dir=output_dir,
+        report_path=report_path,
+        enabled_substeps=["assign_bucket_pools", "report_thin_buckets"],
+    )
+
+    assert report["skipped"] is True
+    assert report["reason"] == "no images"
+    assert report["buckets"] == {}
+    # The substeps were enabled — they just had nothing to assign.
+    assert report["substeps"]["assign_bucket_pools"] == {"enabled": True}
+    assert json.loads(report_path.read_text(encoding="utf-8")) == report
+
+
 def test_bucket_pools_invoke_returns_report_for_post_step_interactions(tmp_path):
     working_dir = tmp_path / "dataset"
     output_dir = tmp_path / "output"

@@ -17,15 +17,15 @@ def _mock_curate(
         enabled_substeps: list[str] | None = None,
         cancel_check=None,
 ) -> dict:
-    from prepare_lora_kit.report import reporter
+    from prepare_lora_kit.report import reporter, reports_dir_for, step_report_path
     from prepare_lora_kit.steps.curate.coverage import _save_pca, _save_umap
     from prepare_lora_kit.steps.curate.dedupe import _compute_hashes, _find_duplicates
     from prepare_lora_kit.utils import image as img_utils
 
     reporter.step_header("Curation — Mock Runtime")
-    reports_dir = output_dir / "reports"
+    reports_dir = reports_dir_for(output_dir)
     reports_dir.mkdir(parents=True, exist_ok=True)
-    report_path = reports_dir / "CurateStep_report.json"
+    report_path = step_report_path(output_dir, "CurateStep")
 
     images = img_utils.iter_images(working_dir)
     if not images:

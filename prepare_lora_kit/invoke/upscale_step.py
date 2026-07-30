@@ -5,6 +5,7 @@ from pathlib import Path
 
 from prepare_lora_kit.invoke.working_dataset import _require_working_dataset
 from prepare_lora_kit.pipeline.configs import UpscaleConfig
+from prepare_lora_kit.report import step_report_path
 
 
 def invoke_upscale_step(working_dir: Path, output_dir: Path, cfg: UpscaleConfig,
@@ -18,7 +19,7 @@ def invoke_upscale_step(working_dir: Path, output_dir: Path, cfg: UpscaleConfig,
         upscale_highlight_threshold=cfg.upscale_highlight_threshold,
         upscale_model=cfg.upscale_model,
         hallucination_ssim_threshold=cfg.hallucination_ssim_threshold,
-        report_path=output_dir / "reports" / "UpscaleStep_report.json",
+        report_path=step_report_path(output_dir, "UpscaleStep"),
         seedvr2_submodule_dir=cfg.seedvr2_submodule_dir,
         seedvr2_model_dir=cfg.seedvr2_model_dir,
         seedvr2_dit_model=cfg.seedvr2_dit_model,

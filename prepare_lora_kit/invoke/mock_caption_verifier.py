@@ -63,7 +63,7 @@ def _mock_caption_verifier(
         cancel_check=None,
 ) -> dict:
     from prepare_lora_kit.project.pipeline.substeps import substep_ids_for
-    from prepare_lora_kit.report import reporter
+    from prepare_lora_kit.report import reporter, step_report_path
     from prepare_lora_kit.steps.caption_verifier import captions as caption_io
     from prepare_lora_kit.steps.caption_verifier import reports, verdicts
     from prepare_lora_kit.steps.caption_verifier.step import (
@@ -75,7 +75,7 @@ def _mock_caption_verifier(
 
     reporter.step_header("Caption Verifier — Text-Encoder Probe (mock)")
     enabled = set(enabled_substeps or substep_ids_for(STEP_TYPE))
-    report_path = output_dir / "reports" / "CaptionVerifierStep_report.json"
+    report_path = step_report_path(output_dir, "CaptionVerifierStep")
     preview_root = report_path.parent / PREVIEW_DIR_NAME
 
     items = caption_io.collect_verifiable_images(working_dir)

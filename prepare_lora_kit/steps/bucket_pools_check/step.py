@@ -13,7 +13,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from prepare_lora_kit.cancellation import CancelCheck, check_cancel
-from prepare_lora_kit.report import reporter
+from prepare_lora_kit.report import reporter, step_report_path
 from prepare_lora_kit.steps.bucket_pools_check.assignment import assign_bucket_pools
 from prepare_lora_kit.steps.bucket_pools_check.cache import write_cache_info
 from prepare_lora_kit.steps.bucket_pools_check.presentation import (
@@ -48,15 +48,20 @@ def run(
 
     output_dir = output_dir or dataset_dir
     output_dir.mkdir(parents=True, exist_ok=True)
+    target_report = report_path or step_report_path(output_dir, "BucketPoolsCheckStep")
 
     images = img_utils.iter_images(dataset_dir)
     if not images:
         reporter.warn(f"No images in {dataset_dir}")
-        return {}
+        report_data = build_skipped_report(
+            enabled, thin_threshold=thin_threshold, reason="no images"
+        )
+        reporter.save_report(report_data, target_report)
+        return report_data
 
     if "assign_bucket_pools" not in enabled:
         report_data = build_skipped_report(enabled, thin_threshold=thin_threshold)
-        reporter.save_report(report_data, report_path or (output_dir / "step8_report.json"))
+        reporter.save_report(report_data, target_report)
         return report_data
 
     bucket_map = assign_bucket_pools(images, resolution_buckets, cancel_check=cancel_check)
@@ -86,5 +91,5 @@ def run(
         enabled=enabled,
     )
     check_cancel(cancel_check)
-    reporter.save_report(report_data, report_path or (output_dir / "step8_report.json"))
+    reporter.save_report(report_data, target_report)
     return report_data

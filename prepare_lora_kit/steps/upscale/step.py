@@ -23,7 +23,7 @@ from pathlib import Path
 
 from prepare_lora_kit.cancellation import CancelCheck, CancelledRun, check_cancel
 from prepare_lora_kit.providers.interaction import InteractionProvider
-from prepare_lora_kit.report import reporter
+from prepare_lora_kit.report import reporter, step_report_path
 from prepare_lora_kit.steps.upscale.hallucination import (
     HALLUCINATION_SSIM_THRESHOLD,
     _hallucination_check,
@@ -340,7 +340,7 @@ def _prepare_output_context(
     output_dir.mkdir(parents=True, exist_ok=True)
     return OutputContext(
         output_dir=output_dir,
-        report_path=report_path or (output_dir / "step3_report.json"),
+        report_path=report_path or step_report_path(output_dir, "UpscaleStep"),
         in_place=output_dir.resolve() == dataset_dir.resolve(),
         src_dir=dataset_dir,
     )

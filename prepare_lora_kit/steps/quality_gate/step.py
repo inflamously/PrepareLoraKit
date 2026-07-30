@@ -15,7 +15,7 @@ from pathlib import Path
 from prepare_lora_kit.cancellation import CancelCheck, check_cancel
 from prepare_lora_kit.interaction import CliInteractionProvider
 from prepare_lora_kit.providers.interaction import InteractionProvider
-from prepare_lora_kit.report import reporter
+from prepare_lora_kit.report import reporter, step_report_path
 from prepare_lora_kit.steps.quality_gate.scoring import DEFAULTS, SCORER_REGISTRY, _score_image
 from prepare_lora_kit.utils import image as img_utils
 
@@ -40,6 +40,10 @@ def run(
     images = img_utils.iter_images(input_dir)
     if not images:
         reporter.warn(f"No images found in {input_dir}")
+        # This report is a per-image map, so "nothing scored" is an empty one.
+        # It is still written: a missing file would be indistinguishable from a
+        # step that never ran, which is what the step badge reads as.
+        reporter.save_report({}, report_path or step_report_path(output_dir, "QualityGateStep"))
         return {}
 
     # ── Phase A: score everything ───────────────────────────────────────────
@@ -74,7 +78,7 @@ def run(
     check_cancel(cancel_check)
     img_utils.materialize(survivors, input_dir, output_dir)
 
-    report_path = report_path or (output_dir / "step1_report.json")
+    report_path = report_path or step_report_path(output_dir, "QualityGateStep")
     check_cancel(cancel_check)
     reporter.save_report(report_data, report_path)
     return report_data

@@ -20,9 +20,14 @@ from prepare_lora_kit.pipeline.configs import (
     UpscaleConfig,
     VaeGateConfig,
 )
-from prepare_lora_kit.pipeline.execution import resolve_selected_substeps
+from prepare_lora_kit.pipeline.execution import (
+    StepOutcome,
+    persist_step_outcome,
+    resolve_selected_substeps,
+)
 from prepare_lora_kit.pipeline.validation import validate_pipeline_selection
 from prepare_lora_kit.project.base import PipelineStep, ProjectConfig
+from prepare_lora_kit.report import step_report_path
 from prepare_lora_kit.utils.state import RunState
 from prepare_lora_kit_ui.runner import (
     JobManager,
@@ -172,6 +177,90 @@ def test_completed_live_job_still_uses_persisted_project_completion(tmp_path):
 
     state.mark_done(required[-1])
     assert project_status(_project(), out, live_status="completed") == "completed"
+
+
+def _write_report(out, step_type: str) -> None:
+    """Stand in for the report every step leaves behind, work done or not."""
+
+    path = step_report_path(out, step_type)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("{}", encoding="utf-8")
+
+
+def test_project_payload_reports_a_step_that_did_no_work_as_skipped(tmp_path):
+    out = tmp_path / "out"
+    state = RunState(out)
+    persist_step_outcome(state, "ImportStep", ["import_images"], StepOutcome(True))
+    persist_step_outcome(
+        state, "CurateStep", ["duplicate_check"], StepOutcome(False, "no images")
+    )
+    _write_report(out, "ImportStep")
+    _write_report(out, "CurateStep")
+
+    steps = {step["type"]: step for step in project_payload(_project(), out)["steps"]}
+
+    assert steps["ImportStep"]["status"] == "done"
+    assert steps["CurateStep"]["status"] == "skipped"
+    assert steps["CurateStep"]["status_reason"] == "no images"
+    substeps = {sub["id"]: sub for sub in steps["CurateStep"]["substeps"]}
+    assert substeps["duplicate_check"]["status"] == "skipped"
+    # Never ran and never enabled for that run — not silently "done".
+    assert substeps["drop_images"]["status"] == "pending"
+
+
+@pytest.mark.parametrize(
+    "outcome", [StepOutcome(True), StepOutcome(False, "no images")]
+)
+def test_project_payload_flags_a_recorded_step_whose_report_is_gone(tmp_path, outcome):
+    out = tmp_path / "out"
+    persist_step_outcome(RunState(out), "ImportStep", ["import_images"], outcome)
+
+    steps = {step["type"]: step for step in project_payload(_project(), out)["steps"]}
+
+    assert steps["ImportStep"]["status"] == "stale"
+    assert "ImportStep_report.json" in steps["ImportStep"]["status_reason"]
+
+
+def test_project_payload_leaves_a_step_alone_when_its_report_is_on_disk(tmp_path):
+    out = tmp_path / "out"
+    persist_step_outcome(RunState(out), "ImportStep", ["import_images"], StepOutcome(True))
+    _write_report(out, "ImportStep")
+
+    steps = {step["type"]: step for step in project_payload(_project(), out)["steps"]}
+
+    assert steps["ImportStep"]["status"] == "done"
+    assert steps["ImportStep"]["status_reason"] == ""
+
+
+def test_project_payload_never_calls_a_pre_upgrade_record_stale(tmp_path):
+    """Manifests written before outcomes were tracked make no report promise."""
+
+    out = tmp_path / "out"
+    RunState(out).mark_done("ImportStep", {"legacy_working_dataset": True})
+
+    steps = {step["type"]: step for step in project_payload(_project(), out)["steps"]}
+
+    assert steps["ImportStep"]["status"] == "done"
+
+
+def test_project_status_is_draft_while_a_required_report_is_missing(tmp_path):
+    out = tmp_path / "out"
+    state = RunState(out)
+    required = [
+        step.type
+        for step in _project().pipeline
+        if step.type not in {"UpscaleStep", "CaptionVerifierStep"}
+    ]
+    reports_dir = out / "reports"
+    reports_dir.mkdir(parents=True)
+    for step_type in required:
+        persist_step_outcome(state, step_type, [], StepOutcome(True))
+        step_report_path(out, step_type).write_text("{}", encoding="utf-8")
+
+    assert project_status(_project(), out) == "completed"
+
+    step_report_path(out, "CurateStep").unlink()
+    assert project_status(_project(), out) == "draft"
 
 
 def test_project_payload_includes_optional_step_metadata(tmp_path):

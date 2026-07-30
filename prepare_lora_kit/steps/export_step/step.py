@@ -17,7 +17,7 @@ from typing import Any
 from prepare_lora_kit.cancellation import CancelCheck, check_cancel
 from prepare_lora_kit.interaction import CliInteractionProvider
 from prepare_lora_kit.paths import PROJECT_ROOT
-from prepare_lora_kit.report import reporter
+from prepare_lora_kit.report import reporter, step_report_path
 from prepare_lora_kit.steps.export_step.diff import ExportDiff, compute_diff
 from prepare_lora_kit.steps.export_step.export import export_entries
 
@@ -127,5 +127,5 @@ def run(
     }
     check_cancel(cancel_check)
     reporter.save_report(
-        report_data, report_path or (output_dir / "reports" / "ExportStep_report.json"))
+        report_data, report_path or step_report_path(output_dir, "ExportStep"))
     return report_data

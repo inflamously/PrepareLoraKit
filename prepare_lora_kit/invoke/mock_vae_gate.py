@@ -17,7 +17,7 @@ def _mock_vae_gate(
     import numpy as np
     from PIL import Image, ImageFilter
 
-    from prepare_lora_kit.report import reporter
+    from prepare_lora_kit.report import reporter, reports_dir_for, step_report_path
     from prepare_lora_kit.steps.vae_gate.review import _save_review_artifacts
     from prepare_lora_kit.steps.vae_gate.step import _materialize_with_captions
     from prepare_lora_kit.utils import image as img_utils
@@ -27,7 +27,7 @@ def _mock_vae_gate(
                   or ["reconstruct_images", "review_vae_artifacts", "apply_vae_decisions"])
     images = img_utils.iter_images(working_dir)
     scores = {str(path): 0.0 for path in images}
-    preview_root = output_dir / "reports" / "VaeGateStep_previews"
+    preview_root = reports_dir_for(output_dir) / "VaeGateStep_previews"
     review_items = []
     for index, path in enumerate(images):
         check_cancel(cancel_check)
@@ -98,5 +98,5 @@ def _mock_vae_gate(
     }
     reporter.info(f"Mock runtime: recorded deterministic VAE pass for {len(images)} image(s).")
     check_cancel(cancel_check)
-    reporter.save_report(report_data, output_dir / "reports" / "VaeGateStep_report.json")
+    reporter.save_report(report_data, step_report_path(output_dir, "VaeGateStep"))
     return report_data
