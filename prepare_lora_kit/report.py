@@ -11,7 +11,7 @@ from rich.table import Table
 
 
 def load_report(path: Path) -> Any:
-    with open(path) as f:
+    with path.open() as f:
         return json.load(f)
 
 
@@ -39,7 +39,7 @@ class Reporter:
 
     def save_report(self, data: Any, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
-        with open(path, "w") as f:
+        with path.open("w") as f:
             json.dump(data, f, indent=2, default=str)
         self.info(f"Report saved → {path}")
 

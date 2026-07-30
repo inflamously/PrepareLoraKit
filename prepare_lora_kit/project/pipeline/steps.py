@@ -1,6 +1,7 @@
 """Canonical project pipeline step order and prerequisites."""
 from __future__ import annotations
 
+
 def is_step_satisfied(step_type: str, state, output_dir) -> bool:
     """Return whether a prerequisite is complete, including legacy import state."""
 

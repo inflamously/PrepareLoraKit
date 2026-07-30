@@ -2,14 +2,14 @@
 from __future__ import annotations
 
 import atexit
-from datetime import datetime
 import os
-from pathlib import Path
 import platform
 import sys
 import threading
-from time import perf_counter
 import traceback
+from datetime import datetime
+from pathlib import Path
+from time import perf_counter
 from typing import Any
 
 

@@ -1,14 +1,13 @@
 """Real (Hugging Face VLM) implementation of CaptionBboxStep."""
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from prepare_lora_kit.cancellation import CancelCheck
 from prepare_lora_kit.providers.interaction import InteractionProvider
-
-import prepare_lora_kit.steps.caption_bbox.vlm as vlm
-from prepare_lora_kit.steps.caption_bbox import workflow
+from prepare_lora_kit.steps.caption_bbox import vlm, workflow
 from prepare_lora_kit.steps.caption_bbox.base import CaptionStep
 from prepare_lora_kit.steps.caption_bbox.workflow import CaptionWorkflowResult
 
@@ -74,7 +73,8 @@ class RealCaptionStep(CaptionStep):
     def prepare_runtime(self, needs_captioning: bool) -> None:
         if needs_captioning:
             if not self.model_id:
-                raise RuntimeError("CaptionBboxStep requires caption_model_id before captioning can run.")
+                raise RuntimeError(
+                    "CaptionBboxStep requires caption_model_id before captioning can run.")
             self.runtime.load()
 
     def teardown(self) -> None:

@@ -1,16 +1,17 @@
 """`projects` command — list available project configs."""
 from __future__ import annotations
 
+from prepare_lora_kit.cli._shared import cli
 from prepare_lora_kit.project import project_registry
 
-from prepare_lora_kit.cli._shared import cli
 
 @cli.command()
 def projects():
     """List available project configs."""
-    from prepare_lora_kit.report import reporter
-    from rich.table import Table
     from rich import box
+    from rich.table import Table
+
+    from prepare_lora_kit.report import reporter
 
     names = project_registry.list_projects()
     t = Table(title="Available Project Configs", box=box.SIMPLE)

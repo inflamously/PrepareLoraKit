@@ -11,10 +11,10 @@ from .command import step
 from .resolve import _load_project, _resolve_step_type
 
 __all__ = [
-    "step",
-    "_resolve_step_type",
     "_load_project",
     "_parse_bbox",
     "_resolve_bbox_target",
+    "_resolve_step_type",
     "build_bbox_interaction",
+    "step",
 ]

@@ -6,9 +6,9 @@ from PIL import Image
 
 from prepare_lora_kit.cancellation import CancelledRun
 from prepare_lora_kit.invoke.import_step import invoke_import_step
+from prepare_lora_kit.pipeline.configs import ImportConfig
 from prepare_lora_kit.steps.import_step import run
 from prepare_lora_kit.steps.import_step.step import get_recursive_mirror_paths
-from prepare_lora_kit.pipeline.configs import ImportConfig
 
 
 def test_import_step_copies_images_and_writes_report(tmp_path):
@@ -68,7 +68,8 @@ def test_invoke_import_step_uses_packaged_step_run(tmp_path, monkeypatch):
 
 
 def test_import_step_preserves_subdir_named_like_input_component(tmp_path):
-    fake_image_paths = [tmp_path / "a" / "b" / "img.png", tmp_path / "temp" / "b" / "pytest-58" / "img.png"]
+    fake_image_paths = [tmp_path / "a" / "b" / "img.png",
+                        tmp_path / "temp" / "b" / "pytest-58" / "img.png"]
 
     expected_target_image_paths = [
         Path("a/b/img.png"),
@@ -81,7 +82,7 @@ def test_import_step_preserves_subdir_named_like_input_component(tmp_path):
 
 
 @pytest.mark.parametrize(
-    "mirror_paths_root, mirror_paths_item, mirror_paths_expected",
+    ("mirror_paths_root", "mirror_paths_item", "mirror_paths_expected"),
     [
         # Image directly at the root -> just the filename, no subpath.
         (Path("/data"), Path("/data/img.png"), Path("img.png")),
@@ -100,7 +101,8 @@ def test_import_step_preserves_subdir_named_like_input_component(tmp_path):
          Path("2024/trip/x.jpg")),
     ],
 )
-def test_get_recursive_mirror_paths_strips_only_the_prefix(mirror_paths_root, mirror_paths_item, mirror_paths_expected):
+def test_get_recursive_mirror_paths_strips_only_the_prefix(
+        mirror_paths_root, mirror_paths_item, mirror_paths_expected):
     assert get_recursive_mirror_paths(mirror_paths_root, mirror_paths_item) == mirror_paths_expected
 
 

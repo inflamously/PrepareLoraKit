@@ -23,6 +23,7 @@ did from a file.
 """
 from __future__ import annotations
 
+import contextlib
 import os
 import re
 import shutil
@@ -126,10 +127,8 @@ def _ensure_projects_dir() -> Path:
     if os.name == "posix":
         # Matches the permissions settings.yaml's directory gets: not secret, but
         # there is no reason for a user's dataset paths to be world-readable.
-        try:
+        with contextlib.suppress(OSError):
             root.chmod(0o700)
-        except OSError:
-            pass
     return root
 
 
@@ -360,9 +359,8 @@ def _styled_step_body(step: dict[str, Any]) -> dict[str, Any]:
     for key, value in step.items():
         if key == "substeps":
             continue
-        if key == "scorers" and isinstance(value, list):
-            body[key] = [inline(entry) for entry in value]
-        elif key == "resolution_buckets" and isinstance(value, list):
+        if ((key == "scorers" and isinstance(value, list))
+                or (key == "resolution_buckets" and isinstance(value, list))):
             body[key] = [inline(entry) for entry in value]
         else:
             body[key] = value

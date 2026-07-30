@@ -52,7 +52,7 @@ class HuggingFaceSettings:
     home: str | None = None      # HF_HOME; None -> huggingface's own default
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any] | None) -> "HuggingFaceSettings":
+    def from_dict(cls, data: dict[str, Any] | None) -> HuggingFaceSettings:
         data = data or {}
         return cls(home=_clean(data.get("home")))
 
@@ -67,7 +67,7 @@ class HardwareSettings:
     seedvr2_model_dir: str | None = None      # None -> ~/.cache/prepare_lora_kit/seedvr2
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any] | None) -> "HardwareSettings":
+    def from_dict(cls, data: dict[str, Any] | None) -> HardwareSettings:
         data = data or {}
         return cls(
             vram_tier=_one_of(_clean(data.get("vram_tier")), VRAM_TIERS, "vram_tier"),
@@ -95,7 +95,7 @@ class ProjectDefaults:
     caption_model_type: str | None = None
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any] | None) -> "ProjectDefaults":
+    def from_dict(cls, data: dict[str, Any] | None) -> ProjectDefaults:
         data = data or {}
         return cls(
             caption_model_id=_clean(data.get("caption_model_id")),
@@ -121,7 +121,7 @@ class AppSettings:
     project_defaults: ProjectDefaults = ProjectDefaults()
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any] | None) -> "AppSettings":
+    def from_dict(cls, data: dict[str, Any] | None) -> AppSettings:
         data = data or {}
         if not isinstance(data, dict):
             raise ValueError("Settings must be a mapping.")

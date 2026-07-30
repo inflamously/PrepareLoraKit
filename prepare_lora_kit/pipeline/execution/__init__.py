@@ -20,7 +20,7 @@ __all__ = [
     "PipelineSelectionResolver",
     "RunConfig",
     "execute_pipeline",
+    "resolve_force_invalidated_steps",
     "resolve_selected_steps",
     "resolve_selected_substeps",
-    "resolve_force_invalidated_steps",
 ]

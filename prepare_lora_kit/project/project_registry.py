@@ -17,14 +17,13 @@ Two properties are worth preserving deliberately, because both are easy to
   catches exactly that to offer creating the project, and ``cli/step`` turns it
   into a ``BadParameter``.
 """
+import shutil
 from pathlib import Path
 from typing import Any
 
-import shutil
-
+from prepare_lora_kit.project import store
 from prepare_lora_kit.project.base import ProjectConfig
 from prepare_lora_kit.project.defaults import default_pipeline
-from prepare_lora_kit.project import store
 
 
 def config_path_for_name(name: str) -> Path:

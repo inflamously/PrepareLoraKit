@@ -5,9 +5,5 @@ vscode
 __pycache__
 outputs
 node_modules
-# Pre-split project configs. Projects now live in ~/.prepare_lora_kit/projects/,
-# so nothing reads this folder any more — it is ignored purely so leftovers do
-# not surface as untracked files (they contain local dataset paths). Safe to
-# delete the folder outright once you no longer need the old values.
 configs/projects/
 models

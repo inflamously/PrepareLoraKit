@@ -150,9 +150,8 @@ def test_tqdm_is_restored_even_when_the_block_raises():
 
     before = (tqdm.__init__, tqdm.update)
 
-    with pytest.raises(RuntimeError):
-        with load_status.watch(lambda progress: None, interval=0.02):
-            raise RuntimeError("load failed")
+    with pytest.raises(RuntimeError), load_status.watch(lambda progress: None, interval=0.02):
+        raise RuntimeError("load failed")
 
     assert (tqdm.__init__, tqdm.update) == before
 
@@ -248,7 +247,7 @@ def test_a_broken_tracker_never_stops_the_heartbeat():
 
 # --- formatting ------------------------------------------------------------
 
-@pytest.mark.parametrize("seconds, expected", [
+@pytest.mark.parametrize(("seconds", "expected"), [
     (None, ""),
     (0, "0s"),
     (48, "48s"),

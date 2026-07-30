@@ -4,12 +4,14 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from prepare_lora_kit.steps.upscale.seedvr2_catalog import DEFAULT_SEEDVR2_DIT_MODEL
 from prepare_lora_kit.steps.upscale.seedvr2_adapter import (
     DEFAULT_SEEDVR2_DIT_MODEL as ADAPTER_DEFAULT_SEEDVR2_DIT_MODEL,
+)
+from prepare_lora_kit.steps.upscale.seedvr2_adapter import (
     SeedVR2Unavailable,
     SeedVR2Upscaler,
 )
+from prepare_lora_kit.steps.upscale.seedvr2_catalog import DEFAULT_SEEDVR2_DIT_MODEL
 from prepare_lora_kit.steps.upscale.seedvr2_worker import (
     _build_args,
     _resolve_model_residency,
@@ -49,7 +51,8 @@ def download_weight(dit_model, vae_model, model_dir=None, debug=None):
     })
     return True
 
-def process_single_file(input_path, args, device_list, output_path=None, format_auto_detected=False, runner_cache=None):
+def process_single_file(input_path, args, device_list, output_path=None,
+                        format_auto_detected=False, runner_cache=None):
     _log("process", {
         "input_path": input_path,
         "output_path": output_path,
@@ -175,7 +178,8 @@ debug = None
 def download_weight(dit_model, vae_model, model_dir=None, debug=None):
     return True
 
-def process_single_file(input_path, args, device_list, output_path=None, format_auto_detected=False, runner_cache=None):
+def process_single_file(input_path, args, device_list, output_path=None,
+                        format_auto_detected=False, runner_cache=None):
     raise SystemExit(3)
 """,
         encoding="utf-8",
@@ -217,7 +221,8 @@ debug = None
 def download_weight(dit_model, vae_model, model_dir=None, debug=None):
     return True
 
-def process_single_file(input_path, args, device_list, output_path=None, format_auto_detected=False, runner_cache=None):
+def process_single_file(input_path, args, device_list, output_path=None,
+                        format_auto_detected=False, runner_cache=None):
     raise SystemExit(2)
 """,
         encoding="utf-8",

@@ -9,7 +9,6 @@ No ML imports — this is pure filesystem work.
 """
 from __future__ import annotations
 
-import os
 import shutil
 from pathlib import Path
 
@@ -65,7 +64,7 @@ def write_caption_atomic(txt_path: Path, text: str) -> None:
     tmp = txt_path.with_name(f".{txt_path.name}{_TMP_SUFFIX}")
     try:
         tmp.write_text(text, encoding="utf-8", newline="\n")
-        os.replace(tmp, txt_path)
+        tmp.replace(txt_path)
     finally:
         if tmp.exists():
             tmp.unlink(missing_ok=True)

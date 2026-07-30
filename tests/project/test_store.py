@@ -14,7 +14,6 @@ from prepare_lora_kit.pipeline import step_slugs
 from prepare_lora_kit.project import store
 from prepare_lora_kit.project.project_registry import default_project_data
 
-
 EXPECTED_FILES = {"index.yaml", *(f"{slug}.yaml" for slug in step_slugs())}
 
 
@@ -167,7 +166,7 @@ def test_reader_rejects_a_project_without_an_index(isolated_projects):
     directory = isolated_projects / "demo"
     directory.mkdir(parents=True)
 
-    with pytest.raises(ValueError, match="index.yaml"):
+    with pytest.raises(ValueError, match=r"index\.yaml"):
         store.read_project_folder(directory)
 
 

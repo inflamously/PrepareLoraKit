@@ -13,12 +13,9 @@ from pathlib import Path
 from typing import Any
 
 from prepare_lora_kit.cancellation import CancelCheck, check_cancel
+from prepare_lora_kit.project.pipeline.substeps import substep_ids_for
 from prepare_lora_kit.providers.interaction import InteractionProvider
 from prepare_lora_kit.report import reporter
-from prepare_lora_kit.project.pipeline.substeps import substep_ids_for
-from prepare_lora_kit.utils import image as img_utils
-from prepare_lora_kit.utils.verdict_ledger import VerdictLedger
-
 from prepare_lora_kit.steps.caption_bbox.artifacts import _is_bbox_artifact, save_boxes_sidecar
 from prepare_lora_kit.steps.caption_bbox.regions import make_region_captioner
 from prepare_lora_kit.steps.caption_bbox.reports import (
@@ -34,6 +31,8 @@ from prepare_lora_kit.steps.caption_bbox.workflow import (
     gather_decisions,
     resolve_decision,
 )
+from prepare_lora_kit.utils import image as img_utils
+from prepare_lora_kit.utils.verdict_ledger import VerdictLedger
 
 
 class CaptionStep(ABC):

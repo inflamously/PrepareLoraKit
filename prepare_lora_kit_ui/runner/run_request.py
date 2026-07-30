@@ -30,7 +30,7 @@ class UiRunRequest:
     mock_curate_coverage: str
 
     @classmethod
-    def from_payload(cls, payload: dict[str, Any]) -> "UiRunRequest":
+    def from_payload(cls, payload: dict[str, Any]) -> UiRunRequest:
         input_dir = Path(str(payload["input_dir"])).expanduser()
         output_dir = cls._output_dir(payload.get("output_dir"), input_dir)
         return cls(
@@ -55,7 +55,7 @@ class UiRunRequest:
             self,
             project: ProjectConfig,
             interaction: Any,
-            job: "PipelineJob",
+            job: PipelineJob,
     ) -> RunConfig:
         return RunConfig(
             dataset_dir=self.input_dir,

@@ -8,6 +8,7 @@ must import cleanly on a box with no GPU and no torch at all, and
 """
 from __future__ import annotations
 
+import contextlib
 import gc
 import sys
 
@@ -28,10 +29,8 @@ def probe_environment() -> tuple[bool, float, float, bool]:
         return False, 0.0, 0.0, False
 
     total = free = 0.0
-    try:
+    with contextlib.suppress(Exception):
         total = float(torch.cuda.get_device_properties(0).total_memory) / (1024 ** 3)
-    except Exception:
-        pass
     try:
         free_bytes, _ = torch.cuda.mem_get_info()
         free = float(free_bytes) / (1024 ** 3)

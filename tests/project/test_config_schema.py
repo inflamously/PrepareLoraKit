@@ -2,17 +2,17 @@ import json
 
 import pytest
 
-from prepare_lora_kit.project.config_schema import (
-    apply_overrides,
-    has_schema,
-    schema_payload,
-)
+from prepare_lora_kit.pipeline import step_types
 from prepare_lora_kit.pipeline.configs import (
     AuditConfig,
     CaptionBboxConfig,
     VaeGateConfig,
 )
-from prepare_lora_kit.pipeline import step_types
+from prepare_lora_kit.project.config_schema import (
+    apply_overrides,
+    has_schema,
+    schema_payload,
+)
 
 
 def test_schema_payload_is_json_able_for_every_step():

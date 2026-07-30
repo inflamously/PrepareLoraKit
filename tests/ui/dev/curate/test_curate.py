@@ -2,9 +2,9 @@ import json
 
 import pytest
 
+from prepare_lora_kit.utils import image as img_utils
 from prepare_lora_kit_ui.e2e import create_mock_ui_fixture
 from prepare_lora_kit_ui.runner import JobManager, PipelineJob, UiPipelineExecutor
-from prepare_lora_kit.utils import image as img_utils
 
 
 def test_mock_project_curate_runs_through_job_manager(

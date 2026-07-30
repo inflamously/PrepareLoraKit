@@ -1,6 +1,8 @@
 """Config schema for CaptionBboxStep."""
 from __future__ import annotations
+
 from dataclasses import dataclass
+from typing import ClassVar
 
 
 @dataclass
@@ -22,15 +24,15 @@ class CaptionBboxConfig:
     # can be told to stop guessing, but only a brief can tell it what things *are*.
     domain_brief: str | None = None
 
-    _VRAM_TIERS = {
+    _VRAM_TIERS: ClassVar[dict[str, tuple[str, str]]] = {
         "auto": ("auto", "bfloat16"),
         "low":  ("4bit", "bfloat16"),   # <= 16 GB
         "mid":  ("8bit", "bfloat16"),   # <= 24 GB
         "high": ("none", "bfloat16"),   # <= 32 GB
         "max":  ("none", "bfloat16"),   # >= 32 GB
     }
-    _MODEL_TASKS = {"auto", "image-text-to-text", "image-to-text"}
-    _STRATEGIES = {"grounded", "single"}
+    _MODEL_TASKS: ClassVar[set[str]] = {"auto", "image-text-to-text", "image-to-text"}
+    _STRATEGIES: ClassVar[set[str]] = {"grounded", "single"}
 
     def __post_init__(self) -> None:
         if self.caption_model_id is not None:
@@ -53,7 +55,8 @@ class CaptionBboxConfig:
             )
         if self.vram_tier not in self._VRAM_TIERS:
             raise ValueError(
-                f"CaptionBboxStep: vram_tier must be one of {list(self._VRAM_TIERS)}, got '{self.vram_tier}'"
+                f"CaptionBboxStep: vram_tier must be one of {list(self._VRAM_TIERS)}, "
+                f"got '{self.vram_tier}'"
             )
         if not (0.0 <= self.spot_check_pct <= 1.0):
             raise ValueError("CaptionBboxStep: spot_check_pct must be in [0, 1]")

@@ -1,13 +1,14 @@
 """Low-level image quality metrics used by multiple steps."""
 from __future__ import annotations
-from pathlib import Path
+
 import io
 import shutil
 import threading
+from pathlib import Path
+
 import cv2
 import numpy as np
 from PIL import Image
-
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tiff", ".tif"}
 

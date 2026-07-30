@@ -1,10 +1,14 @@
 """Editable config fields for CaptionBboxStep."""
 from __future__ import annotations
 
-
 from prepare_lora_kit.project.config_schema.fields import (
-    FieldSpec, _number, _prompt, _select, _textarea,
+    FieldSpec,
+    _number,
+    _prompt,
+    _select,
+    _textarea,
 )
+
 STEP_TYPE = "CaptionBboxStep"
 
 _CAPTION_MODELS = [

@@ -96,7 +96,7 @@ def test_without_cuda_falls_back_to_cpu_float32():
 # --- the bitsandbytes invariant -------------------------------------------
 
 @pytest.mark.parametrize("model", list(catalog.T2I_MODELS), ids=lambda m: m.family)
-@pytest.mark.parametrize("total,free", [(8, 7), (16, 15), (24, 23), (32, 30), (48, 46)])
+@pytest.mark.parametrize(("total", "free"), [(8, 7), (16, 15), (24, 23), (32, 30), (48, 46)])
 @pytest.mark.parametrize("quantization", ["auto", "none", "4bit"])
 @pytest.mark.parametrize("offload", ["auto", "none", "model", "sequential"])
 def test_never_combines_4bit_with_sequential_offload(
@@ -156,7 +156,8 @@ def test_custom_model_without_catalog_metadata_still_plans():
     )
     assert result.model_id == "someone/custom-sdxl-merge"
     assert result.family == "unknown"
-    assert result.width >= 256 and result.height >= 256
+    assert result.width >= 256
+    assert result.height >= 256
     assert result.steps >= 1
 
 

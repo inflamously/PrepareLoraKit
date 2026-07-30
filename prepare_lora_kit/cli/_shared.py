@@ -1,13 +1,14 @@
 """Shared CLI group, helpers, and reusable options."""
 from __future__ import annotations
+
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import click
 
-
 from prepare_lora_kit.paths import PROJECT_ROOT
+
 
 @dataclass
 class CliState:
@@ -26,7 +27,8 @@ cli_option_input = click.option("--input", "-i", "input_dir", required=True,
                                 help="Dataset directory")
 cli_option_output = click.option("--output", "-o", "output_dir",
                                  type=click.Path(file_okay=False, path_type=Path),
-                                 default=None, help="Output directory (default: <project>/outputs/<input-name>)")
+                                 default=None,
+                                 help="Output directory (default: <project>/outputs/<input-name>)")
 cli_option_token = click.option("--token", "-t", default=None,
                                 help="Concept token / trigger word. Omit for style training.")
 

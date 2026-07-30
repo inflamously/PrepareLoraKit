@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from prepare_lora_kit.settings.model import AppSettings, VRAM_TIERS
+from prepare_lora_kit.settings.model import VRAM_TIERS, AppSettings
 
 
 def _caption_model_choices() -> list[dict[str, str]]:

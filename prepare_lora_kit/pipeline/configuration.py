@@ -223,15 +223,15 @@ _SLUG_TO_TYPE = {
 }
 
 __all__ = [
-    "StepDefinition",
     "STEP_DEFINITIONS",
-    "step_types",
-    "step_definition",
+    "StepDefinition",
+    "is_optional_step_type",
+    "is_resume_aware_step_type",
     "step_config_class",
+    "step_definition",
     "step_prerequisites",
     "step_slug",
     "step_slugs",
     "step_type_for_slug",
-    "is_optional_step_type",
-    "is_resume_aware_step_type",
+    "step_types",
 ]

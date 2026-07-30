@@ -1,12 +1,11 @@
 """Region caption callback wiring for CaptionBboxStep annotation flows."""
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
-
+from typing import Any
 
 from prepare_lora_kit.cancellation import CancelCheck, check_cancel
-
 from prepare_lora_kit.steps.caption_bbox.artifacts import _save_bbox_training_item
 
 

@@ -285,7 +285,7 @@ def test_blank_prompt_is_rejected(monkeypatch):
 
 def _statuses(monkeypatch, **kwargs):
     published: list[dict] = []
-    runtime, pipe, loads = _runtime(
+    runtime, pipe, _loads = _runtime(
         monkeypatch, status_callback=published.append, **kwargs,
     )
     monkeypatch.setattr(t2i, "_PROGRESS_INTERVAL_S", 0.02)
@@ -398,7 +398,8 @@ def test_a_cached_pipeline_never_reports_loading_again(monkeypatch):
 
     phases = [entry["phase"] for entry in published]
     assert phases[0] == "generating"
-    assert "loading" not in phases and "resolving" not in phases
+    assert "loading" not in phases
+    assert "resolving" not in phases
 
 
 def test_a_stale_detail_never_outlives_its_phase(monkeypatch):

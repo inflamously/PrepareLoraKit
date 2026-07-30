@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-
 from prepare_lora_kit.steps.quality_gate.gallery.constants import _PREVIEW, HOVER_TIMEOUT
+
 
 class HoverPreview:
     """
@@ -31,11 +31,12 @@ class HoverPreview:
                              font=("TkFixedFont", 9), padx=6, pady=4)
         self._lbl.pack(fill="x")
 
-        self._cache: dict[str, "object"] = {}  # path → ImageTk.PhotoImage | None
+        self._cache: dict[str, object] = {}  # path → ImageTk.PhotoImage | None
         self._after_id = None
 
     def _photo(self, path: Path):
-        from PIL import Image as PILImage, ImageTk
+        from PIL import Image as PILImage
+        from PIL import ImageTk
 
         key = str(path)
         if key not in self._cache:

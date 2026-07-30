@@ -197,8 +197,8 @@ def _auto_quantization(
 ) -> tuple[str, list[str]]:
     if not has_bitsandbytes:
         return "none", [
-            "bitsandbytes unavailable; auto text-to-image quantization "
-            "selecting unquantized load."
+            ("bitsandbytes unavailable; auto text-to-image quantization "
+            "selecting unquantized load.")
         ]
     if not budget or need <= budget:
         return "none", []

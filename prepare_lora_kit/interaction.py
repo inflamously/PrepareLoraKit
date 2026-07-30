@@ -6,14 +6,32 @@ desktop UI code from the step modules.
 """
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Protocol
 
 RegionCaptioner = Callable[[object, dict[str, Any] | None], dict[str, Any] | str]
 
 
+class InteractionProvider(Protocol):
+    """The single-image hook ``annotate_dataset_via_images`` drives.
+
+    Only ``annotate_image`` is required. The review hooks (``source_review``,
+    ``vae_review``, ``caption_verify``) are optional and probed with ``getattr``,
+    so a frontend that cannot present a given gallery simply omits them.
+    """
+
+    def annotate_image(
+            self,
+            path: Path,
+            *,
+            captioner: RegionCaptioner | None = None,
+    ) -> tuple[list[dict], bool, bool]:
+        ...
+
+
 def annotate_dataset_via_images(
-        provider: "InteractionProvider",
+        provider: InteractionProvider,
         images: list[dict],
         *,
         captioner: RegionCaptioner | None = None,

@@ -5,6 +5,8 @@ takes a required keyword ``response``, and that constraint is precisely why
 ``hub_error_context`` extends an error instead of rebuilding it. A stub would
 hide the very thing these tests exist to pin down.
 """
+from typing import ClassVar
+
 import pytest
 
 hub_errors = pytest.importorskip(
@@ -18,7 +20,7 @@ REPO = "black-forest-labs/FLUX.2-klein-base-9B"
 
 
 class _FakeResponse:
-    headers: dict = {}
+    headers: ClassVar[dict] = {}
     request = None
 
 
@@ -55,7 +57,8 @@ def test_login_command_falls_back_to_path_when_the_version_is_unknown(monkeypatc
 def test_login_command_matches_the_real_installed_hub():
     import huggingface_hub
 
-    expected = "hf auth login" if int(huggingface_hub.__version__[0]) >= 1 else "huggingface-cli login"
+    expected = ("hf auth login" if int(huggingface_hub.__version__[0]) >= 1
+                else "huggingface-cli login")
     assert hub.login_command() == expected
 
 
@@ -128,7 +131,7 @@ def test_check_repo_offline(monkeypatch):
 
 def test_check_repos_skips_blanks_sentinels_and_duplicates(monkeypatch):
     seen = []
-    monkeypatch.setattr("huggingface_hub.auth_check", lambda repo_id: seen.append(repo_id))
+    monkeypatch.setattr("huggingface_hub.auth_check", seen.append)
 
     hub.check_repos(["a/b", "", None, "auto", "a/b", "  ", "c/d"])
 
@@ -138,9 +141,8 @@ def test_check_repos_skips_blanks_sentinels_and_duplicates(monkeypatch):
 def test_hub_error_context_appends_a_hint_and_keeps_the_type(monkeypatch):
     monkeypatch.setattr(hub.shutil, "which", lambda name: "/usr/bin/hf")
 
-    with pytest.raises(hub_errors.GatedRepoError) as caught:
-        with hub.hub_error_context(REPO):
-            raise _gated()
+    with pytest.raises(hub_errors.GatedRepoError) as caught, hub.hub_error_context(REPO):
+        raise _gated()
 
     message = str(caught.value)
     assert "401 Client Error." in message      # the original failure survives
@@ -151,10 +153,14 @@ def test_hub_error_context_appends_a_hint_and_keeps_the_type(monkeypatch):
 def test_nested_contexts_append_the_hint_only_once(monkeypatch):
     monkeypatch.setattr(hub, "_hub_major_version", lambda: 1)
 
-    with pytest.raises(hub_errors.GatedRepoError) as caught:
-        with hub.hub_error_context(REPO):
-            with hub.hub_error_context(REPO):
-                raise _gated()
+    # Two nested contexts is the subject of this test: the inner one must not
+    # append a second copy of the hint the outer one already added.
+    with (
+        pytest.raises(hub_errors.GatedRepoError) as caught,
+        hub.hub_error_context(REPO),
+        hub.hub_error_context(REPO),
+    ):
+        raise _gated()
 
     assert str(caught.value).count("Accept the licence at") == 1
 
@@ -163,9 +169,8 @@ def test_hub_error_context_passes_unrelated_exceptions_through_untouched():
     class CancelledRun(Exception):
         pass
 
-    with pytest.raises(CancelledRun) as caught:
-        with hub.hub_error_context(REPO):
-            raise CancelledRun("stop")
+    with pytest.raises(CancelledRun) as caught, hub.hub_error_context(REPO):
+        raise CancelledRun("stop")
 
     assert str(caught.value) == "stop"
 

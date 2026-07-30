@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from PIL import Image
 import pytest
+from PIL import Image
 
 from prepare_lora_kit.cancellation import CancelledRun
 from prepare_lora_kit.steps.caption_bbox import step as caption_bbox_step
@@ -134,7 +134,9 @@ def _fake_runtime_class(
                 self._status_callback(self.status)
 
         def caption_region(self, crop, *, source_path=None, box=None):
-            events.append(("region", crop.size, Path(source_path).name if source_path else None, box))
+            events.append(
+                ("region", crop.size,
+                 Path(source_path).name if source_path else None, box))
             return "green detail"
 
         def caption_image(self, path, annotations, concept_token, *, max_new_tokens):
@@ -505,7 +507,8 @@ def test_caption_bbox_step_requires_model_when_captioning_enabled(tmp_path):
         )
 
 
-def test_caption_bbox_step_full_image_failure_is_loud_and_does_not_write_sidecar(tmp_path, monkeypatch):
+def test_caption_bbox_step_full_image_failure_is_loud_and_does_not_write_sidecar(
+        tmp_path, monkeypatch):
     _write_image(tmp_path / "image.png")
     events = []
     runtime = _fake_runtime_class(
@@ -515,7 +518,7 @@ def test_caption_bbox_step_full_image_failure_is_loud_and_does_not_write_sidecar
     )
     monkeypatch.setattr(caption_bbox_step.vlm, "CaptionRuntime", runtime)
 
-    with pytest.raises(RuntimeError, match="VL captioning failed for image.png: model crashed"):
+    with pytest.raises(RuntimeError, match=r"VL captioning failed for image\.png: model crashed"):
         caption_bbox_step.run(
             tmp_path,
             concept_token="tok",

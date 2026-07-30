@@ -1,5 +1,6 @@
 """Deterministic mock runtime for VaeGateStep (--mock)."""
 from __future__ import annotations
+
 from pathlib import Path
 
 from prepare_lora_kit.cancellation import check_cancel
@@ -13,15 +14,17 @@ def _mock_vae_gate(
         enabled_substeps: list[str] | None = None,
         cancel_check=None,
 ) -> dict:
-    from prepare_lora_kit.utils import image as img_utils
-    from prepare_lora_kit.report import reporter
-    from prepare_lora_kit.steps.vae_gate.review import _save_review_artifacts
-    from prepare_lora_kit.steps.vae_gate.step import _materialize_with_captions
     import numpy as np
     from PIL import Image, ImageFilter
 
+    from prepare_lora_kit.report import reporter
+    from prepare_lora_kit.steps.vae_gate.review import _save_review_artifacts
+    from prepare_lora_kit.steps.vae_gate.step import _materialize_with_captions
+    from prepare_lora_kit.utils import image as img_utils
+
     reporter.step_header("VAE Reconstruction Gate")
-    enabled = set(enabled_substeps or ["reconstruct_images", "review_vae_artifacts", "apply_vae_decisions"])
+    enabled = set(enabled_substeps
+                  or ["reconstruct_images", "review_vae_artifacts", "apply_vae_decisions"])
     images = img_utils.iter_images(working_dir)
     scores = {str(path): 0.0 for path in images}
     preview_root = output_dir / "reports" / "VaeGateStep_previews"

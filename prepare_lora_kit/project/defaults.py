@@ -30,7 +30,8 @@ def default_pipeline() -> list[dict[str, Any]]:
             "type": "QualityGateStep",
             "scorers": [
                 {"name": "min_side", "enabled": True, "op": "lt", "threshold": 1024.0},
-                {"name": "blur", "enabled": True, "op": "lt", "threshold": 100.0, "borderline": 150.0},
+                {"name": "blur", "enabled": True, "op": "lt",
+                 "threshold": 100.0, "borderline": 150.0},
                 {"name": "noise", "enabled": True, "op": "gt", "threshold": 25.0},
                 {"name": "jpeg", "enabled": True, "op": "gt", "threshold": 0.08},
                 {"name": "watermark", "enabled": True, "op": "gt", "threshold": 0.80},

@@ -12,7 +12,8 @@ def _review_flagged_decisions(items: list[dict]) -> dict[str, str]:
             continue
         initial = str(item.get("initial_decision") or "upscale")
         name = item.get("name") or Path(path).name
-        print(f"\n  {name}  {item.get('width')}x{item.get('height')}  (min_side={item.get('min_side')})")
+        print(f"\n  {name}  {item.get('width')}x{item.get('height')}  "
+              f"(min_side={item.get('min_side')})")
         print(f"    planned action: {item.get('planned_action')}")
         ans = input(f"  [u]pscale / [s]kip? [{initial[0]}] ").strip().lower()
         if not ans:

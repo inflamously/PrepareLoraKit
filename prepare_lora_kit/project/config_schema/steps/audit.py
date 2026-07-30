@@ -1,8 +1,8 @@
 """Editable config fields for AuditStep."""
 from __future__ import annotations
 
-
 from prepare_lora_kit.project.config_schema.fields import FieldSpec, _check, _number, _select
+
 STEP_TYPE = "AuditStep"
 
 FIELDS: list[FieldSpec] = [
@@ -12,7 +12,8 @@ FIELDS: list[FieldSpec] = [
     _check("check_corrupt", "Check corrupt files"),
     _check("check_caption_length", "Check caption length"),
     _check("check_resolution_gate", "Check resolution gate"),
-    _number("min_resolution_side", "Min training side (px)", "int", minimum=1, step=64, nullable=True),
+    _number("min_resolution_side", "Min training side (px)", "int",
+            minimum=1, step=64, nullable=True),
     _select("caption_model_type", "Caption model type", [
         ("auto", "Auto"),
         ("clip", "CLIP"),

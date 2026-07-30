@@ -1,4 +1,5 @@
 from pathlib import Path
+
 import numpy as np
 
 # Bare-checkpoint suffixes routed to ``from_single_file`` instead of a diffusers repo.
@@ -59,8 +60,8 @@ def _encode_decode(
     seed: int = 42,
 ) -> np.ndarray:
     import torch
-    from PIL import Image
     import torchvision.transforms as T
+    from PIL import Image
 
     img = Image.open(path).convert("RGB")
     w, h = img.size

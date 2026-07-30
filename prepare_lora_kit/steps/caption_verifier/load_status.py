@@ -27,10 +27,12 @@ never the load.
 """
 from __future__ import annotations
 
+import contextlib
 import threading
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
-from typing import Any, Callable, Iterator, Protocol
+from typing import Any, Protocol
 
 _UNITS = ("B", "KB", "MB", "GB", "TB")
 
@@ -135,10 +137,9 @@ class _Watcher:
         while not self._stop.wait(self._interval):
             with self._lock:
                 progress = self._progress
-            try:
+            # Progress is best effort: a broken callback must not stop the pump.
+            with contextlib.suppress(Exception):  # pragma: no cover
                 self._callback(self._weigh(progress))
-            except Exception:  # pragma: no cover - progress is best effort
-                pass
 
     def _weigh(self, progress: LoadProgress) -> LoadProgress:
         """Stamp the current weight total onto a tick, if there is one."""
@@ -239,10 +240,8 @@ def _number(value: Any) -> float | None:
 
 def _safe(note: Callable[[Any], None], bar: Any) -> None:
     """A broken progress line must never take the load down with it."""
-    try:
+    with contextlib.suppress(Exception):  # pragma: no cover
         note(bar)
-    except Exception:  # pragma: no cover - progress is best effort
-        pass
 
 
 def format_elapsed(seconds: float | int | None) -> str:

@@ -11,8 +11,8 @@ import hashlib
 from dataclasses import dataclass, field
 from pathlib import Path
 
-
 from prepare_lora_kit.utils import image as img_utils
+
 CAPTION_SUFFIX = ".txt"
 
 

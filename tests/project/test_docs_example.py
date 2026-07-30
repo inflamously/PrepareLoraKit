@@ -7,7 +7,6 @@ are parsed and checked against the code they describe.
 """
 import dataclasses
 import re
-from pathlib import Path
 
 import pytest
 import yaml

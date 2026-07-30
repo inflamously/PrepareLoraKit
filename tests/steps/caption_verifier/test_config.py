@@ -20,7 +20,7 @@ def test_defaults_are_usable_without_the_config_modal():
 
 
 @pytest.mark.parametrize(
-    "tier,expected",
+    ("tier", "expected"),
     [
         ("auto", ("auto", "bfloat16", "auto")),
         ("low", ("4bit", "bfloat16", "model")),
@@ -89,7 +89,8 @@ def test_dimensions_must_be_a_multiple_of_eight(field):
 def test_dimensions_accept_none_for_the_model_default():
     config = CaptionVerifierConfig(width=None, height=None)
 
-    assert config.width is None and config.height is None
+    assert config.width is None
+    assert config.height is None
 
 
 @pytest.mark.parametrize("steps", [0, 151])

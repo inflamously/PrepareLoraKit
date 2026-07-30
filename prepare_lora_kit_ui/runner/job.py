@@ -6,8 +6,8 @@ import uuid
 from typing import Any
 
 from prepare_lora_kit.cancellation import CancelledRun
-
 from prepare_lora_kit_ui.runner.constants import TERMINAL_STATUSES
+
 
 class PipelineJob:
     """Mutable job state guarded by a condition variable."""
@@ -144,7 +144,8 @@ class PipelineJob:
                 "error": self.error,
                 "result": self.result,
                 "logs": list(self.logs),
-                "caption_status": dict(self.caption_status) if self.caption_status is not None else None,
+                "caption_status": (dict(self.caption_status)
+                                   if self.caption_status is not None else None),
                 "pending_input": self.pending_input,
                 "cancel_requested": self.cancel_requested,
             }

@@ -33,7 +33,7 @@ def write_cache_info(
     cache_info = build_cache_info(bucket_map, display_name=display_name)
     cache_path = output_dir / "cache_info.json"
     check_cancel(cancel_check)
-    with open(cache_path, "w") as f:
+    with cache_path.open("w") as f:
         json.dump(cache_info, f, indent=2)
     reporter.ok(f"Cache info written → {cache_path}")
     return cache_info

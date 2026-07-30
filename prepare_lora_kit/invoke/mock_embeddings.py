@@ -1,9 +1,14 @@
 """Deterministic mock CLIP embeddings for --mock CurateStep coverage plots."""
 from __future__ import annotations
+
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import numpy as np
 
 
-def _mock_embeddings(paths: list[Path]) -> "np.ndarray":
+def _mock_embeddings(paths: list[Path]) -> np.ndarray:
     import numpy as np
 
     centers = np.asarray([

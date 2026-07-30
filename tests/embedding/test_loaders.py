@@ -7,6 +7,7 @@ the open_clip / DINOv2 paths call native model methods that aren't worth faking.
 """
 import sys
 import types
+from typing import ClassVar
 
 import numpy as np
 import pytest
@@ -28,7 +29,7 @@ def fake_torch(monkeypatch):
 class _FakeSentenceTransformer:
     """Records construction + encode calls and returns deterministic vectors."""
 
-    instances: list["_FakeSentenceTransformer"] = []
+    instances: ClassVar[list["_FakeSentenceTransformer"]] = []
 
     def __init__(self, repo, device=None, trust_remote_code=None):
         self.repo = repo

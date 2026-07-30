@@ -9,10 +9,10 @@ Optional --cache-mode: writes a cache_info.json compatible with ai-toolkit's
 cache_latents_to_disk path structure for re-use on the real run.
 """
 from __future__ import annotations
+
 from pathlib import Path
 
 from prepare_lora_kit.cancellation import CancelCheck, check_cancel
-from prepare_lora_kit.utils import image as img_utils
 from prepare_lora_kit.report import reporter
 from prepare_lora_kit.steps.bucket_pools_check.assignment import assign_bucket_pools
 from prepare_lora_kit.steps.bucket_pools_check.cache import write_cache_info
@@ -25,11 +25,11 @@ from prepare_lora_kit.steps.bucket_pools_check.reports import (
     build_success_report,
 )
 from prepare_lora_kit.steps.bucket_pools_check.thin_buckets import collect_thin_buckets
-
+from prepare_lora_kit.utils import image as img_utils
 
 THIN_BUCKET_THRESHOLD = 2
 DEFAULT_SUBSTEPS = ["assign_bucket_pools", "report_thin_buckets"]
-__all__ = ["run", "THIN_BUCKET_THRESHOLD"]
+__all__ = ["THIN_BUCKET_THRESHOLD", "run"]
 
 
 def run(
@@ -71,10 +71,12 @@ def run(
         thin_buckets=thin_buckets,
         cancel_check=cancel_check,
     )
-    print_thin_bucket_summary(thin_buckets, thin_threshold=thin_threshold, cancel_check=cancel_check)
+    print_thin_bucket_summary(
+        thin_buckets, thin_threshold=thin_threshold, cancel_check=cancel_check)
 
     if cache_mode and "write_cache_info" in enabled:
-        write_cache_info(output_dir, bucket_map, display_name=display_name, cancel_check=cancel_check)
+        write_cache_info(
+            output_dir, bucket_map, display_name=display_name, cancel_check=cancel_check)
 
     report_data = build_success_report(
         bucket_map,

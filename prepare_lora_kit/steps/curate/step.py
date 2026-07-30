@@ -5,15 +5,19 @@ Step 2 — Curation
 2. Coverage embedding (CLIP/DINOv2/Qwen, VRAM-auto): UMAP (N > 30) or PCA (N ≤ 30) scatter.
 """
 from __future__ import annotations
+
 from pathlib import Path
 
 from prepare_lora_kit.cancellation import CancelCheck, CancelledRun, check_cancel
-from prepare_lora_kit.utils import image as img_utils
 from prepare_lora_kit.report import reporter
+from prepare_lora_kit.steps.curate.coverage import _coverage_embeddings, _save_pca, _save_umap
+from prepare_lora_kit.steps.curate.dedupe import (
+    _compute_hashes,
+    _find_duplicates,
+    _resolve_duplicates,
+)
+from prepare_lora_kit.utils import image as img_utils
 
-
-from prepare_lora_kit.steps.curate.dedupe import _compute_hashes, _find_duplicates, _resolve_duplicates
-from prepare_lora_kit.steps.curate.coverage import _coverage_embeddings, _save_umap, _save_pca
 
 def _resolve_coverage_model(coverage_embedding_model: str | None) -> str:
     """Resolve the coverage model, expanding ``auto`` from detected VRAM."""
@@ -56,23 +60,17 @@ def run(
     pairs = []
     to_drop: set[Path] = set()
     if "duplicate_check" in enabled:
-        reporter.info(f"Found {len(images)} images. Computing perceptual hashes …")
-        hashes = _compute_hashes(images, cancel_check=cancel_check)
-
-        pairs = _find_duplicates(
-            hashes, max_distance=dedup_hamming_distance, cancel_check=cancel_check
-        )
-        reporter.info(f"Near-duplicate pairs: {len(pairs)}")
-        to_drop = _resolve_duplicates(
-            pairs,
-            auto_drop=auto_dedupe,
+        pairs, to_drop = _find_duplicate_drops(
+            images,
+            auto_dedupe=auto_dedupe,
+            dedup_hamming_distance=dedup_hamming_distance,
             cancel_check=cancel_check,
-        ) if pairs else set()
+        )
     else:
         reporter.warn("Skipping duplicate check substep.")
 
     apply_drops = "drop_images" in enabled
-    kept_images = [p for p in images if apply_drops and p not in to_drop or not apply_drops]
+    kept_images = [p for p in images if (apply_drops and p not in to_drop) or not apply_drops]
     if apply_drops:
         reporter.ok(f"After dedupe: {len(kept_images)} images ({len(to_drop)} dropped)")
     else:
@@ -85,21 +83,13 @@ def run(
     coverage_path: Path | None = None
     coverage_metadata: dict | None = None
     if not skip_clip and "clip_scan" in enabled:
-        try:
-            reporter.info(f"Computing coverage embeddings ({coverage_model}) …")
-            emb = _coverage_embeddings(kept_images, coverage_model, cancel_check=cancel_check)
-            if len(kept_images) > pca_umap_switch_threshold:
-                coverage_path = artifact_dir / "coverage_umap.png"
-                coverage_metadata = _save_umap(emb, kept_images, coverage_path, coverage_model)
-            else:
-                coverage_path = artifact_dir / "coverage_pca.png"
-                coverage_metadata = _save_pca(emb, kept_images, coverage_path, coverage_model)
-        except CancelledRun:
-            raise
-        except Exception as exc:
-            coverage_path = None
-            coverage_metadata = None
-            reporter.warn(f"Coverage visualisation failed: {exc}")
+        coverage_path, coverage_metadata = _build_coverage(
+            kept_images,
+            artifact_dir,
+            coverage_model,
+            pca_umap_switch_threshold=pca_umap_switch_threshold,
+            cancel_check=cancel_check,
+        )
 
     check_cancel(cancel_check)
     img_utils.materialize(kept_images, dataset_dir, output_dir)
@@ -120,3 +110,52 @@ def run(
     check_cancel(cancel_check)
     reporter.save_report(report_data, report_path)
     return report_data
+
+
+def _find_duplicate_drops(
+    images: list[Path],
+    *,
+    auto_dedupe: bool,
+    dedup_hamming_distance: int,
+    cancel_check: CancelCheck | None,
+) -> tuple[list, set[Path]]:
+    """Near-duplicate pairs, and which side of each pair to drop."""
+    reporter.info(f"Found {len(images)} images. Computing perceptual hashes …")
+    hashes = _compute_hashes(images, cancel_check=cancel_check)
+
+    pairs = _find_duplicates(
+        hashes, max_distance=dedup_hamming_distance, cancel_check=cancel_check
+    )
+    reporter.info(f"Near-duplicate pairs: {len(pairs)}")
+    if not pairs:
+        return pairs, set()
+    to_drop = _resolve_duplicates(pairs, auto_drop=auto_dedupe, cancel_check=cancel_check)
+    return pairs, to_drop
+
+
+def _build_coverage(
+    kept_images: list[Path],
+    artifact_dir: Path,
+    coverage_model: str,
+    *,
+    pca_umap_switch_threshold: int,
+    cancel_check: CancelCheck | None,
+) -> tuple[Path | None, dict | None]:
+    """Render the coverage scatter — UMAP for larger sets, PCA below the threshold.
+
+    The plot is a diagnostic, so a failure to produce it is warned about and the
+    step continues; only a cancellation propagates.
+    """
+    try:
+        reporter.info(f"Computing coverage embeddings ({coverage_model}) …")
+        emb = _coverage_embeddings(kept_images, coverage_model, cancel_check=cancel_check)
+        if len(kept_images) > pca_umap_switch_threshold:
+            coverage_path = artifact_dir / "coverage_umap.png"
+            return coverage_path, _save_umap(emb, kept_images, coverage_path, coverage_model)
+        coverage_path = artifact_dir / "coverage_pca.png"
+        return coverage_path, _save_pca(emb, kept_images, coverage_path, coverage_model)
+    except CancelledRun:
+        raise
+    except Exception as exc:
+        reporter.warn(f"Coverage visualisation failed: {exc}")
+        return None, None

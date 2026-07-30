@@ -51,17 +51,17 @@ def __getattr__(name: str) -> Any:
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 __all__ = [
-    "RunConfig",
-    "ExecutionHooks",
-    "ExecutionResult",
     "STEP_DEFINITIONS",
     "STEP_INVOKE_MAP",
+    "ExecutionHooks",
+    "ExecutionResult",
     "PipelineValidationError",
+    "RunConfig",
     "StepDefinition",
+    "execute_pipeline",
     "is_optional_step_type",
     "is_resume_aware_step_type",
     "run_all",
-    "execute_pipeline",
     "step_config_class",
     "step_definition",
     "step_prerequisites",

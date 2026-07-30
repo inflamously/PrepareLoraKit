@@ -3,6 +3,10 @@ from __future__ import annotations
 
 import io
 import re
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from prepare_lora_kit_ui.runner.job import PipelineJob
 
 ANSI_ESCAPE_RE = re.compile(
     r"""
@@ -27,7 +31,7 @@ class _LogStream(io.TextIOBase):
     encoding = "utf-8"
     errors = "replace"
 
-    def __init__(self, job: "PipelineJob") -> None:
+    def __init__(self, job: PipelineJob) -> None:
         self._job = job
         self._buf = ""
 

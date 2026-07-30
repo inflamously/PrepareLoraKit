@@ -110,7 +110,8 @@ def _load_seedvr2_module(submodule_dir: Path, debug_enabled: bool) -> ModuleType
         spec.loader.exec_module(module)
     except SystemExit as exc:
         sys.modules.pop(module_name, None)
-        raise RuntimeError(f"SeedVR2 runtime import exited with code {_format_exit_code(exc)}") from exc
+        raise RuntimeError(
+            f"SeedVR2 runtime import exited with code {_format_exit_code(exc)}") from exc
     except ModuleNotFoundError as exc:
         sys.modules.pop(module_name, None)
         raise RuntimeError(f"SeedVR2 runtime dependency is missing: {exc.name}") from exc
@@ -137,7 +138,8 @@ def _download_models(module: ModuleType, request: dict[str, Any]) -> None:
             debug=getattr(module, "debug", None),
         )
     except SystemExit as exc:
-        raise RuntimeError(f"SeedVR2 model download exited with code {_format_exit_code(exc)}") from exc
+        raise RuntimeError(
+            f"SeedVR2 model download exited with code {_format_exit_code(exc)}") from exc
     except BaseException as exc:
         raise RuntimeError(f"SeedVR2 model download failed: {_format_exception(exc)}") from exc
     if not downloaded:

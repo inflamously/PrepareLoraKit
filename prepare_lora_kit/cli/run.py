@@ -1,13 +1,14 @@
 """`run` command — dynamic pipeline driven by project config."""
 from __future__ import annotations
+
 import os
 from pathlib import Path
 
 import click
 
-from prepare_lora_kit.project import project_registry
-from prepare_lora_kit.cli._shared import cli, _default_output
+from prepare_lora_kit.cli._shared import _default_output, cli
 from prepare_lora_kit.pipeline.run import RunConfig
+from prepare_lora_kit.project import project_registry
 
 
 def _load_or_create_project(input_dir: Path, project_name: str | None):

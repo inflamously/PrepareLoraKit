@@ -1,9 +1,10 @@
 """Pipeline run-state manifest (JSON) for step tracking and resume."""
 from __future__ import annotations
-from dataclasses import dataclass, field
+
 import json
 import time
 from collections.abc import Iterable
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -97,7 +98,7 @@ class RunState:
 
     def _load(self) -> StateData:
         if self._path.exists():
-            with open(self._path) as f:
+            with self._path.open() as f:
                 return StateData.from_dict(json.load(f))
         return StateData()
 
@@ -136,7 +137,7 @@ class RunState:
 
     def save(self) -> None:
         self._path.parent.mkdir(parents=True, exist_ok=True)
-        with open(self._path, "w") as f:
+        with self._path.open("w") as f:
             json.dump(self._data.to_dict(), f, indent=2, default=str)
 
     # ── step API ──────────────────────────────────────────────────────────────

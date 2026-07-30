@@ -159,18 +159,18 @@ AUTO = "auto"
 DEFAULT_MODEL_ID = "stabilityai/stable-diffusion-xl-base-1.0"
 
 __all__ = [
-    "T2IModel",
-    "SD15_MODELS",
-    "SDXL_MODELS",
-    "FLUX2_MODELS",
-    "KREA2_MODELS",
-    "T2I_MODELS",
     "AUTO",
     "DEFAULT_MODEL_ID",
-    "normalize_id",
+    "FLUX2_MODELS",
+    "KREA2_MODELS",
+    "SD15_MODELS",
+    "SDXL_MODELS",
+    "T2I_MODELS",
+    "T2IModel",
+    "auto_select",
     "get",
     "model_choices",
-    "auto_select",
+    "normalize_id",
     "resolve",
 ]
 

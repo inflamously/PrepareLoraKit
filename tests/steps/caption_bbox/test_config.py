@@ -31,5 +31,6 @@ def test_caption_bbox_config_normalizes_and_validates_strategy():
 
 def test_domain_brief_defaults_to_none_and_is_trimmed():
     assert CaptionBboxConfig().domain_brief is None
-    assert CaptionBboxConfig(domain_brief='   ').domain_brief is None
-    assert CaptionBboxConfig(domain_brief='  Game screenshots.  ').domain_brief == 'Game screenshots.'
+    assert CaptionBboxConfig(domain_brief="   ").domain_brief is None
+    assert (CaptionBboxConfig(domain_brief="  Game screenshots.  ").domain_brief
+            == "Game screenshots.")

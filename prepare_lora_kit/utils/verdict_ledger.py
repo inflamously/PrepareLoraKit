@@ -22,7 +22,6 @@ verdict text itself is kept forever as history.
 from __future__ import annotations
 
 import json
-import os
 import time
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -150,7 +149,7 @@ class VerdictLedger:
         # write-back: a half-written ledger would strand flagged images.
         tmp = self._path.with_name(f".{self._path.name}.plk_tmp")
         tmp.write_text(json.dumps(document, indent=2), encoding="utf-8")
-        os.replace(tmp, self._path)
+        tmp.replace(self._path)
         self._dirty = False
 
     # ── lookup ───────────────────────────────────────────────────────────────

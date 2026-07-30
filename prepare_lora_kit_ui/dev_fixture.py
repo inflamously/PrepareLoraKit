@@ -9,7 +9,6 @@ from prepare_lora_kit_ui.e2e import (
     resolve_mock_steps,
 )
 
-
 __all__ = [
     "MOCK_PROJECT_NAME",
     "MOCK_TOKEN",

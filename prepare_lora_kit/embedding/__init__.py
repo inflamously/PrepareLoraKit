@@ -14,11 +14,11 @@ from .catalog import (
 from .vram import total_vram_gb
 
 __all__ = [
-    "catalog",
     "AUTO",
     "DEFAULT_CLIP_ID",
     "EmbeddingModel",
     "auto_select",
+    "catalog",
     "coverage_choices",
     "get",
     "normalize_id",

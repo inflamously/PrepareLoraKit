@@ -10,14 +10,14 @@ For each image:
   3. Caption is cleaned, token-checked, and saved as {stem}.txt.
 """
 from __future__ import annotations
+
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from prepare_lora_kit.cancellation import CancelCheck
 from prepare_lora_kit.providers.interaction import InteractionProvider
-
-import prepare_lora_kit.steps.caption_bbox.vlm as vlm
-from prepare_lora_kit.steps.caption_bbox.real import RealCaptionStep
+from prepare_lora_kit.steps.caption_bbox import vlm
 from prepare_lora_kit.steps.caption_bbox.artifacts import (
     BBOX_PREFIX,
     _bbox_stem,
@@ -25,16 +25,17 @@ from prepare_lora_kit.steps.caption_bbox.artifacts import (
     _is_bbox_artifact,
     _save_bbox_training_item,
 )
+from prepare_lora_kit.steps.caption_bbox.real import RealCaptionStep
 from prepare_lora_kit.steps.caption_bbox.reports import _save_failure_report
 
 __all__ = [
-    "run",
     "BBOX_PREFIX",
     "_bbox_stem",
     "_clean_bbox_artifacts",
     "_is_bbox_artifact",
     "_save_bbox_training_item",
     "_save_failure_report",
+    "run",
 ]
 
 

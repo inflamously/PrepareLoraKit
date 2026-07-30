@@ -5,7 +5,6 @@ from pathlib import Path
 
 from prepare_lora_kit.pipeline import step_types
 from prepare_lora_kit.utils.state import RunState
-from prepare_lora_kit_ui.paths import PROJECT_ROOT
 from prepare_lora_kit_ui.e2e.assets import (
     prepare_root,
     reset_dir,
@@ -13,10 +12,11 @@ from prepare_lora_kit_ui.e2e.assets import (
     write_captions,
     write_source_images,
 )
-
 from prepare_lora_kit_ui.e2e.models import MockUiFixture
 from prepare_lora_kit_ui.e2e.project import mock_project
 from prepare_lora_kit_ui.e2e.steps import resolve_mock_steps
+from prepare_lora_kit_ui.paths import PROJECT_ROOT
+
 
 def create_mock_ui_fixture(
         raw_step: str,

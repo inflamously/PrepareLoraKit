@@ -9,9 +9,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-
 from prepare_lora_kit.cancellation import CancelCheck, check_cancel
 from prepare_lora_kit.embedding import catalog
+
 
 def _resolve(model_id: str) -> catalog.EmbeddingModel:
     """Catalog entry for ``model_id``, inferring a sensible spec for custom ids."""
@@ -36,8 +36,8 @@ def _device(torch) -> str:
 
 
 def _load_open_clip(spec: catalog.EmbeddingModel):
-    import torch
     import open_clip
+    import torch
 
     from prepare_lora_kit.settings.hub import hub_error_context
 

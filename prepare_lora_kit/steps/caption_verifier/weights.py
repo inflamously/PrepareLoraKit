@@ -32,9 +32,10 @@ from __future__ import annotations
 
 import json
 import threading
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 # .bin is the pre-safetensors format; a repo carrying both ships the same
 # weights twice, which is why _component_size never sums across the two.

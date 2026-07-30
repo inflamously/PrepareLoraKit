@@ -24,7 +24,7 @@ class _BatchProvider:
 
 
 def test_mock_caption_captions_and_skips_per_decision(tmp_path):
-    a = _write_image(tmp_path / "a.png")
+    _write_image(tmp_path / "a.png")
     _write_image(tmp_path / "b.png")
 
     def decide(descriptor):
@@ -46,7 +46,7 @@ def test_mock_caption_captions_and_skips_per_decision(tmp_path):
 
 
 def test_mock_caption_persists_boxes_sidecar_and_reloads_on_force(tmp_path):
-    img = _write_image(tmp_path / "image.png")
+    _write_image(tmp_path / "image.png")
     box = {"x1": 0.1, "y1": 0.2, "x2": 0.5, "y2": 0.6, "label": "a red car"}
     provider = _BatchProvider(lambda d: {"annotations": [dict(box)], "skipped": False})
 

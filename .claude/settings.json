@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "PY=$(command -v python3 || command -v python) && \"$PY\" \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/ruff_check.py\"",
+            "statusMessage": "Linting with ruff",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

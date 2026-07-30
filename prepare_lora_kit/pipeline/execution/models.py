@@ -1,9 +1,10 @@
 """Data passed into and returned from shared pipeline execution."""
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any
 
 from prepare_lora_kit.cancellation import CancelCheck
 from prepare_lora_kit.paths import PROJECT_ROOT
@@ -16,8 +17,8 @@ class RunConfig:
 
     dataset_dir: Path
     project: ProjectConfig
-    concept_token: Optional[str] = None
-    output_dir: Optional[Path] = None
+    concept_token: str | None = None
+    output_dir: Path | None = None
     force: bool = False
     cancel_check: CancelCheck | None = None
     selected_steps: list[str] | None = None

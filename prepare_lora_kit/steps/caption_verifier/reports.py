@@ -55,7 +55,7 @@ def build_report(
     rejected_by_path = {entry["path"]: entry for entry in rejected}
 
     report_items: list[dict] = []
-    counts = {verdict: 0 for verdict in VERDICTS}
+    counts = dict.fromkeys(VERDICTS, 0)
     for item in items:
         key = str(item["path"])
         result = results.get(key) or {}

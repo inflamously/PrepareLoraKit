@@ -5,11 +5,13 @@ Pure helper functions extracted from step.run(). Each keeps its report.* logging
 calls so behavior and log messages remain identical to the inline version.
 """
 from __future__ import annotations
+
 from pathlib import Path
+
 from PIL import Image
 
-from prepare_lora_kit.utils import image as img_utils
 from prepare_lora_kit.report import reporter
+from prepare_lora_kit.utils import image as img_utils
 
 _IMG_EXTS = img_utils.IMAGE_EXTS
 _MIN_CAPTION = 5
@@ -91,15 +93,19 @@ def check_captions(paired_stems, txt_stems) -> tuple[list, list, list]:
 def check_resolution(paired_stems, image_stems, corrupt, min_resolution_side: int | None) -> list:
     undersized: list[dict] = []
     if min_resolution_side:
-        reporter.info(f"Checking min_side against training resolution side: {min_resolution_side}px")
+        reporter.info(
+            f"Checking min_side against training resolution side: {min_resolution_side}px")
         for stem in paired_stems:
             p = image_stems[stem]
-            if str(p) not in [c for c in corrupt]:
+            if str(p) not in list(corrupt):
                 try:
                     ms = img_utils.min_side(p)
                     if ms < min_resolution_side:
-                        undersized.append({"path": str(p), "min_side": ms, "required": min_resolution_side})
-                        reporter.warn(f"UNDERSIZED {p.name}: min_side={ms}px < {min_resolution_side}px")
+                        undersized.append(
+                            {"path": str(p), "min_side": ms,
+                             "required": min_resolution_side})
+                        reporter.warn(
+                            f"UNDERSIZED {p.name}: min_side={ms}px < {min_resolution_side}px")
                 except Exception:
                     pass
     else:

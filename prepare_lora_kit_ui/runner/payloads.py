@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
-from prepare_lora_kit_ui.paths import PROJECT_ROOT
 from prepare_lora_kit.pipeline import (
     is_optional_step_type,
     step_prerequisites,
@@ -14,8 +13,9 @@ from prepare_lora_kit.pipeline import (
 from prepare_lora_kit.project.base import ProjectConfig
 from prepare_lora_kit.project.pipeline import substep_payloads
 from prepare_lora_kit.utils.state import RunState
-
+from prepare_lora_kit_ui.paths import PROJECT_ROOT
 from prepare_lora_kit_ui.runner.recommendations import upscale_attention
+
 
 def _default_output(input_dir: Path) -> Path:
     return PROJECT_ROOT / "outputs" / input_dir.name

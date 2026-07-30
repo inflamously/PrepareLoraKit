@@ -14,8 +14,9 @@ from __future__ import annotations
 
 import secrets
 import zlib
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from prepare_lora_kit.cancellation import CancelCheck, check_cancel
 from prepare_lora_kit.steps.caption_verifier.loader import preview_dir_for

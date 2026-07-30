@@ -8,17 +8,17 @@ Checks:
   4. No images with min_side < largest bucket resolution.
 """
 from __future__ import annotations
+
 from pathlib import Path
 
 from prepare_lora_kit.cancellation import CancelCheck, check_cancel
 from prepare_lora_kit.report import reporter
-
 from prepare_lora_kit.steps.audit.checks import (
-    collect_stems,
-    check_pairing,
-    check_corrupt,
     check_captions,
+    check_corrupt,
+    check_pairing,
     check_resolution,
+    collect_stems,
 )
 
 
@@ -69,7 +69,8 @@ def run(
     )
 
     # ── Summary ───────────────────────────────────────────────────────────────
-    issues = len(orphan_images) + len(orphan_txts) + len(corrupt) + len(empty_captions) + len(undersized)
+    issues = (len(orphan_images) + len(orphan_txts) + len(corrupt)
+              + len(empty_captions) + len(undersized))
 
     if issues == 0:
         reporter.ok(f"All {len(paired_stems)} pairs passed integrity audit.")

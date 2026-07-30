@@ -1,0 +1,6 @@
+# Development-only tooling. Not needed to run the pipeline.
+#   python -m pip install -r requirements/dev.txt
+-r base.txt
+
+ruff>=0.16          # lint config lives in pyproject.toml ([tool.ruff])
+pytest>=8.0         # test suite in tests/

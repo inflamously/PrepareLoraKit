@@ -14,27 +14,33 @@ block artifacts are baked in at the original encoding resolution.
 """
 from __future__ import annotations
 
-import os
 import shutil
 import tempfile
 import warnings
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
 
 from prepare_lora_kit.cancellation import CancelCheck, CancelledRun, check_cancel
 from prepare_lora_kit.providers.interaction import InteractionProvider
-from prepare_lora_kit.utils import image as img_utils
 from prepare_lora_kit.report import reporter
-from prepare_lora_kit.steps.upscale.hallucination import HALLUCINATION_SSIM_THRESHOLD, _hallucination_check
+from prepare_lora_kit.steps.upscale.hallucination import (
+    HALLUCINATION_SSIM_THRESHOLD,
+    _hallucination_check,
+)
 from prepare_lora_kit.steps.upscale.jpeg_cleanup import _is_jpeg, _write_downscaled_copy
 from prepare_lora_kit.steps.upscale.seedvr2_adapter import (
     DEFAULT_SEEDVR2_DIT_MODEL,
     SeedVR2Unavailable,
     SeedVR2Upscaler,
 )
+from prepare_lora_kit.steps.upscale.upscalers import (
+    UPSCALE_HIGHLIGHT_THRESHOLD,
+    UPSCALE_TARGET,
+    _lanczos_upscale,
+)
+from prepare_lora_kit.utils import image as img_utils
 
-from prepare_lora_kit.steps.upscale.upscalers import UPSCALE_HIGHLIGHT_THRESHOLD, UPSCALE_TARGET, _lanczos_upscale
 Upscaler = Callable[[Path, Path], Path | None]
 
 
@@ -96,17 +102,17 @@ def run(
     ])
     upscale_model = _normalize_upscale_model(upscale_model, use_seedvr)
     context = _prepare_output_context(dataset_dir, output_dir, report_path)
-    seedvr2_kwargs = dict(
-        submodule_dir=seedvr2_submodule_dir,
-        model_dir=seedvr2_model_dir,
-        dit_model=seedvr2_dit_model,
-        cuda_device=seedvr2_cuda_device,
-        batch_size=seedvr2_batch_size,
-        vae_tiled=seedvr2_vae_tiled,
-        cache_models=seedvr2_cache_models,
-        model_residency=seedvr2_model_residency,
-        debug=seedvr2_debug,
-    )
+    seedvr2_kwargs = {
+        "submodule_dir": seedvr2_submodule_dir,
+        "model_dir": seedvr2_model_dir,
+        "dit_model": seedvr2_dit_model,
+        "cuda_device": seedvr2_cuda_device,
+        "batch_size": seedvr2_batch_size,
+        "vae_tiled": seedvr2_vae_tiled,
+        "cache_models": seedvr2_cache_models,
+        "model_residency": seedvr2_model_residency,
+        "debug": seedvr2_debug,
+    }
 
     # The shrink-then-regrow cleanup only makes sense with a generative upscaler
     # (SeedVR2) that can restore detail. Doing it with Lanczos just blurs the
@@ -114,19 +120,14 @@ def run(
     # for non-SeedVR2 models — those JPEGs get a plain upscale or pass through.
     enable_seedvr2_cleanup = upscale_model == "seedvr2"
 
-    if "select_upscale_candidates" in enabled:
-        partitions = _partition_images(
-            dataset_dir, upscale_target, upscale_highlight_threshold, enable_seedvr2_cleanup,
-        )
-        _resolve_destination_collisions(partitions, context)
-    else:
-        partitions = ImagePartitions(images=[
-            ImageInfo(
-                path=path, min_side=None, is_jpeg=_is_jpeg(path),
-                flagged=False, planned_action="pass_through", needs_pre_downscale=False,
-            )
-            for path in img_utils.iter_images(dataset_dir)
-        ])
+    partitions = _resolve_partitions(
+        dataset_dir,
+        context,
+        select_enabled="select_upscale_candidates" in enabled,
+        upscale_target=upscale_target,
+        upscale_highlight_threshold=upscale_highlight_threshold,
+        enable_seedvr2_cleanup=enable_seedvr2_cleanup,
+    )
 
     results: dict = {"upscaled": [], "rejected_post": [], "skipped": []}
     results["substeps"] = {
@@ -144,7 +145,8 @@ def run(
 
     if "select_upscale_candidates" in enabled and interaction is not None and flagged:
         check_cancel(cancel_check)
-        decisions = interaction.upscale_review(_build_review_items(flagged, upscale_highlight_threshold))
+        decisions = interaction.upscale_review(
+            _build_review_items(flagged, upscale_highlight_threshold))
         _apply_review_decisions(partitions, decisions)
         check_cancel(cancel_check)
 
@@ -177,55 +179,19 @@ def run(
 
         scratch_dir = Path(scratch_dir_str)
         if candidates:
-            reporter.info(f"{len(candidates)} images below {upscale_target}px min-side will be upscaled.")
-            check_cancel(cancel_check)
-            resolved, skip_reason = _resolve_upscaler(
+            _upscale_candidates(
+                candidates,
+                context,
+                scratch_dir,
+                results,
                 upscale_model=upscale_model,
                 upscaler=upscaler,
                 upscale_target=upscale_target,
                 seedvr2_kwargs=seedvr2_kwargs,
+                hallucination_ssim_threshold=hallucination_ssim_threshold,
+                hallucination_check_enabled="hallucination_check" in enabled,
+                cancel_check=cancel_check,
             )
-            if skip_reason is not None:
-                _skip_candidates(
-                    [info.path for info in candidates],
-                    context,
-                    results,
-                    skip_reason,
-                    cancel_check=cancel_check,
-                )
-            else:
-                assert resolved is not None
-                pre_downscale_paths = {info.path for info in candidates if info.needs_pre_downscale}
-                if isinstance(resolved, SeedVR2Upscaler):
-                    _process_seedvr2_candidates(
-                        candidates=[info.path for info in candidates],
-                        context=context,
-                        upscaler=resolved,
-                        hallucination_ssim_threshold=hallucination_ssim_threshold,
-                        hallucination_check_enabled="hallucination_check" in enabled,
-                        results=results,
-                        pre_downscale_paths=pre_downscale_paths,
-                        scratch_dir=scratch_dir,
-                        cancel_check=cancel_check,
-                    )
-                else:
-                    for info in candidates:
-                        check_cancel(cancel_check)
-                        effective_upscaler = (
-                            _with_predownscale(resolved, scratch_dir)
-                            if info.path in pre_downscale_paths
-                            else resolved
-                        )
-                        _process_candidate(
-                            path=info.path,
-                            context=context,
-                            upscaler=effective_upscaler,
-                            hallucination_ssim_threshold=hallucination_ssim_threshold,
-                            hallucination_check_enabled="hallucination_check" in enabled,
-                            results=results,
-                            cancel_check=cancel_check,
-
-                        )
         if cleanup_candidates:
             check_cancel(cancel_check)
             _process_jpeg_cleanup_candidates(
@@ -244,10 +210,114 @@ def run(
     return _save_report(results, context)
 
 
+def _resolve_partitions(
+    dataset_dir: Path,
+    context,
+    *,
+    select_enabled: bool,
+    upscale_target: int,
+    upscale_highlight_threshold: int,
+    enable_seedvr2_cleanup: bool,
+) -> ImagePartitions:
+    """Plan a per-image action.
+
+    With candidate selection disabled every image is a pass-through, so the rest
+    of the step can stay written against one shape regardless of the substep.
+    """
+    if not select_enabled:
+        return ImagePartitions(images=[
+            ImageInfo(
+                path=path, min_side=None, is_jpeg=_is_jpeg(path),
+                flagged=False, planned_action="pass_through", needs_pre_downscale=False,
+            )
+            for path in img_utils.iter_images(dataset_dir)
+        ])
+
+    partitions = _partition_images(
+        dataset_dir, upscale_target, upscale_highlight_threshold, enable_seedvr2_cleanup,
+    )
+    _resolve_destination_collisions(partitions, context)
+    return partitions
+
+
+def _upscale_candidates(
+    candidates: list[ImageInfo],
+    context,
+    scratch_dir: Path,
+    results: dict,
+    *,
+    upscale_model: str,
+    upscaler: Upscaler | None,
+    upscale_target: int,
+    seedvr2_kwargs: dict,
+    hallucination_ssim_threshold: float,
+    hallucination_check_enabled: bool,
+    cancel_check: CancelCheck | None,
+) -> None:
+    """Upscale the undersized images, or pass them through if no upscaler resolves.
+
+    SeedVR2 gets the whole batch at once so the model is loaded once; every other
+    upscaler runs per image, wrapped for pre-downscale where the plan asked for it.
+    """
+    reporter.info(
+        f"{len(candidates)} images below {upscale_target}px min-side "
+        f"will be upscaled.")
+    check_cancel(cancel_check)
+    resolved, skip_reason = _resolve_upscaler(
+        upscale_model=upscale_model,
+        upscaler=upscaler,
+        upscale_target=upscale_target,
+        seedvr2_kwargs=seedvr2_kwargs,
+    )
+    if skip_reason is not None:
+        _skip_candidates(
+            [info.path for info in candidates],
+            context,
+            results,
+            skip_reason,
+            cancel_check=cancel_check,
+        )
+        return
+
+    assert resolved is not None
+    pre_downscale_paths = {info.path for info in candidates if info.needs_pre_downscale}
+    if isinstance(resolved, SeedVR2Upscaler):
+        _process_seedvr2_candidates(
+            candidates=[info.path for info in candidates],
+            context=context,
+            upscaler=resolved,
+            hallucination_ssim_threshold=hallucination_ssim_threshold,
+            hallucination_check_enabled=hallucination_check_enabled,
+            results=results,
+            pre_downscale_paths=pre_downscale_paths,
+            scratch_dir=scratch_dir,
+            cancel_check=cancel_check,
+        )
+        return
+
+    for info in candidates:
+        check_cancel(cancel_check)
+        effective_upscaler = (
+            _with_predownscale(resolved, scratch_dir)
+            if info.path in pre_downscale_paths
+            else resolved
+        )
+        _process_candidate(
+            path=info.path,
+            context=context,
+            upscaler=effective_upscaler,
+            hallucination_ssim_threshold=hallucination_ssim_threshold,
+            hallucination_check_enabled=hallucination_check_enabled,
+            results=results,
+            cancel_check=cancel_check,
+        )
+
+
 def _normalize_upscale_model(upscale_model: str, use_seedvr: bool | None) -> str:
     if use_seedvr is not None:
         upscale_model = "seedvr2" if use_seedvr else "lanczos"
-        _warn_deprecated("UpscaleStep.run(use_seedvr=...) is deprecated; use upscale_model instead.")
+        _warn_deprecated(
+            "UpscaleStep.run(use_seedvr=...) is deprecated; use upscale_model instead.")
     if upscale_model == "seedvr":
         _warn_deprecated("upscale_model=seedvr is deprecated; use upscale_model=seedvr2 instead.")
         return "seedvr2"
@@ -552,7 +622,9 @@ def _process_jpeg_cleanup_candidates(
 ) -> None:
     _probe, skip_reason = _build_seedvr2(resolution=upscale_target, **seedvr2_kwargs)
     if skip_reason is not None:
-        reporter.warn(f"SeedVR2 unavailable for JPEG cleanup ({skip_reason}) - leaving large JPEGs untouched.")
+        reporter.warn(
+            f"SeedVR2 unavailable for JPEG cleanup ({skip_reason}) "
+            f"- leaving large JPEGs untouched.")
         for info in infos:
             check_cancel(cancel_check)
             results["skipped"].append({
@@ -562,7 +634,9 @@ def _process_jpeg_cleanup_candidates(
             _pass_through(context, info.path)
         return
 
-    reporter.info(f"{len(infos)} large JPEG(s) will be cleaned up via SeedVR2 (downscale then re-upscale).")
+    reporter.info(
+        f"{len(infos)} large JPEG(s) will be cleaned up via SeedVR2 "
+        f"(downscale then re-upscale).")
     # Each image is re-upscaled to its own min-side so it never ends up smaller
     # than it started. Group by that target so same-size images share one worker
     # (the model is loaded once per group, not once per image).
@@ -576,7 +650,8 @@ def _process_jpeg_cleanup_candidates(
         seedvr2, build_reason = _build_seedvr2(resolution=target, **seedvr2_kwargs)
         if build_reason is not None:
             for info in group:
-                results["skipped"].append({"path": str(info.path), "reason": f"jpeg_cleanup: {build_reason}"})
+                results["skipped"].append(
+                    {"path": str(info.path), "reason": f"jpeg_cleanup: {build_reason}"})
                 _pass_through(context, info.path)
             continue
         group_paths = [info.path for info in group]
@@ -665,7 +740,7 @@ def _accept_candidate(
         return
 
     reporter.ok(f"Upscaled {path.name} -> {out_path.name} (hall_ssim={hall_ssim:.3f})")
-    os.replace(tmp_path, out_path)
+    tmp_path.replace(out_path)
     if context.in_place and out_path != path:
         # The original sat at the same path/dir as out_path under a different
         # (pre-conversion) suffix - e.g. a JPEG source converted to PNG.

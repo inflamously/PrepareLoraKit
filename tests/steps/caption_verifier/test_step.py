@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import types
-from pathlib import Path
+from typing import ClassVar
 
 import pytest
 from PIL import Image
@@ -23,7 +23,7 @@ from prepare_lora_kit.utils.verdict_ledger import VerdictLedger
 class FakeRuntime:
     """Stands in for T2IRuntime; renders a tiny solid image per call."""
 
-    instances: list["FakeRuntime"] = []
+    instances: ClassVar[list[FakeRuntime]] = []
 
     def __init__(self, **kwargs):
         self.kwargs = kwargs
@@ -61,7 +61,6 @@ class FakeRuntime:
 def _patch_runtime(monkeypatch):
     FakeRuntime.instances = []
     monkeypatch.setattr(verifier_step, "T2IRuntime", FakeRuntime)
-    yield
 
 
 @pytest.fixture
@@ -360,7 +359,8 @@ def test_keep_previews_false_removes_renders_and_their_report_paths(dataset, tmp
     previews = list((tmp_path / "reports" / "CaptionVerifierStep_previews").rglob("*.png"))
     assert previews == []
     generations = report["items"][0]["generations"]
-    assert generations and generations[0]["path"] is None
+    assert generations
+    assert generations[0]["path"] is None
 
 
 def test_caption_backups_survive_preview_pruning(dataset, tmp_path):

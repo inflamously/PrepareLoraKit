@@ -5,7 +5,6 @@ from collections.abc import Collection
 from pathlib import Path
 
 from prepare_lora_kit.pipeline.configuration import step_prerequisites
-
 from prepare_lora_kit.project.base import ProjectConfig
 from prepare_lora_kit.project.pipeline import (
     SUBSTEP_REGISTRY,
@@ -65,7 +64,8 @@ def validate_pipeline_selection(
             and not (output_dir / "dataset").exists()
     ):
         raise PipelineValidationError(
-            "The working dataset does not exist. Select ImportStep first or choose an existing output."
+            "The working dataset does not exist. "
+            "Select ImportStep first or choose an existing output."
         )
 
 

@@ -5,6 +5,7 @@ builds the :class:`CliBboxRegionProvider` interaction that feeds those regions
 into CaptionBboxStep's annotate substep.
 """
 from __future__ import annotations
+
 from pathlib import Path
 
 import click
@@ -26,7 +27,7 @@ def _parse_bbox(raw: str, width: int, height: int) -> dict:
         x1, y1, x2, y2 = (float(p) for p in parts)
     except ValueError:
         raise click.BadParameter(
-            f"--bbox coordinates must be numeric, got '{raw}'", param_hint="--bbox")
+            f"--bbox coordinates must be numeric, got '{raw}'", param_hint="--bbox") from None
 
     if not all(v <= 1.0 for v in (x1, y1, x2, y2)):
         x1, x2 = x1 / width, x2 / width
@@ -75,7 +76,6 @@ def build_bbox_interaction(working_dir: Path, bboxes, bbox_image: str | None):
     the resolved dataset image the regions apply to.
     """
     from PIL import Image
-
 
     from prepare_lora_kit.interaction import CliBboxRegionProvider
     target = _resolve_bbox_target(working_dir, bbox_image)

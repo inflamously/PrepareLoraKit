@@ -1,6 +1,7 @@
 """Best-effort release of ML accelerator resources between pipeline steps."""
 from __future__ import annotations
 
+import contextlib
 import gc
 import sys
 from typing import Any
@@ -26,15 +27,11 @@ def release_accelerator_memory() -> None:
             initialized = False
 
     if initialized:
-        try:
+        with contextlib.suppress(Exception):
             cuda.synchronize()
-        except Exception:
-            pass
 
     gc.collect()
 
     if initialized:
-        try:
+        with contextlib.suppress(Exception):
             cuda.empty_cache()
-        except Exception:
-            pass

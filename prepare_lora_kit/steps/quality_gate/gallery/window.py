@@ -2,9 +2,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
-
-from prepare_lora_kit.steps.quality_gate.gallery.constants import _THUMB, _COLS, _PASS, _FAIL, _quality_color
+from prepare_lora_kit.steps.quality_gate.gallery.constants import (
+    _COLS,
+    _FAIL,
+    _PASS,
+    _THUMB,
+    _quality_color,
+)
 from prepare_lora_kit.steps.quality_gate.gallery.tooltip import HoverPreview
+
 
 def _gallery_review(items: list[tuple[Path, dict]]) -> dict[str, str]:
     """
@@ -15,7 +21,6 @@ def _gallery_review(items: list[tuple[Path, dict]]) -> dict[str, str]:
     Returns {path_str: "keep"|"reject"}.
     """
     import tkinter as tk
-    from PIL import Image as PILImage, ImageTk
 
     decisions: dict[str, str] = {
         str(p): ("reject" if info["auto_reject"] else "keep") for p, info in items
@@ -28,18 +33,7 @@ def _gallery_review(items: list[tuple[Path, dict]]) -> dict[str, str]:
     header = tk.Label(root, bg="#1e1e1e", fg="#dddddd", font=("TkDefaultFont", 11, "bold"))
     header.pack(side="top", fill="x", padx=8, pady=6)
 
-    # scrollable canvas + inner frame
-    canvas = tk.Canvas(root, bg="#1e1e1e", highlightthickness=0)
-    vbar = tk.Scrollbar(root, orient="vertical", command=canvas.yview)
-    canvas.configure(yscrollcommand=vbar.set)
-    vbar.pack(side="right", fill="y")
-    canvas.pack(side="left", fill="both", expand=True)
-    grid = tk.Frame(canvas, bg="#1e1e1e")
-    canvas.create_window((0, 0), window=grid, anchor="nw")
-    grid.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
-    canvas.bind_all("<MouseWheel>", lambda e: canvas.yview_scroll(int(-e.delta / 120), "units"))
-    canvas.bind_all("<Button-4>", lambda e: canvas.yview_scroll(-1, "units"))
-    canvas.bind_all("<Button-5>", lambda e: canvas.yview_scroll(1, "units"))
+    grid = _build_scroll_area(root)
 
     # hover preview popup: full-size image + scores (browser-style)
     preview = HoverPreview(root)
@@ -64,43 +58,84 @@ def _gallery_review(items: list[tuple[Path, dict]]) -> dict[str, str]:
 
     for idx, (path, info) in enumerate(items):
         key = str(path)
-        cell = tk.Frame(grid, bg="#1e1e1e", highlightthickness=4, bd=0)
-        cell.grid(row=idx // _COLS, column=idx % _COLS, padx=6, pady=6)
-
+        cell, clickable = _build_cell(grid, idx, path, info, refs)
         cells[key] = cell
-        try:
-            im = PILImage.open(path).convert("RGB")
-            im.thumbnail((_THUMB, _THUMB))
-            photo = ImageTk.PhotoImage(im)
-            refs.append(photo)
-            thumb = tk.Label(cell, image=photo, bg="#1e1e1e")
-        except Exception:
-            thumb = tk.Label(cell, text="(no preview)", width=24, height=10,
-                             bg="#333333", fg="#aaaaaa")
-        thumb.pack()
 
-        caption = tk.Label(cell, text=f"{info['quality']}/100",
-                           bg="#1e1e1e", fg=_quality_color(info["quality"]),
-                           font=("TkDefaultFont", 9, "bold"))
-        caption.pack()
-        name = tk.Label(cell, text=path.name, bg="#1e1e1e", fg="#999999",
-                        font=("TkDefaultFont", 8), wraplength=_THUMB)
-        name.pack()
-
-        for w in (cell, thumb, caption, name):
+        for w in clickable:
             w.bind("<Button-1>", lambda e, k=key: _toggle(k))
             w.bind("<Enter>", lambda e, p=path, i=info: preview.schedule(e, p, i))
             w.bind("<Leave>", preview.hide)
         _paint(key)
 
     _update_header()
+    _build_done_bar(root)
+
+    root.geometry("1100x800")
+    root.mainloop()
+    return decisions
+
+
+def _build_scroll_area(root):
+    """A vertically scrollable canvas; returns the frame the grid goes in."""
+    import tkinter as tk
+
+    canvas = tk.Canvas(root, bg="#1e1e1e", highlightthickness=0)
+    vbar = tk.Scrollbar(root, orient="vertical", command=canvas.yview)
+    canvas.configure(yscrollcommand=vbar.set)
+    vbar.pack(side="right", fill="y")
+    canvas.pack(side="left", fill="both", expand=True)
+    grid = tk.Frame(canvas, bg="#1e1e1e")
+    canvas.create_window((0, 0), window=grid, anchor="nw")
+    grid.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+    # Button-4/5 are X11's wheel events; MouseWheel covers Windows and macOS.
+    canvas.bind_all("<MouseWheel>", lambda e: canvas.yview_scroll(int(-e.delta / 120), "units"))
+    canvas.bind_all("<Button-4>", lambda e: canvas.yview_scroll(-1, "units"))
+    canvas.bind_all("<Button-5>", lambda e: canvas.yview_scroll(1, "units"))
+    return grid
+
+
+def _build_cell(grid, idx: int, path: Path, info: dict, refs: list):
+    """One thumbnail cell.
+
+    Returns the cell frame (whose border carries the keep/reject colour) and every
+    widget inside it that should respond to clicks and hover. An unreadable image
+    degrades to a placeholder label so one bad file cannot empty the gallery.
+    """
+    import tkinter as tk
+
+    from PIL import Image as PILImage
+    from PIL import ImageTk
+
+    cell = tk.Frame(grid, bg="#1e1e1e", highlightthickness=4, bd=0)
+    cell.grid(row=idx // _COLS, column=idx % _COLS, padx=6, pady=6)
+
+    try:
+        im = PILImage.open(path).convert("RGB")
+        im.thumbnail((_THUMB, _THUMB))
+        photo = ImageTk.PhotoImage(im)
+        refs.append(photo)
+        thumb = tk.Label(cell, image=photo, bg="#1e1e1e")
+    except Exception:
+        thumb = tk.Label(cell, text="(no preview)", width=24, height=10,
+                         bg="#333333", fg="#aaaaaa")
+    thumb.pack()
+
+    caption = tk.Label(cell, text=f"{info['quality']}/100",
+                       bg="#1e1e1e", fg=_quality_color(info["quality"]),
+                       font=("TkDefaultFont", 9, "bold"))
+    caption.pack()
+    name = tk.Label(cell, text=path.name, bg="#1e1e1e", fg="#999999",
+                    font=("TkDefaultFont", 8), wraplength=_THUMB)
+    name.pack()
+    return cell, (cell, thumb, caption, name)
+
+
+def _build_done_bar(root) -> None:
+    """The bottom bar whose single button ends the review."""
+    import tkinter as tk
 
     btn_bar = tk.Frame(root, bg="#1e1e1e")
     btn_bar.pack(side="bottom", fill="x")
     tk.Button(btn_bar, text="Done", command=root.destroy,
               bg="#2e7d32", fg="white", font=("TkDefaultFont", 10, "bold")).pack(
         side="right", padx=8, pady=6)
-
-    root.geometry("1100x800")
-    root.mainloop()
-    return decisions

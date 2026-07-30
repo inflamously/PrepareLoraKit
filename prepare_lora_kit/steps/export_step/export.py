@@ -5,14 +5,13 @@ Only ``added``/``modified`` entries are copied, preserving subject subfolders.
 """
 from __future__ import annotations
 
-import os
 import shutil
 from collections.abc import Iterable
 from pathlib import Path
 
-
 from prepare_lora_kit.cancellation import CancelCheck, check_cancel
 from prepare_lora_kit.steps.export_step.diff import CAPTION_SUFFIX, DiffEntry
+
 
 def export_entries(
     entries: Iterable[DiffEntry],
@@ -34,7 +33,7 @@ def export_entries(
             continue
         check_cancel(cancel_check)
         dst_image = target_dir / entry.rel
-        os.makedirs(dst_image.parent, exist_ok=True)
+        dst_image.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(entry.image_src, dst_image)
         record = {"rel": entry.rel, "image": str(dst_image)}
         if entry.caption_src:

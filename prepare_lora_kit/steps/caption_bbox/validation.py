@@ -1,13 +1,13 @@
 """Caption cleanup, validation, and spot-check display for CaptionBboxStep."""
 from __future__ import annotations
 
-from pathlib import Path
 import random
+from pathlib import Path
 
 from prepare_lora_kit.cancellation import CancelCheck, check_cancel
+from prepare_lora_kit.report import reporter
 from prepare_lora_kit.steps.caption_bbox import caption_text as cap_text
 from prepare_lora_kit.steps.caption_bbox.gap_fill import merge_missing_phrases
-from prepare_lora_kit.report import reporter
 
 
 def _label_text(label: str, concept_token: str | None) -> str:
@@ -58,7 +58,8 @@ def enforce_region_labels(
         return caption
 
     missing = [label for label in labels if not cap_text.mentions(caption, label)]
-    appendable = [label for label in missing if len(cap_text.content_words(label)) <= _MAX_ENFORCED_WORDS]
+    appendable = [label for label in missing
+                  if len(cap_text.content_words(label)) <= _MAX_ENFORCED_WORDS]
 
     for label in missing:
         if label not in appendable and path is not None:
@@ -86,10 +87,9 @@ def clean_caption_for_mode(
     caption = cap_text.strip_boilerplate(caption)
     caption = enforce_region_labels(caption, annotations, path, concept_token=concept_token)
 
-    if not style_mode and concept_token:
-        if not cap_text.token_present(caption, concept_token):
-            reporter.warn(f"Concept token missing in caption for {path.name} — appending.")
-            caption = f"{concept_token}, {caption}"
+    if not style_mode and concept_token and not cap_text.token_present(caption, concept_token):
+        reporter.warn(f"Concept token missing in caption for {path.name} — appending.")
+        caption = f"{concept_token}, {caption}"
 
     return caption
 

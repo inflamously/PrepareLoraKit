@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Protocol, Any
+from typing import Any, Protocol
 
 from prepare_lora_kit.interaction import RegionCaptioner
 

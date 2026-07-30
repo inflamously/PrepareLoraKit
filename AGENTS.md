@@ -24,6 +24,9 @@ currently use pytest-style functions.
   local pipeline from the repo checkout.
 - `pytest`: runs the test suite in `tests/`.
 - `pytest tests/project/test_config.py`: runs one focused test module.
+- `python -m pip install -r requirements/dev.txt`: installs the dev tooling
+  (`ruff`, `pytest`) on top of the runtime deps.
+- `ruff check .`: lints the repo. `ruff check --fix .` applies the safe fixes.
 
 ## Coding Style & Naming Conventions
 
@@ -37,6 +40,28 @@ workflows into cohesive classes with clearly named methods.
 Tests should be named `test_<behavior>` and organized as
 `tests/<domain>/test_<area>.py`. Prefer `pathlib.Path` for filesystem paths and
 structured YAML parsing over ad hoc string handling.
+
+### Linting
+
+`ruff check .` must be clean before a change is done — the full rule set lives in
+`pyproject.toml` under `[tool.ruff.lint]`, and every `ignore` entry there carries
+a comment explaining why. The line limit is 100.
+
+The complexity rules are the point of the config, not incidental: a function over
+**complexity 10 / 12 branches / 50 statements** is telling you it holds more than
+one job. Fix it by extracting a named helper or a cohesive class, not by raising
+the threshold or adding a `noqa`. There is deliberately no baseline ignore list —
+the repo is at zero violations, so any new one belongs to the change that
+introduced it.
+
+Two rules are switched off for scope reasons rather than principle, and are the
+natural next ratchet: `PLR0913`/`PLR0917` (too many arguments) currently has ~24
+offenders, mostly step `run()` signatures and their callers. `T201` (`print`) is
+off because the interactive `review.py` modules print to the console by design.
+
+A `PostToolUse` hook in `.claude/settings.json` runs `.claude/hooks/ruff_check.py`
+after any Python file is written, so violations surface immediately instead of at
+review time. It no-ops silently when ruff is not installed.
 
 Keep `prepare_lora_kit_ui/static/core/api.js` JSDoc in sync with the pywebview
 bridge whenever `prepare_lora_kit_ui/bridge.py`, UI bridge payloads, or frontend

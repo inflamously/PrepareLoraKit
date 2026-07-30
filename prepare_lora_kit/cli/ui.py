@@ -1,22 +1,23 @@
 """`ui` command - launch the desktop webview interface."""
 from __future__ import annotations
 
+import contextlib
+import shutil
+import sys
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from mimetypes import guess_type
 from pathlib import Path
-import shutil
-import sys
 from threading import Thread
 from time import perf_counter
 from urllib.parse import parse_qs, urlparse
 
 import click
 
+from prepare_lora_kit.cli._shared import cli
 from prepare_lora_kit.paths import PROJECT_ROOT
 from prepare_lora_kit_ui import media
 
-from prepare_lora_kit.cli._shared import cli
 _IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tiff", ".tif"}
 
 
@@ -174,7 +175,6 @@ def ui(
             "pywebview is not installed. Install requirements or run: pip install pywebview"
         ) from exc
 
-    from prepare_lora_kit_ui.dev_fixture import create_mock_ui_fixture
     from prepare_lora_kit_ui.bridge import UiBridge
     from prepare_lora_kit_ui.shutdown_diagnostics import ShutdownDiagnostics
 
@@ -189,16 +189,8 @@ def ui(
     projects = None
     bootstrap = None
     if mock_step:
-        try:
-            fixture = create_mock_ui_fixture(
-                mock_step,
-                root=mock_output,
-                curate_coverage=mock_curate_coverage,
-            )
-        except ValueError as exc:
-            raise click.ClickException(str(exc)) from exc
-        projects = {fixture.project.name: fixture.project}
-        bootstrap = fixture.bootstrap_payload()
+        projects, bootstrap = _mock_fixture_payload(
+            mock_step, mock_output, mock_curate_coverage)
 
     index = PROJECT_ROOT / "prepare_lora_kit_ui" / "static" / "index.html"
     if not index.exists():
@@ -221,6 +213,41 @@ def ui(
         min_size=(1040, 680),
     )
 
+    with contextlib.suppress(AttributeError):
+        window.events.closing += _closing_handler(bridge, diagnostics)
+    try:
+        if diagnostics is not None:
+            diagnostics.mark("webview.start entering")
+        webview.start(debug=debug)
+    finally:
+        _shutdown_everything(bridge, server, diagnostics)
+
+
+def _mock_fixture_payload(
+    mock_step: str,
+    mock_output: Path | None,
+    mock_curate_coverage: str,
+) -> tuple[dict, dict]:
+    """The in-memory project and bootstrap payload backing a ``--mock`` UI run."""
+    from prepare_lora_kit_ui.dev_fixture import create_mock_ui_fixture
+
+    try:
+        fixture = create_mock_ui_fixture(
+            mock_step,
+            root=mock_output,
+            curate_coverage=mock_curate_coverage,
+        )
+    except ValueError as exc:
+        raise click.ClickException(str(exc)) from exc
+    return {fixture.project.name: fixture.project}, fixture.bootstrap_payload()
+
+
+def _closing_handler(bridge, diagnostics):
+    """Shut the bridge down while the window is still closing.
+
+    Doing it here rather than only in the ``finally`` gives running jobs a chance
+    to stop before the webview loop unwinds.
+    """
     def _shutdown_on_close(*_args) -> None:
         if diagnostics is not None:
             diagnostics.begin_shutdown("window closing event")
@@ -237,60 +264,62 @@ def ui(
                 result=result,
             )
 
-    try:
-        window.events.closing += _shutdown_on_close
-    except AttributeError:
-        pass
-    try:
-        if diagnostics is not None:
-            diagnostics.mark("webview.start entering")
-        webview.start(debug=debug)
-    finally:
-        if diagnostics is not None:
-            diagnostics.begin_shutdown("webview.start exited before closing event")
-            diagnostics.mark("webview.start returned")
+    return _shutdown_on_close
 
-        started = perf_counter()
-        result = bridge.shutdown()
-        if diagnostics is not None:
-            diagnostics.mark(
-                "final bridge shutdown completed",
-                duration=perf_counter() - started,
-                result=result,
-            )
 
-        started = perf_counter()
-        server.shutdown()
-        if diagnostics is not None:
-            diagnostics.mark(
-                "static server shutdown completed",
-                duration=perf_counter() - started,
-            )
+def _shutdown_everything(bridge, server, diagnostics) -> None:
+    """Tear down in order: pipeline jobs, static server, then process exit policy.
 
-        started = perf_counter()
-        server.server_close()
-        jobs = bridge.jobs.diagnostic_snapshot()
-        pipeline_alive = any(job["thread_alive"] for job in jobs["jobs"])
-        netfx_finalizer_suppressed = False
-        if sys.platform == "win32" and not pipeline_alive:
-            from prepare_lora_kit_ui.windows_shutdown import suppress_netfx_process_finalizer
+    Runs from a ``finally``, so it must tolerate the closing handler having
+    already shut the bridge down.
+    """
+    if diagnostics is not None:
+        diagnostics.begin_shutdown("webview.start exited before closing event")
+        diagnostics.mark("webview.start returned")
 
-            netfx_finalizer_suppressed = suppress_netfx_process_finalizer()
-        if diagnostics is not None:
-            diagnostics.mark(
-                "static server close completed",
-                duration=perf_counter() - started,
-            )
-            if sys.platform == "win32":
-                diagnostics.mark(
-                    "Windows CLR exit policy selected",
-                    netfx_finalizer_suppressed=netfx_finalizer_suppressed,
-                    pipeline_alive=pipeline_alive,
-                )
-            diagnostics.runtime_snapshot("application cleanup complete")
-            diagnostics.mark(
-                "pipeline jobs after application cleanup",
-                jobs=jobs,
-            )
-            diagnostics.dump_threads("application cleanup complete")
-            diagnostics.mark("UI command returning")
+    started = perf_counter()
+    result = bridge.shutdown()
+    if diagnostics is not None:
+        diagnostics.mark(
+            "final bridge shutdown completed",
+            duration=perf_counter() - started,
+            result=result,
+        )
+
+    started = perf_counter()
+    server.shutdown()
+    if diagnostics is not None:
+        diagnostics.mark(
+            "static server shutdown completed",
+            duration=perf_counter() - started,
+        )
+
+    started = perf_counter()
+    server.server_close()
+    jobs = bridge.jobs.diagnostic_snapshot()
+    pipeline_alive = any(job["thread_alive"] for job in jobs["jobs"])
+    netfx_finalizer_suppressed = False
+    if sys.platform == "win32" and not pipeline_alive:
+        from prepare_lora_kit_ui.windows_shutdown import suppress_netfx_process_finalizer
+
+        netfx_finalizer_suppressed = suppress_netfx_process_finalizer()
+    if diagnostics is None:
+        return
+
+    diagnostics.mark(
+        "static server close completed",
+        duration=perf_counter() - started,
+    )
+    if sys.platform == "win32":
+        diagnostics.mark(
+            "Windows CLR exit policy selected",
+            netfx_finalizer_suppressed=netfx_finalizer_suppressed,
+            pipeline_alive=pipeline_alive,
+        )
+    diagnostics.runtime_snapshot("application cleanup complete")
+    diagnostics.mark(
+        "pipeline jobs after application cleanup",
+        jobs=jobs,
+    )
+    diagnostics.dump_threads("application cleanup complete")
+    diagnostics.mark("UI command returning")

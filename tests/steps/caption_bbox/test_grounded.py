@@ -57,7 +57,8 @@ def test_a_good_draft_skips_the_gap_pass_entirely():
 
 def test_a_draft_omitting_a_region_label_gets_the_gap_pass():
     runtime = _FakeRuntime(["FACTS", _RICH_DRAFT, "a chipped enamel mug"])
-    annotations = [{"label": "a chipped enamel mug", "region_desc": "on the right", "crop_name": ""}]
+    annotations = [
+        {"label": "a chipped enamel mug", "region_desc": "on the right", "crop_name": ""}]
 
     result = grounded.generate_grounded_caption(
         runtime, _IMAGE, annotations, "tok", style_mode=False,
@@ -69,7 +70,8 @@ def test_a_draft_omitting_a_region_label_gets_the_gap_pass():
 
 def test_gap_pass_can_only_add_to_the_draft():
     # A model that ignores the format and tries to rewrite must not be able to.
-    runtime = _FakeRuntime(["FACTS", "A brass telescope on a tripod", "A completely different caption"])
+    runtime = _FakeRuntime(
+        ["FACTS", "A brass telescope on a tripod", "A completely different caption"])
 
     result = grounded.generate_grounded_caption(
         runtime, _IMAGE, [], "tok", style_mode=False,

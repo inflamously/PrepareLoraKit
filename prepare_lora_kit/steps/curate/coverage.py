@@ -3,9 +3,13 @@ from __future__ import annotations
 
 from collections import Counter
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from prepare_lora_kit.cancellation import CancelCheck, check_cancel
 from prepare_lora_kit.report import reporter
+
+if TYPE_CHECKING:
+    import numpy as np
 
 _LABEL_MAX = 24
 
@@ -36,7 +40,7 @@ def _coverage_embeddings(
     paths: list[Path],
     model_id: str,
     cancel_check: CancelCheck | None = None,
-) -> "np.ndarray":
+) -> np.ndarray:
     """Image embeddings for the coverage plot using the selected model family.
 
     Dispatches to CLIP (open_clip), DINOv2, or Qwen via the shared embedding
@@ -72,8 +76,9 @@ def _scatter_points(fig, ax, coords, paths: list[Path]) -> list[dict]:
     disp = ax.transData.transform(coords)
     frac = fig.transFigure.inverted().transform(disp)
     return [
-        {"path": str(p), "x_pct": round(float(fx) * 100, 2), "y_pct": round((1 - float(fy)) * 100, 2)}
-        for p, (fx, fy) in zip(paths, frac)
+        {"path": str(p), "x_pct": round(float(fx) * 100, 2),
+         "y_pct": round((1 - float(fy)) * 100, 2)}
+        for p, (fx, fy) in zip(paths, frac, strict=True)
     ]
 
 

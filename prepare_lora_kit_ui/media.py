@@ -12,16 +12,16 @@ automatically. The media server is threaded, hence the lock.
 """
 from __future__ import annotations
 
+import threading
 from collections import OrderedDict
 from io import BytesIO
 from pathlib import Path
-import threading
 
 # Encoded variants are tiny (a few KB for thumbnails, ~tens-hundreds KB for views), so a few
 # hundred entries comfortably covers a large dataset shown across the UI without unbounded growth.
 _CACHE_LIMIT = 512
 
-_CACHE: "OrderedDict[tuple[str, int, int], tuple[bytes, str]]" = OrderedDict()
+_CACHE: OrderedDict[tuple[str, int, int], tuple[bytes, str]] = OrderedDict()
 _LOCK = threading.Lock()
 
 _WEBP_QUALITY = 82

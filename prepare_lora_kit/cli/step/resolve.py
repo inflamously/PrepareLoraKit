@@ -7,9 +7,8 @@ from __future__ import annotations
 
 import click
 
-from prepare_lora_kit.project import project_registry
-
 from prepare_lora_kit.pipeline import step_slugs, step_type_for_slug, step_types
+from prepare_lora_kit.project import project_registry
 
 
 def _resolve_step_type(raw: str) -> str:
@@ -38,4 +37,4 @@ def _load_project(name: str):
     try:
         return project_registry.load(name)
     except ValueError as exc:
-        raise click.BadParameter(str(exc), param_hint="--project")
+        raise click.BadParameter(str(exc), param_hint="--project") from exc

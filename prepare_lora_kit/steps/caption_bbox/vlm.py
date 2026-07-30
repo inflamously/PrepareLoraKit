@@ -1,21 +1,22 @@
 """Generic Hugging Face caption runtime for CaptionBboxStep."""
 from __future__ import annotations
 
+import threading
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable
-import threading
+from typing import Any
 
-from prepare_lora_kit.steps.caption_bbox import grounded
-from prepare_lora_kit.steps.caption_bbox import caption_text as cap_text
-from prepare_lora_kit.steps.caption_bbox import prompts as cap_utils
 from prepare_lora_kit.report import reporter
+from prepare_lora_kit.steps.caption_bbox import caption_text as cap_text
+from prepare_lora_kit.steps.caption_bbox import grounded
+from prepare_lora_kit.steps.caption_bbox import prompts as cap_utils
 
 CaptionStatusCallback = Callable[[dict[str, Any]], None]
 
 # Cache keyed by model/task/loading settings so repeated region/full-image
 # captions in one run reuse the same HF objects.
-_CACHE: dict[tuple, "LoadedCaptionModel"] = {}
+_CACHE: dict[tuple, LoadedCaptionModel] = {}
 
 # Pixel budget (area) applied before processor input. Visual token count scales
 # with area, so this is the first line of defense against activation OOM.
@@ -73,15 +74,26 @@ def _resolve_quantization(quantization: str, torch) -> str:
             raise RuntimeError(f"{quantization} caption loading requires CUDA.")
         if not _bitsandbytes_available():
             raise RuntimeError(
-                f"{quantization} caption loading requires bitsandbytes; install/fix bitsandbytes or choose Auto/Unquantized."
+                f"{quantization} caption loading requires bitsandbytes; "
+                f"install/fix bitsandbytes or choose Auto/Unquantized."
             )
         return quantization
     if quantization != "auto":
         return quantization
+    return _auto_quantization(torch)
+
+
+def _auto_quantization(torch) -> str:
+    """Pick a quantization for ``auto``, sized to the visible VRAM.
+
+    Falls back to an unquantized load whenever bitsandbytes cannot do the job,
+    since a slow caption pass beats a failed one.
+    """
     if not torch.cuda.is_available():
         return "none"
     if not _bitsandbytes_available():
-        reporter.warn("bitsandbytes unavailable; auto VLM quantization selecting unquantized CPU/GPU load.")
+        reporter.warn("bitsandbytes unavailable; auto VLM quantization "
+                      "selecting unquantized CPU/GPU load.")
         return "none"
     total_gb = _cuda_total_vram_gb(torch)
     if total_gb and total_gb <= 16:
@@ -91,7 +103,9 @@ def _resolve_quantization(quantization: str, torch) -> str:
     return "none"
 
 
-def _load(model_id: str, task: str, quantization: str, dtype: str, max_pixels: int) -> LoadedCaptionModel:
+def _load(
+    model_id: str, task: str, quantization: str, dtype: str, max_pixels: int,
+) -> LoadedCaptionModel:
     import torch
 
     task = str(task or "auto").strip().lower()
@@ -104,9 +118,9 @@ def _load(model_id: str, task: str, quantization: str, dtype: str, max_pixels: i
     if key in _CACHE:
         return _CACHE[key]
 
-    from prepare_lora_kit.settings.hub import hub_error_context
-
     from transformers import AutoProcessor
+
+    from prepare_lora_kit.settings.hub import hub_error_context
 
     model_kwargs = _model_kwargs(resolved_quantization, resolved_dtype)
     errors: list[str] = []
@@ -374,7 +388,9 @@ def _first_caption_value(value: Any) -> str | None:
     return None
 
 
-def _compose_classic_caption(base_caption: str, annotations: list[dict], concept_token: str | None) -> str:
+def _compose_classic_caption(
+    base_caption: str, annotations: list[dict], concept_token: str | None,
+) -> str:
     caption = cap_text.strip_boilerplate(base_caption)
     labels = []
     for ann in annotations:
@@ -493,7 +509,8 @@ class CaptionRuntime:
         if self._loaded is not None:
             return
         if not self.model_id:
-            raise RuntimeError("CaptionBboxStep requires caption_model_id before captioning can run.")
+            raise RuntimeError(
+                "CaptionBboxStep requires caption_model_id before captioning can run.")
         self._emit_status("loading", f"Loading caption model {self.model_id}")
         import torch
 
@@ -549,7 +566,8 @@ class CaptionRuntime:
             *,
             max_new_tokens: int = 200,
     ) -> str:
-        self._emit_status("captioning", f"Captioning {Path(image_path).name}", current_image=str(image_path))
+        self._emit_status("captioning", f"Captioning {Path(image_path).name}",
+                          current_image=str(image_path))
         ann_lines = []
         for ann in annotations:
             x1, y1, x2, y2 = ann["x1"], ann["y1"], ann["x2"], ann["y2"]
@@ -588,7 +606,9 @@ class CaptionRuntime:
             self._emit_status("ready", f"Caption model ready: {self.model_id}")
             return text
         except Exception as exc:
-            self._emit_status("failed", f"Captioning failed for {Path(image_path).name}: {exc}", error=str(exc))
+            self._emit_status(
+                "failed", f"Captioning failed for {Path(image_path).name}: {exc}",
+                error=str(exc))
             raise
 
     def caption_region(
@@ -661,7 +681,8 @@ def caption_image(
         dtype=dtype,
         max_pixels=max_pixels,
     )
-    return runtime.caption_image(image_path, annotations, concept_token, max_new_tokens=max_new_tokens)
+    return runtime.caption_image(
+        image_path, annotations, concept_token, max_new_tokens=max_new_tokens)
 
 
 def caption_region(

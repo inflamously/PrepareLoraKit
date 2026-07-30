@@ -116,9 +116,15 @@ def build_region_prompt(
 
 # Natural-language placement for a localized box, keyed by (vertical, horizontal) zone.
 _PLACEMENT_PROSE = {
-    ("top", "left"): "in the upper-left", ("top", "center"): "at the top-center", ("top", "right"): "in the upper-right",
-    ("middle", "left"): "on the left", ("middle", "center"): "in the center", ("middle", "right"): "on the right",
-    ("bottom", "left"): "in the lower-left", ("bottom", "center"): "at the bottom-center", ("bottom", "right"): "in the lower-right",
+    ("top", "left"): "in the upper-left",
+    ("top", "center"): "at the top-center",
+    ("top", "right"): "in the upper-right",
+    ("middle", "left"): "on the left",
+    ("middle", "center"): "in the center",
+    ("middle", "right"): "on the right",
+    ("bottom", "left"): "in the lower-left",
+    ("bottom", "center"): "at the bottom-center",
+    ("bottom", "right"): "in the lower-right",
 }
 
 
@@ -145,9 +151,11 @@ def describe_box_position(x1: float, y1: float, x2: float, y2: float) -> str:
     hz = "left" if cx < 0.30 else ("center" if cx < 0.62 else "right")
 
     if wide:
-        return {"top": "across the top", "middle": "across the middle", "bottom": "across the bottom"}[vz]
+        return {"top": "across the top", "middle": "across the middle",
+                "bottom": "across the bottom"}[vz]
     if tall:
-        return {"left": "down the left side", "center": "down the center", "right": "down the right side"}[hz]
+        return {"left": "down the left side", "center": "down the center",
+                "right": "down the right side"}[hz]
 
     placement = _PLACEMENT_PROSE[(vz, hz)]
     if w * h < 0.06:
@@ -426,7 +434,8 @@ def build_compose_prompt(
     if template:
         instruction = apply_prompt_placeholders(template, annotation_text, concept_token)
         if facts and facts.strip():
-            instruction = f"Observed facts about the image (use only these):\n{facts}\n\n{instruction}"
+            instruction = (
+                f"Observed facts about the image (use only these):\n{facts}\n\n{instruction}")
         return apply_domain_brief(instruction, domain_brief)
 
     base = _COMPOSE_PROMPT_STYLE if style_mode else _COMPOSE_PROMPT_CONCEPT

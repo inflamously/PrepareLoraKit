@@ -47,7 +47,7 @@ class CaptionPrompt:
         return {"name": self.name, "kind": self.kind, "text": self.text}
 
     @classmethod
-    def from_yaml(cls, path: Path) -> "CaptionPrompt":
+    def from_yaml(cls, path: Path) -> CaptionPrompt:
         data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
         return cls(
             name=str(data.get("name", path.stem)),
@@ -119,7 +119,8 @@ def save(kind: str, name: str, text: str) -> CaptionPrompt:
     if not name:
         raise ValueError("Caption prompt name is required.")
     if _is_default(name):
-        raise ValueError("The built-in 'Default' caption prompt is read-only and cannot be overwritten.")
+        raise ValueError(
+            "The built-in 'Default' caption prompt is read-only and cannot be overwritten.")
     prompt = CaptionPrompt(name=name, kind=kind, text=str(text))
     _PROMPTS_DIR.mkdir(parents=True, exist_ok=True)
     _path_for(kind, name).write_text(
@@ -133,5 +134,6 @@ def delete(kind: str, name: str) -> None:
     """Remove a named prompt (idempotent). The built-in 'Default' cannot be deleted."""
     _validate_kind(kind)
     if _is_default(name):
-        raise ValueError("The built-in 'Default' caption prompt is read-only and cannot be deleted.")
+        raise ValueError(
+            "The built-in 'Default' caption prompt is read-only and cannot be deleted.")
     _path_for(kind, name).unlink(missing_ok=True)

@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from pathlib import Path
 
 UPSCALE_TARGET = 3072
@@ -13,7 +14,6 @@ def _lanczos_upscale(path: Path, output_path: Path, target: int = UPSCALE_TARGET
     inference (by extension) writes PNG without any extra handling here.
     """
     from PIL import Image
-
 
     from prepare_lora_kit.steps.upscale.jpeg_cleanup import _denoise, _is_jpeg
     img = Image.open(path).convert("RGB")

@@ -4,14 +4,11 @@ from unittest.mock import MagicMock, patch
 from urllib.parse import parse_qs, quote, urlparse
 from urllib.request import ProxyHandler, build_opener
 
-from PIL import Image
 import pytest
+from PIL import Image
 
 from prepare_lora_kit.cancellation import CancelledRun
 from prepare_lora_kit.cli.ui import _static_server
-from prepare_lora_kit.pipeline.execution import resolve_selected_substeps
-from prepare_lora_kit.pipeline.validation import validate_pipeline_selection
-from prepare_lora_kit.project.base import ProjectConfig, PipelineStep
 from prepare_lora_kit.pipeline.configs import (
     AuditConfig,
     BucketPoolsCheckConfig,
@@ -23,18 +20,21 @@ from prepare_lora_kit.pipeline.configs import (
     UpscaleConfig,
     VaeGateConfig,
 )
+from prepare_lora_kit.pipeline.execution import resolve_selected_substeps
+from prepare_lora_kit.pipeline.validation import validate_pipeline_selection
+from prepare_lora_kit.project.base import PipelineStep, ProjectConfig
+from prepare_lora_kit.utils.state import RunState
 from prepare_lora_kit_ui.runner import (
     JobManager,
     PipelineJob,
     UiInteractionProvider,
     UiPipelineExecutor,
-    _LogStream,
     _image_payload,
+    _LogStream,
     output_exists,
     project_payload,
     project_status,
 )
-from prepare_lora_kit.utils.state import RunState
 
 
 def _project() -> ProjectConfig:
@@ -279,7 +279,8 @@ def test_ui_run_starts_at_first_pending_active_step(tmp_path):
     with patch.dict("prepare_lora_kit_ui.runner.STEP_INVOKE_MAP", invoke_map, clear=True):
         executor.execute(job, _run_request(tmp_path, out))
 
-    assert calls == ["CurateStep", "CaptionBboxStep", "VaeGateStep", "AuditStep", "BucketPoolsCheckStep"]
+    assert calls == ["CurateStep", "CaptionBboxStep", "VaeGateStep",
+                     "AuditStep", "BucketPoolsCheckStep"]
     assert job.snapshot()["skipped_steps"] == ["ImportStep", "QualityGateStep"]
     assert RunState(out).is_done("BucketPoolsCheckStep")
 
@@ -379,7 +380,6 @@ def test_ui_run_pauses_for_step_config_and_applies_overrides(tmp_path):
     for step_type in ("ImportStep", "QualityGateStep"):
         def side_effect(working_dir, output_dir, cfg, *args, _t=step_type, **kwargs):
             captured[_t] = cfg
-            return None
         invoke_map[step_type] = MagicMock(name=step_type, side_effect=side_effect)
 
     manager = JobManager(projects={"test": project})
@@ -465,7 +465,8 @@ def test_image_payload_uses_media_endpoint_when_available(tmp_path):
         variant = urlparse(payload[key])
         query = parse_qs(variant.query)
         assert query["path"] == [str(image.resolve())]
-        assert query["w"] and int(query["w"][0]) > 0
+        assert query["w"]
+        assert int(query["w"][0]) > 0
     assert parse_qs(urlparse(payload["thumb_uri"]).query)["w"][0] != (
         parse_qs(urlparse(payload["view_uri"]).query)["w"][0]
     )
@@ -574,11 +575,9 @@ def test_static_server_serves_downscaled_variant_with_caching(tmp_path):
 
         # Re-requesting with the ETag yields a 304 (browser cache hit).
         cached = Request(media_url, headers={"If-None-Match": etag})
-        try:
+        with pytest.raises(HTTPError) as caught:
             opener.open(cached, timeout=5)
-            raise AssertionError("expected HTTP 304")
-        except HTTPError as exc:
-            assert exc.code == 304
+        assert caught.value.code == 304
     finally:
         server.shutdown()
         server.server_close()

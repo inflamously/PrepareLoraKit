@@ -1,8 +1,8 @@
 """Filesystem and image asset helpers for UI end-to-end mock fixtures."""
 from __future__ import annotations
 
-from pathlib import Path
 import shutil
+from pathlib import Path
 
 from PIL import Image, ImageDraw
 
@@ -12,9 +12,9 @@ from prepare_lora_kit_ui.e2e.constants import (
     MOCK_DUPLICATE_NAME,
     MOCK_DUPLICATE_SOURCE,
     MOCK_PCA_EXTRA_COUNT,
-    MOCK_UMAP_EXTRA_COUNT,
     MOCK_SOURCE_SPECS,
     MOCK_TOKEN,
+    MOCK_UMAP_EXTRA_COUNT,
 )
 
 _IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tiff", ".tif"}

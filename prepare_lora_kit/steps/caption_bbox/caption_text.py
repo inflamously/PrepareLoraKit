@@ -102,11 +102,17 @@ def mentions(haystack: str, phrase: str) -> bool:
 
 _BOILERPLATE = [
     re.compile(r"^(this image (shows?|depicts?|features?|captures?|presents?)[,:]?\s*)", re.I),
-    re.compile(r"^(the (photo|photograph|image|picture) (shows?|depicts?|features?|captures?)[,:]?\s*)", re.I),
+    re.compile(
+        r"^(the (photo|photograph|image|picture) (shows?|depicts?|features?|captures?)[,:]?\s*)",
+        re.I),
     re.compile(r"^(in this (image|photo|photograph|picture)[,:]?\s*)", re.I),
     re.compile(r"^(here (we see|is)[,:]?\s*)", re.I),
-    re.compile(r"^(a (photo|photograph|image|picture) (of|showing|depicting|featuring)[,:]?\s*)", re.I),
-    re.compile(r"\s*\(?(generated|ai.?generated|stock photo|getty images?|shutterstock)[^.]*\.?\s*$", re.I),
+    re.compile(
+        r"^(a (photo|photograph|image|picture) (of|showing|depicting|featuring)[,:]?\s*)",
+        re.I),
+    re.compile(
+        r"\s*\(?(generated|ai.?generated|stock photo|getty images?|shutterstock)[^.]*\.?\s*$",
+        re.I),
 ]
 
 

@@ -4,7 +4,7 @@ from prepare_lora_kit.caption_prompts import prompt_registry
 from prepare_lora_kit.steps.caption_bbox import prompts as cap_utils
 
 
-@pytest.fixture()
+@pytest.fixture
 def isolated_prompts(tmp_path, monkeypatch):
     """Point the prompt prompt_registry at an empty temp directory."""
     prompts_dir = tmp_path / "caption_prompts"

@@ -1,8 +1,8 @@
 """Editable config fields for QualityGateStep."""
 from __future__ import annotations
 
-
 from prepare_lora_kit.project.config_schema.fields import FieldSpec, _check
+
 STEP_TYPE = "QualityGateStep"
 
 FIELDS: list[FieldSpec] = [

@@ -1,7 +1,7 @@
 """Config schema for QualityGateStep."""
 from __future__ import annotations
+
 from dataclasses import dataclass, field
-from typing import Optional
 
 
 @dataclass
@@ -10,7 +10,7 @@ class ScorerEntry:
     enabled: bool = True
     op: str = "lt"                       # "lt" | "gt"
     threshold: float = 0.0
-    borderline: Optional[float] = None   # triggers manual review even on pass
+    borderline: float | None = None   # triggers manual review even on pass
 
 
 @dataclass

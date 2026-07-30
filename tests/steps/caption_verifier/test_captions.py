@@ -122,7 +122,8 @@ def test_apply_edits_rejects_empty_captions_and_preserves_the_original(tmp_path)
 
     assert image.with_suffix(".txt").read_text(encoding="utf-8") == "keep me"
     assert applied == []
-    assert rejected and rejected[0]["reason"] == "empty caption"
+    assert rejected
+    assert rejected[0]["reason"] == "empty caption"
 
 
 def test_apply_edits_rejects_paths_outside_the_dataset_dir(tmp_path):
@@ -136,7 +137,8 @@ def test_apply_edits_rejects_paths_outside_the_dataset_dir(tmp_path):
 
     assert outside.with_suffix(".txt").read_text(encoding="utf-8") == "outside"
     assert applied == []
-    assert rejected and rejected[0]["reason"] == "outside dataset"
+    assert rejected
+    assert rejected[0]["reason"] == "outside dataset"
 
 
 def test_apply_edits_never_touches_bbox_region_sidecars(tmp_path):
@@ -146,7 +148,8 @@ def test_apply_edits_never_touches_bbox_region_sidecars(tmp_path):
 
     assert region.with_suffix(".txt").read_text(encoding="utf-8") == "region caption"
     assert applied == []
-    assert rejected and rejected[0]["reason"] == "bbox region artifact"
+    assert rejected
+    assert rejected[0]["reason"] == "bbox region artifact"
 
 
 def test_apply_edits_only_strips_and_never_renormalizes(tmp_path):
@@ -184,4 +187,5 @@ def test_apply_edits_ignores_unknown_paths(tmp_path):
     )
 
     assert applied == []
-    assert rejected and rejected[0]["reason"] == "missing image"
+    assert rejected
+    assert rejected[0]["reason"] == "missing image"

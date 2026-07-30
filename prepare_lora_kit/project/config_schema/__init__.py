@@ -25,9 +25,9 @@ from .query import has_schema, schema_payload
 from .schema import CONFIG_FIELD_SCHEMA
 
 __all__ = [
-    "FieldSpec",
     "CONFIG_FIELD_SCHEMA",
+    "FieldSpec",
+    "apply_overrides",
     "has_schema",
     "schema_payload",
-    "apply_overrides",
 ]

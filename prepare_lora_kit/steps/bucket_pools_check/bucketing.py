@@ -5,6 +5,7 @@ Aspect-ratio math and bucket assignment / crop-suggestion utilities used by the
 bucket dry-run step.
 """
 from __future__ import annotations
+
 import math
 
 
@@ -27,6 +28,5 @@ def _suggest_crop(img_w: int, img_h: int, bw: int, bh: int) -> str:
     if img_w / img_h > target_ar:
         new_w = int(img_h * target_ar)
         return f"centre-crop width to {new_w}px (from {img_w}px)"
-    else:
-        new_h = int(img_w / target_ar)
-        return f"centre-crop height to {new_h}px (from {img_h}px)"
+    new_h = int(img_w / target_ar)
+    return f"centre-crop height to {new_h}px (from {img_h}px)"

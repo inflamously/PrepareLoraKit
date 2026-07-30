@@ -13,7 +13,8 @@ from __future__ import annotations
 
 import contextlib
 import shutil
-from typing import Any, Iterator
+from collections.abc import Iterator
+from typing import Any
 
 HUB_URL = "https://huggingface.co"
 
@@ -76,7 +77,8 @@ def account() -> dict[str, Any]:
         info = whoami()
     except Exception as exc:  # network, bad token, offline — all reported the same way
         return {"ok": False, "name": None, "error": _short(exc)}
-    return {"ok": True, "name": info.get("name") if isinstance(info, dict) else str(info), "error": None}
+    name = info.get("name") if isinstance(info, dict) else str(info)
+    return {"ok": True, "name": name, "error": None}
 
 
 def check_repo(repo_id: str) -> dict[str, Any]:
@@ -85,32 +87,45 @@ def check_repo(repo_id: str) -> dict[str, Any]:
     Uses ``auth_check``, which is purpose-built for exactly this question and is
     far cheaper than starting a download to find out.
     """
-    result = {"repo_id": repo_id, "status": "ok", "message": "Accessible.", "url": repo_url(repo_id)}
+    result = {"repo_id": repo_id, "status": "ok", "message": "Accessible.",
+              "url": repo_url(repo_id)}
     try:
         from huggingface_hub import auth_check
-        from huggingface_hub.errors import (
-            GatedRepoError,
-            HfHubHTTPError,
-            RepositoryNotFoundError,
-        )
     except ImportError:
         return {**result, "status": "error", "message": "huggingface_hub is not installed."}
 
     try:
         auth_check(repo_id)
-    except GatedRepoError:
-        return {**result, "status": "gated", "message": _gated_message(repo_id)}
-    except RepositoryNotFoundError:
-        if token_status()["present"]:
-            return {**result, "status": "missing", "message": f"No repo '{repo_id}' (typo?)."}
-        return {**result, "status": "unauthorized", "message": _signed_out_message(repo_id)}
-    except HfHubHTTPError as exc:
-        return {**result, "status": "offline", "message": f"Hub error: {_short(exc)}"}
-    except OSError as exc:
-        return {**result, "status": "offline", "message": f"Could not reach {HUB_URL}: {_short(exc)}"}
     except Exception as exc:
-        return {**result, "status": "error", "message": _short(exc)}
+        return {**result, **_auth_failure(exc, repo_id)}
     return result
+
+
+def _auth_failure(exc: Exception, repo_id: str) -> dict[str, str]:
+    """Classify an ``auth_check`` failure into a status and a message.
+
+    "Not found" is deliberately split: without a token the hub reports a private
+    repo as missing, so saying "typo?" to a signed-out user sends them chasing the
+    wrong problem. Checked in most- to least-specific order — ``GatedRepoError``
+    and ``RepositoryNotFoundError`` are both ``HfHubHTTPError`` subclasses.
+    """
+    from huggingface_hub.errors import (
+        GatedRepoError,
+        HfHubHTTPError,
+        RepositoryNotFoundError,
+    )
+
+    if isinstance(exc, GatedRepoError):
+        return {"status": "gated", "message": _gated_message(repo_id)}
+    if isinstance(exc, RepositoryNotFoundError):
+        if token_status()["present"]:
+            return {"status": "missing", "message": f"No repo '{repo_id}' (typo?)."}
+        return {"status": "unauthorized", "message": _signed_out_message(repo_id)}
+    if isinstance(exc, HfHubHTTPError):
+        return {"status": "offline", "message": f"Hub error: {_short(exc)}"}
+    if isinstance(exc, OSError):
+        return {"status": "offline", "message": f"Could not reach {HUB_URL}: {_short(exc)}"}
+    return {"status": "error", "message": _short(exc)}
 
 
 def check_repos(repo_ids: list[str]) -> list[dict[str, Any]]:
@@ -154,10 +169,8 @@ def hub_error_context(model_id: str | None) -> Iterator[None]:
         append = getattr(exc, "append_to_message", None)
         if callable(append):
             append(f"\n\n{hint}")
-            try:
+            with contextlib.suppress(AttributeError):   # exotic exceptions with __slots__
                 exc._plk_hub_hint = True
-            except AttributeError:      # exotic exceptions with __slots__
-                pass
             raise
         raise RuntimeError(f"{exc}\n\n{hint}") from exc
 
@@ -193,7 +206,8 @@ def _gated_message(repo_id: str) -> str:
 
 def _signed_out_message(repo_id: str) -> str:
     return (
-        f"'{repo_id}' is not visible without a Hugging Face login — it is either gated or private.\n"
+        f"'{repo_id}' is not visible without a Hugging Face login — "
+        f"it is either gated or private.\n"
         f"  1. Run `{login_command()}`\n"
         f"  2. If it is gated, accept the licence at {repo_url(repo_id)}\n"
         f"  3. Re-run this step."

@@ -48,7 +48,9 @@ def build_success_report(
     return report
 
 
-def save_success_report(report_data: dict[str, Any], report_path: Path | None, output_dir: Path) -> None:
+def save_success_report(
+    report_data: dict[str, Any], report_path: Path | None, output_dir: Path,
+) -> None:
     reporter.save_report(report_data, report_path or (output_dir / _REPORT_NAME))
 
 

@@ -12,7 +12,6 @@ from rich.console import Console
 from prepare_lora_kit.cancellation import CancelledRun
 from prepare_lora_kit.project.base import ProjectConfig
 from prepare_lora_kit.report import reporter
-
 from prepare_lora_kit_ui.runner.constants import TERMINAL_STATUSES
 from prepare_lora_kit_ui.runner.executor import UiPipelineExecutor
 from prepare_lora_kit_ui.runner.job import PipelineJob
@@ -122,8 +121,7 @@ class JobManager:
 
     def active_interaction_provider(self, job_id: str) -> UiInteractionProvider | None:
         job = self.get(job_id)
-        provider = getattr(job, "interaction_provider", None)
-        return provider
+        return getattr(job, "interaction_provider", None)
 
     def _run_job(self, job: PipelineJob, request: dict[str, Any]) -> None:
         stream = _LogStream(job)

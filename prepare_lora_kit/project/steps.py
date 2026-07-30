@@ -6,7 +6,7 @@ as a thin shim so existing ``from .steps import ...`` import paths stay stable.
 """
 from __future__ import annotations
 
-from prepare_lora_kit.project.pipeline import (  # noqa: F401
+from prepare_lora_kit.project.pipeline import (
     SUBSTEP_ORDER_INDEX,
     SUBSTEP_PARENT,
     SUBSTEP_REGISTRY,
@@ -20,7 +20,6 @@ from prepare_lora_kit.project.pipeline import (  # noqa: F401
     substep_aliases,
     substep_payloads,
 )
-
 
 __all__ = [
     "SUBSTEP_ORDER_INDEX",

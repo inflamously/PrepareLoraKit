@@ -1,6 +1,4 @@
 from __future__ import annotations
-from pathlib import Path
-
 
 from prepare_lora_kit.utils import image as img_utils
 
@@ -102,10 +100,7 @@ def _quality_score(scores: dict, thresholds: dict, scorers: list[dict]) -> float
             continue
         if not thr or thr <= 0:
             continue
-        if s["op"] == "lt":
-            q = v / (2 * thr)
-        else:
-            q = 1.0 - v / (2 * thr)
+        q = v / (2 * thr) if s["op"] == "lt" else 1.0 - v / (2 * thr)
         parts.append(max(0.0, min(1.0, q)))
     return round(100 * sum(parts) / len(parts), 1) if parts else 0.0
 

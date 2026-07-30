@@ -1,9 +1,6 @@
 """Tests for the caption-verify UI provider, bridge RPC and mock runtime."""
 from __future__ import annotations
 
-import threading
-from pathlib import Path
-
 import pytest
 from PIL import Image
 

@@ -1,7 +1,6 @@
 """Tests for prompt assembly: domain brief, abstention, and grounding sections."""
 from prepare_lora_kit.steps.caption_bbox import prompts
 
-
 _BRIEF = "Screenshots from the game Foo. Call the blue cylinders 'flux capsules'."
 
 
@@ -44,8 +43,10 @@ def test_domain_brief_also_reaches_user_authored_templates():
     )
     region = prompts.build_region_prompt(None, template="MYREGION", domain_brief=_BRIEF)
 
-    assert _BRIEF in compose and "MYTEMPLATE" in compose
-    assert _BRIEF in region and "MYREGION" in region
+    assert _BRIEF in compose
+    assert "MYTEMPLATE" in compose
+    assert _BRIEF in region
+    assert "MYREGION" in region
 
 
 # ── Abstention ─────────────────────────────────────────────────────────────────
@@ -99,7 +100,8 @@ def test_annotation_led_compose_asks_for_global_attributes_from_the_image():
     prompt = prompts.build_compose_prompt("", [_ann()], "tok", style_mode=False)
 
     assert "No separate observation pass was run" in prompt
-    assert "lighting" in prompt and "directly from the image" in prompt
+    assert "lighting" in prompt
+    assert "directly from the image" in prompt
 
 
 def test_no_leftover_placeholders_in_any_built_prompt():

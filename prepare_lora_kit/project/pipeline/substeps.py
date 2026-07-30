@@ -39,13 +39,16 @@ SUBSTEP_REGISTRY: dict[str, tuple[SubstepDefinition, ...]] = {
     ),
     "UpscaleStep": (
         SubstepDefinition("select_upscale_candidates", "Select candidates"),
-        SubstepDefinition("upscale_images", "Upscale images", prerequisites=("select_upscale_candidates",)),
-        SubstepDefinition("hallucination_check", "Hallucination check", prerequisites=("upscale_images",)),
+        SubstepDefinition("upscale_images", "Upscale images",
+                          prerequisites=("select_upscale_candidates",)),
+        SubstepDefinition("hallucination_check", "Hallucination check",
+                          prerequisites=("upscale_images",)),
     ),
     "CaptionBboxStep": (
         SubstepDefinition("annotate_regions", "Annotate regions"),
         SubstepDefinition("caption_images", "Caption images"),
-        SubstepDefinition("validate_captions", "Validate captions", prerequisites=("caption_images",)),
+        SubstepDefinition("validate_captions", "Validate captions",
+                          prerequisites=("caption_images",)),
     ),
     "CaptionVerifierStep": (
         SubstepDefinition("verify_captions", "Verify captions"),
@@ -54,8 +57,10 @@ SUBSTEP_REGISTRY: dict[str, tuple[SubstepDefinition, ...]] = {
     ),
     "VaeGateStep": (
         SubstepDefinition("reconstruct_images", "Reconstruct images"),
-        SubstepDefinition("review_vae_artifacts", "Review artifacts", prerequisites=("reconstruct_images",)),
-        SubstepDefinition("apply_vae_decisions", "Apply decisions", prerequisites=("review_vae_artifacts",)),
+        SubstepDefinition("review_vae_artifacts", "Review artifacts",
+                          prerequisites=("reconstruct_images",)),
+        SubstepDefinition("apply_vae_decisions", "Apply decisions",
+                          prerequisites=("review_vae_artifacts",)),
     ),
     "AuditStep": (
         SubstepDefinition("check_pairing", "Pairing"),
@@ -65,12 +70,15 @@ SUBSTEP_REGISTRY: dict[str, tuple[SubstepDefinition, ...]] = {
     ),
     "BucketPoolsCheckStep": (
         SubstepDefinition("assign_bucket_pools", "Assign buckets"),
-        SubstepDefinition("report_thin_buckets", "Report thin buckets", prerequisites=("assign_bucket_pools",)),
-        SubstepDefinition("write_cache_info", "Cache info", optional=True, enabled_by_default=False),
+        SubstepDefinition("report_thin_buckets", "Report thin buckets",
+                          prerequisites=("assign_bucket_pools",)),
+        SubstepDefinition("write_cache_info", "Cache info",
+                          optional=True, enabled_by_default=False),
     ),
     "ExportStep": (
         SubstepDefinition("preview_export_diff", "Preview export diff"),
-        SubstepDefinition("copy_export", "Copy to export folder", prerequisites=("preview_export_diff",)),
+        SubstepDefinition("copy_export", "Copy to export folder",
+                          prerequisites=("preview_export_diff",)),
     ),
 }
 SUBSTEP_ORDER_INDEX = {
@@ -176,7 +184,8 @@ def normalize_substeps(
         seen.add(substep_id)
         by_id[substep_id] = enabled
 
-    return [PipelineSubstep(id=definition.id, enabled=by_id[definition.id]) for definition in definitions]
+    return [PipelineSubstep(id=definition.id, enabled=by_id[definition.id])
+            for definition in definitions]
 
 
 def enabled_substep_ids(step_type: str, substeps: list[PipelineSubstep]) -> list[str]:
@@ -184,10 +193,13 @@ def enabled_substep_ids(step_type: str, substeps: list[PipelineSubstep]) -> list
 
     known = {definition.id for definition in SUBSTEP_REGISTRY.get(step_type, ())}
     enabled = {substep.id for substep in substeps if substep.enabled and substep.id in known}
-    return [definition.id for definition in SUBSTEP_REGISTRY.get(step_type, ()) if definition.id in enabled]
+    return [definition.id for definition in SUBSTEP_REGISTRY.get(step_type, ())
+            if definition.id in enabled]
 
 
-def substep_payloads(step_type: str, substeps: list[PipelineSubstep], state=None) -> list[dict[str, Any]]:
+def substep_payloads(
+    step_type: str, substeps: list[PipelineSubstep], state=None,
+) -> list[dict[str, Any]]:
     """Build UI payload entries for a parent step's substeps."""
 
     selected = {substep.id: substep.enabled for substep in substeps}

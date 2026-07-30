@@ -8,10 +8,9 @@ from pathlib import Path
 from typing import Any
 
 from prepare_lora_kit import caption_prompts
-from prepare_lora_kit_ui.paths import PROJECT_ROOT
 from prepare_lora_kit.project import project_registry, store
 from prepare_lora_kit.project.base import ProjectConfig
-
+from prepare_lora_kit_ui.paths import PROJECT_ROOT
 from prepare_lora_kit_ui.runner import (
     JobManager,
     _default_output,
@@ -19,6 +18,7 @@ from prepare_lora_kit_ui.runner import (
     project_payload,
     project_status,
 )
+
 
 def _card_output_dir(input_dir: Any, output_dir: Any) -> Path | None:
     """Where a project's outputs land: its own setting, else derived from input."""

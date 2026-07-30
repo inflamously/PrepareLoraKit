@@ -7,7 +7,7 @@ the ``--mock`` fixture can never drift from the real flow.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from prepare_lora_kit.steps.caption_bbox.base import CaptionStep
 from prepare_lora_kit.steps.caption_bbox.workflow import CaptionWorkflowResult
@@ -48,7 +48,7 @@ def _mock_caption(
         working_dir: Path,
         output_dir: Path,
         *,
-        concept_token: Optional[str],
+        concept_token: str | None,
         force: bool,
         enabled_substeps: list[str] | None = None,
         cancel_check=None,

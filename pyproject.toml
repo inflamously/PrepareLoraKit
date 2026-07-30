@@ -1,4 +1,9 @@
 [tool.ruff]
+# The package targets Python 3.10+; there is no [project] table for ruff to
+# infer this from, so it is pinned explicitly.
+target-version = "py310"
+line-length = 100
+
 extend-exclude = [
     ".venv",
     "venv",
@@ -9,14 +14,140 @@ extend-exclude = [
     "node_modules",
     "outputs",
     "third_party",
+    # Agent tooling, not project source.
+    ".claude",
+    ".codex",
 ]
 
 [tool.ruff.lint]
-select = ["TID252"]
+select = [
+    # --- Complexity: the primary reason this config exists ---
+    "C90",   # mccabe cyclomatic complexity
+    "PLR",   # pylint refactor (too many branches/statements/returns)
+
+    # --- Correctness ---
+    "F",     # pyflakes: undefined names, unused imports, dead locals
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "B",     # flake8-bugbear: likely bugs and dubious constructs
+    "A",     # flake8-builtins: shadowing builtins
+    "PLC",   # pylint convention
+    "PLE",   # pylint error
+    "PLW",   # pylint warning
+    "TRY",   # tryceratops: exception-handling anti-patterns
+    "LOG",   # flake8-logging
+    "G",     # flake8-logging-format
+    "DTZ",   # flake8-datetimez: naive datetimes
+
+    # --- "Weirdness": non-idiomatic or needlessly convoluted code ---
+    "SIM",   # flake8-simplify
+    "RET",   # flake8-return
+    "C4",    # flake8-comprehensions
+    "PIE",   # flake8-pie: misc dead/redundant code
+    "PERF",  # perflint
+    "FLY",   # flynt: manual string joins
+    "UP",    # pyupgrade: outdated syntax
+    "RUF",   # ruff-specific
+    "ERA",   # eradicate: commented-out code
+
+    # --- Consistency ---
+    "I",     # isort
+    "N",     # pep8-naming
+    "Q",     # flake8-quotes
+    "ISC",   # implicit string concatenation
+    "ICN",   # import conventions
+    "TID",   # flake8-tidy-imports
+    "PTH",   # flake8-use-pathlib (AGENTS.md prefers pathlib.Path)
+    "PT",    # flake8-pytest-style
+]
+
+ignore = [
+    # The ML stack (torch/transformers/diffusers/sklearn/matplotlib) is imported
+    # lazily inside functions on purpose so the CLI and UI start without paying
+    # multi-second import costs -- see the note in requirements/base.txt.
+    "PLC0415",  # import-outside-top-level
+
+    # Message text passed straight to raise is the established style here.
+    "TRY003",   # raise-vanilla-args
+
+    # Overwhelmingly fires on thresholds/indices in tests and tuning code where
+    # naming the constant would not make the assertion clearer.
+    "PLR2004",  # magic-value-comparison
+
+    # Wide signatures are a real smell, but fixing them means changing ~24
+    # public step/CLI signatures and every caller. Tracked as the next ratchet;
+    # see the "Linting" section of AGENTS.md before enabling.
+    "PLR0913",  # too-many-arguments
+    "PLR0917",  # too-many-positional-arguments
+
+    # The codebase deliberately uses typographic characters (…, —, ×) in
+    # user-facing strings, docstrings and comments.
+    "RUF001",
+    "RUF002",
+    "RUF003",
+
+    # --- Deliberate patterns, not defects ---
+
+    # Restructuring `return` out of a `try` into an `else` reliably makes these
+    # short adapter functions harder to read, not easier.
+    "TRY300",
+    "TRY301",   # raise-within-try
+
+    # Config/YAML validation raises ValueError by convention here; callers and
+    # the CLI error path depend on it.
+    "TRY004",   # type-check-without-type-error
+
+    # Per-item try/except inside a loop is the point: one bad image must not
+    # abort a dataset-wide pass.
+    "PERF203",
+
+    # `img = img.convert(...)` / `line = line.strip()` inside the loop that
+    # bound the name is idiomatic and reads fine.
+    "PLW2901",  # redefined-loop-name
+
+    # Module-level lazy caches for CLIP/settings are deliberate memoization.
+    # Converting them to a holder class is a worthwhile follow-up, not a lint fix.
+    "PLW0603",  # global-statement
+
+    # `CancelledRun` (56 uses) is a control-flow signal, not an error condition;
+    # renaming it and `SeedVR2Unavailable` is churn with no readability gain.
+    "N818",     # error-suffix-on-exception-name
+
+    # `prepare_runtime`/`teardown` are optional no-op template-method hooks;
+    # making them abstract would force every subclass to restate them.
+    "B027",
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.pylint]
+max-branches = 12
+max-statements = 50
+max-returns = 6
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"
 
+[tool.ruff.lint.flake8-pytest-style]
+# ValueError is this codebase's domain validation error -- config parsing, unsafe
+# project names and schema violations all raise it deliberately, so
+# `pytest.raises(ValueError)` already names a specific contract. Requiring
+# `match=` on every one pins tests to exact wording without adding coverage
+# (several already assert the message via `excinfo`). Only genuinely broad
+# catches must justify themselves.
+raises-require-match-for = ["BaseException", "Exception"]
+
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["TID252"]
-"__init__.py" = ["TID252"]
+"tests/**" = [
+    "TID252",   # relative imports are convenient for test helpers
+    "PLR0915",  # long, linear arrange/act/assert bodies are fine in tests
+    "C901",
+]
+"__init__.py" = ["TID252", "F401"]
+# `log_message(self, format, *args)` overrides BaseHTTPRequestHandler, whose
+# signature names the parameter `format`.
+"prepare_lora_kit/cli/ui.py" = ["A002"]
+# `AutoencoderKL` is an injected diffusers class and `torchvision.transforms as T`
+# is the upstream convention; both are intentionally not snake_case.
+"prepare_lora_kit/steps/vae_gate/vae.py" = ["N803", "N812"]

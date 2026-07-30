@@ -16,16 +16,16 @@ with a reason (the VaeGateStep contract).
 from __future__ import annotations
 
 import shutil
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from prepare_lora_kit.cancellation import CancelCheck, CancelledRun, check_cancel
 from prepare_lora_kit.project.pipeline.substeps import substep_ids_for
 from prepare_lora_kit.providers.interaction import InteractionProvider
 from prepare_lora_kit.report import reporter
 from prepare_lora_kit.steps.caption_verifier import captions as caption_io
-from prepare_lora_kit.steps.caption_verifier import reports
-from prepare_lora_kit.steps.caption_verifier import verdicts
+from prepare_lora_kit.steps.caption_verifier import reports, verdicts
 from prepare_lora_kit.steps.caption_verifier.generation import make_caption_generator
 from prepare_lora_kit.steps.caption_verifier.t2i import T2IRuntime
 from prepare_lora_kit.utils.verdict_ledger import VerdictLedger
@@ -143,39 +143,20 @@ def run(
         "verdicts": list(reports.VERDICTS),
     }
 
-    results: dict[str, dict] = {}
-    reason: str | None = None
-    try:
-        results = verify(
-            items, generator=generator, preview_dir=preview_root, settings=settings,
-        ) or {}
-    except CancelledRun:
-        # Must precede the broad handler; a cancel is not a step failure.
-        raise
-    except Exception as exc:
-        reason = f"{type(exc).__name__}: {exc}"
-        reporter.error(f"Caption verification failed: {reason}")
-        failures.append({"stage": "review", "path": None, "error": reason})
-    finally:
-        runtime.unload()
+    results, reason = _run_review(
+        verify,
+        items,
+        generator=generator,
+        preview_root=preview_root,
+        settings=settings,
+        runtime=runtime,
+        failures=failures,
+    )
 
     applied: list[dict] = []
     rejected: list[dict] = []
     if results and "apply_caption_edits" in enabled:
-        edits = {
-            path: entry.get("caption", "")
-            for path, entry in results.items()
-            if isinstance(entry, dict) and entry.get("caption") is not None
-        }
-        applied, rejected = caption_io.apply_caption_edits(
-            dataset_dir, edits, backup_dir=preview_root / BACKUP_DIR_NAME,
-        )
-        if applied:
-            reporter.ok(f"Wrote {len(applied)} edited caption(s).")
-        for entry in rejected:
-            reporter.warn(
-                f"Caption not written ({entry['reason']}): {Path(entry['path']).name}"
-            )
+        applied, rejected = _apply_caption_edits(dataset_dir, results, preview_root)
 
     # After the edits so a hand-fixed caption is recorded as already resolved,
     # and beside the report rather than in it: the report is rebuilt from
@@ -188,11 +169,7 @@ def run(
         ledger.save()
 
     if not keep_previews:
-        # Prune before building the report so it can never cite a deleted file.
-        _prune_previews(preview_root)
-        for entries in generations.values():
-            for entry in entries:
-                entry["path"] = None
+        _discard_previews(preview_root, generations)
 
     report = reports.build_report(
         items=items,
@@ -214,6 +191,73 @@ def run(
     )
     reporter.save_report(report, target_report)
     return report
+
+
+def _run_review(
+    verify,
+    items,
+    *,
+    generator,
+    preview_root: Path,
+    settings: dict,
+    runtime,
+    failures: list[dict],
+) -> tuple[dict[str, dict], str | None]:
+    """Drive the interactive review, always unloading the runtime afterwards.
+
+    A failure inside the review is recorded and returned as a reason rather than
+    raised: renders and verdicts collected before the failure are still worth
+    reporting. Cancellation is not a failure and propagates untouched.
+    """
+    try:
+        results = verify(
+            items, generator=generator, preview_dir=preview_root, settings=settings,
+        ) or {}
+    except CancelledRun:
+        # Must precede the broad handler; a cancel is not a step failure.
+        raise
+    except Exception as exc:
+        reason = f"{type(exc).__name__}: {exc}"
+        reporter.error(f"Caption verification failed: {reason}")
+        failures.append({"stage": "review", "path": None, "error": reason})
+        return {}, reason
+    finally:
+        runtime.unload()
+    return results, None
+
+
+def _apply_caption_edits(
+    dataset_dir: Path,
+    results: dict[str, dict],
+    preview_root: Path,
+) -> tuple[list[dict], list[dict]]:
+    """Write back the captions the reviewer edited, reporting any refused."""
+    edits = {
+        path: entry.get("caption", "")
+        for path, entry in results.items()
+        if isinstance(entry, dict) and entry.get("caption") is not None
+    }
+    applied, rejected = caption_io.apply_caption_edits(
+        dataset_dir, edits, backup_dir=preview_root / BACKUP_DIR_NAME,
+    )
+    if applied:
+        reporter.ok(f"Wrote {len(applied)} edited caption(s).")
+    for entry in rejected:
+        reporter.warn(
+            f"Caption not written ({entry['reason']}): {Path(entry['path']).name}"
+        )
+    return applied, rejected
+
+
+def _discard_previews(preview_root: Path, generations: dict[str, list[dict]]) -> None:
+    """Drop the rendered probes and unlink them from the report.
+
+    Runs before the report is built so it can never cite a deleted file.
+    """
+    _prune_previews(preview_root)
+    for entries in generations.values():
+        for entry in entries:
+            entry["path"] = None
 
 
 def _prune_previews(preview_root: Path) -> None:

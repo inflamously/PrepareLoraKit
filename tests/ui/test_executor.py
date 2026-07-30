@@ -1,6 +1,10 @@
 from unittest.mock import MagicMock, patch
 
-from prepare_lora_kit.pipeline.configs import BucketPoolsCheckConfig, ImportConfig, QualityGateConfig
+from prepare_lora_kit.pipeline.configs import (
+    BucketPoolsCheckConfig,
+    ImportConfig,
+    QualityGateConfig,
+)
 from prepare_lora_kit.project.base import PipelineStep, ProjectConfig
 from prepare_lora_kit_ui.runner import JobManager, PipelineJob, UiPipelineExecutor
 from prepare_lora_kit_ui.runner.execution_hooks import UiJobHooks

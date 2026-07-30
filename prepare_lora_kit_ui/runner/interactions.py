@@ -8,7 +8,6 @@ from typing import Any
 from prepare_lora_kit.interaction import RegionCaptioner
 from prepare_lora_kit.project.config_schema import schema_payload
 from prepare_lora_kit.providers.interaction import InteractionProvider
-
 from prepare_lora_kit_ui.runner.caption_verify_interaction import (
     CaptionVerifyInteractionMixin,
 )
@@ -337,11 +336,11 @@ class UiInteractionProvider(CaptionVerifyInteractionMixin, InteractionProvider):
                 raise ValueError("Bounding box must include numeric x1, y1, x2, and y2") from exc
             x1, x2 = max(0.0, x1), min(1.0, x2)
             y1, y2 = max(0.0, y1), min(1.0, y2)
-            l = max(0, min(w - 1, int(x1 * w)))
-            t = max(0, min(h - 1, int(y1 * h)))
-            r = max(l + 1, min(w, int(x2 * w)))
-            b = max(t + 1, min(h, int(y2 * h)))
-            crop = img.crop((l, t, max(l + 1, r), max(t + 1, b)))
+            left = max(0, min(w - 1, int(x1 * w)))
+            top = max(0, min(h - 1, int(y1 * h)))
+            right = max(left + 1, min(w, int(x2 * w)))
+            bottom = max(top + 1, min(h, int(y2 * h)))
+            crop = img.crop((left, top, max(left + 1, right), max(top + 1, bottom)))
         result = captioner(crop, {"source_path": str(requested), "box": box})
         self._job.raise_if_cancelled()
         if isinstance(result, dict):

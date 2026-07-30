@@ -24,8 +24,8 @@ _FALLBACK_CLASSES = ("AutoPipelineForText2Image", "DiffusionPipeline")
 
 def load_pipeline(plan: GenerationPlan) -> Any:
     """Build, place and memory-tune a text-to-image pipeline for ``plan``."""
-    import torch  # noqa: F401  (imported for dtype resolution below)
     import diffusers
+    import torch  # noqa: F401  (imported for dtype resolution below)
 
     pipeline_cls = _resolve_pipeline_cls(diffusers, plan)
     pipe = _instantiate_pipeline(diffusers, pipeline_cls, plan)

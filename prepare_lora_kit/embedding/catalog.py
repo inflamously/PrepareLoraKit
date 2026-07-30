@@ -78,9 +78,11 @@ DINOV2_MODELS: tuple[EmbeddingModel, ...] = (
 # Causal-LM-based multimodal embedding models, loaded via sentence-transformers
 # (see loaders._embed_qwen). This catalog is the one place to add/fix repo ids.
 QWEN_MODELS: tuple[EmbeddingModel, ...] = (
-    EmbeddingModel("Qwen/Qwen3-VL-Embedding-2B", "Qwen3-VL Embedding 2B (2048d)", "qwen", 2048, 24.0,
+    EmbeddingModel("Qwen/Qwen3-VL-Embedding-2B", "Qwen3-VL Embedding 2B (2048d)",
+                   "qwen", 2048, 24.0,
                    hf_repo="Qwen/Qwen3-VL-Embedding-2B"),
-    EmbeddingModel("Qwen/Qwen3-VL-Embedding-8B", "Qwen3-VL Embedding 8B (2048d, best)", "qwen", 2048, 32.0,
+    EmbeddingModel("Qwen/Qwen3-VL-Embedding-8B", "Qwen3-VL Embedding 8B (2048d, best)",
+                   "qwen", 2048, 32.0,
                    hf_repo="Qwen/Qwen3-VL-Embedding-8B"),
 )
 
@@ -101,17 +103,17 @@ AUTO = "auto"
 DEFAULT_CLIP_ID = "ViT-B-32"
 
 __all__ = [
-    "EmbeddingModel",
+    "AUTO",
     "CLIP_MODELS",
+    "COVERAGE_MODELS",
+    "DEFAULT_CLIP_ID",
     "DINOV2_MODELS",
     "QWEN_MODELS",
-    "COVERAGE_MODELS",
-    "AUTO",
-    "DEFAULT_CLIP_ID",
-    "normalize_id",
-    "get",
-    "coverage_choices",
+    "EmbeddingModel",
     "auto_select",
+    "coverage_choices",
+    "get",
+    "normalize_id",
 ]
 
 

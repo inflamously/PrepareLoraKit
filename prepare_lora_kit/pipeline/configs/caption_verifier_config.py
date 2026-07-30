@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import warnings
 from dataclasses import dataclass
+from typing import ClassVar
 
 from prepare_lora_kit.steps.caption_verifier import catalog
 
@@ -34,7 +35,7 @@ class CaptionVerifierConfig:
     # differs between them is the *model* ``catalog.auto_select`` picks. No tier
     # names "sequential": that escalation is decided at runtime from actual free
     # VRAM, which also keeps the forbidden 4bit+sequential pair out of the table.
-    _VRAM_TIERS = {
+    _VRAM_TIERS: ClassVar[dict[str, tuple[str, str, str]]] = {
         "auto": ("auto", "bfloat16", "auto"),
         "low": ("4bit", "bfloat16", "model"),   # <= 16 GB
         "mid": ("4bit", "bfloat16", "model"),   # <= 24 GB

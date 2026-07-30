@@ -10,7 +10,6 @@ import yaml
 
 from prepare_lora_kit.project import project_registry, store
 from prepare_lora_kit_ui.bridge import UiBridge
-from prepare_lora_kit_ui.runner import PipelineJob
 
 
 def _write_project(name: str, **index_fields) -> Path:

@@ -4,9 +4,6 @@ import pytest
 
 from prepare_lora_kit.cancellation import CancelledRun
 from prepare_lora_kit.pipeline import RunConfig, run_all
-from prepare_lora_kit.pipeline.validation import validate_pipeline_selection
-from prepare_lora_kit.project.base import ProjectConfig, PipelineStep
-from prepare_lora_kit.project.steps import PipelineSubstep
 from prepare_lora_kit.pipeline.configs import (
     AuditConfig,
     BucketPoolsCheckConfig,
@@ -17,6 +14,9 @@ from prepare_lora_kit.pipeline.configs import (
     UpscaleConfig,
     VaeGateConfig,
 )
+from prepare_lora_kit.pipeline.validation import validate_pipeline_selection
+from prepare_lora_kit.project.base import PipelineStep, ProjectConfig
+from prepare_lora_kit.project.steps import PipelineSubstep
 from prepare_lora_kit.utils.state import RunState
 
 
@@ -71,7 +71,7 @@ def test_pipeline_runs_project_steps_in_order(tmp_path):
         run_all(cfg)
 
     assert calls == list(invoke_map)
-    for step_type, invoke in invoke_map.items():
+    for invoke in invoke_map.values():
         invoke.assert_called_once()
 
 
@@ -291,7 +291,8 @@ def test_pipeline_does_not_mark_cancelled_step_done(tmp_path):
     cfg.cancel_check = cancel_after_invoke
     invoke = MagicMock(return_value=None)
 
-    with patch.dict("prepare_lora_kit.pipeline.STEP_INVOKE_MAP", {"ImportStep": invoke}, clear=True), \
+    with patch.dict("prepare_lora_kit.pipeline.STEP_INVOKE_MAP",
+                    {"ImportStep": invoke}, clear=True), \
             pytest.raises(CancelledRun):
         run_all(cfg)
 

@@ -1,7 +1,7 @@
 """Config schema for BucketPoolsCheckStep."""
 from __future__ import annotations
-from dataclasses import dataclass, field
 
+from dataclasses import dataclass, field
 
 DEFAULT_RESOLUTION_BUCKETS: tuple[tuple[int, int], ...] = (
     (1024, 1024),
@@ -34,5 +34,6 @@ class BucketPoolsCheckConfig:
         for bucket in self.resolution_buckets:
             if len(bucket) != 2 or bucket[0] < 1 or bucket[1] < 1:
                 raise ValueError(
-                    "BucketPoolsCheckStep: resolution_buckets entries must be positive width/height pairs"
+                    "BucketPoolsCheckStep: resolution_buckets entries must be "
+                    "positive width/height pairs"
                 )

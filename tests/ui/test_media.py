@@ -61,7 +61,7 @@ def test_render_variant_handles_palette_and_alpha(tmp_path):
     Image.new("RGBA", (200, 200), (0, 128, 255, 128)).save(rgba)
 
     for path in (palette, rgba):
-        body, content_type = media.render_variant(path, 64)
+        body, _content_type = media.render_variant(path, 64)
         assert body
         with Image.open(BytesIO(body)) as decoded:
             assert max(decoded.size) <= 64

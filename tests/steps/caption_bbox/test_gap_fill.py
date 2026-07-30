@@ -8,7 +8,6 @@ import pytest
 
 from prepare_lora_kit.steps.caption_bbox import gap_fill
 
-
 # A draft that is long enough, mentions its labels, and carries no filler — the
 # case where the gap pass should be skipped entirely.
 _RICH_DRAFT = (
@@ -90,7 +89,8 @@ def test_drops_meta_commentary_and_header_echo():
 
 
 def test_none_terminates_the_list():
-    assert gap_fill.parse_gap_phrases("a brass lamp\nNONE\na later hallucination") == ["a brass lamp"]
+    assert gap_fill.parse_gap_phrases(
+        "a brass lamp\nNONE\na later hallucination") == ["a brass lamp"]
 
 
 def test_empty_output_yields_no_phrases():
@@ -101,7 +101,8 @@ def test_empty_output_yields_no_phrases():
 # ── merge_missing_phrases ──────────────────────────────────────────────────────
 
 def test_appends_a_missing_phrase():
-    merged = gap_fill.merge_missing_phrases("A brass telescope on a tripod", ["a red velvet curtain"])
+    merged = gap_fill.merge_missing_phrases(
+        "A brass telescope on a tripod", ["a red velvet curtain"])
     assert merged == "A brass telescope on a tripod, a red velvet curtain"
 
 

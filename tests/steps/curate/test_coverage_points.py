@@ -15,7 +15,7 @@ def _fake_paths(tmp_path, count):
 
 def _assert_valid_points(points, paths):
     assert len(points) == len(paths)
-    for point, path in zip(points, paths):
+    for point, path in zip(points, paths, strict=True):
         assert point["path"] == str(path)
         assert 0 <= point["x_pct"] <= 100
         assert 0 <= point["y_pct"] <= 100

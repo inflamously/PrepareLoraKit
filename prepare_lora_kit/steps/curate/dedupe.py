@@ -1,5 +1,6 @@
 """Perceptual-hash dedupe for Step 2 curation."""
 from __future__ import annotations
+
 from pathlib import Path
 
 from prepare_lora_kit.cancellation import CancelCheck, check_cancel
@@ -8,7 +9,9 @@ from prepare_lora_kit.report import reporter
 HASH_DISTANCE = 8
 
 
-def _compute_hashes(paths: list[Path], cancel_check: CancelCheck | None = None) -> dict[Path, object]:
+def _compute_hashes(
+    paths: list[Path], cancel_check: CancelCheck | None = None,
+) -> dict[Path, object]:
     import imagehash
     from PIL import Image
     hashes = {}

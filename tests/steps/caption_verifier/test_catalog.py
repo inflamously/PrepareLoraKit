@@ -45,7 +45,7 @@ def test_get_returns_none_for_a_custom_id():
 
 
 @pytest.mark.parametrize(
-    "total_gb,expected_family",
+    ("total_gb", "expected_family"),
     [(0, "sd15"), (8, "sdxl"), (16, "sdxl"), (16.1, "flux2"), (24, "flux2"), (48, "flux2")],
 )
 def test_auto_select_ladder(total_gb, expected_family):
@@ -66,7 +66,8 @@ def test_auto_select_never_picks_krea2():
 
 def test_resolve_expands_auto_against_vram():
     model_id, model = catalog.resolve("auto", 48.0)
-    assert model is not None and model.family == "flux2"
+    assert model is not None
+    assert model.family == "flux2"
     assert model_id == model.id
 
 
@@ -89,7 +90,8 @@ def test_flux2_klein_matches_the_installed_diffusers_contract():
 def test_clip_families_declare_the_77_token_limit():
     for family in ("sd15", "sdxl"):
         models = [m for m in catalog.T2I_MODELS if m.family == family]
-        assert models and all(m.max_prompt_tokens == 77 for m in models)
+        assert models
+        assert all(m.max_prompt_tokens == 77 for m in models)
 
 
 def test_catalog_imports_without_torch_or_diffusers():
@@ -101,5 +103,6 @@ def test_catalog_imports_without_torch_or_diffusers():
         "assert 'torch' not in sys.modules, 'torch was imported';"
         "assert 'diffusers' not in sys.modules, 'diffusers was imported'"
     )
-    result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
+    result = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True, check=False)
     assert result.returncode == 0, result.stderr

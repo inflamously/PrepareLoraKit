@@ -222,9 +222,9 @@ def test_pass_tally_survives_into_loaded_metadata(monkeypatch):
 
 
 def test_runtime_normalises_and_reports_the_domain_brief():
-    assert vlm.CaptionRuntime('fake/model', domain_brief='  ').domain_brief is None
-    assert vlm.CaptionRuntime('fake/model').metadata['domain_brief'] is False
+    assert vlm.CaptionRuntime("fake/model", domain_brief="  ").domain_brief is None
+    assert vlm.CaptionRuntime("fake/model").metadata["domain_brief"] is False
 
-    runtime = vlm.CaptionRuntime('fake/model', domain_brief='  Game screenshots.  ')
-    assert runtime.domain_brief == 'Game screenshots.'
-    assert runtime.metadata['domain_brief'] is True
+    runtime = vlm.CaptionRuntime("fake/model", domain_brief="  Game screenshots.  ")
+    assert runtime.domain_brief == "Game screenshots."
+    assert runtime.metadata["domain_brief"] is True

@@ -1,14 +1,14 @@
 """Config schema for VaeGateStep."""
 from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass
 class VaeGateConfig:
     """Config for VaeGateStep."""
     vae_model_id: str = "black-forest-labs/FLUX.2-klein-base-9B"
-    vae_config_id: Optional[str] = None
+    vae_config_id: str | None = None
     diff_amplification: float = 4.0
     gaussian_blur_sigma: float = 2.0
     gaussian_blur_kernel: int = 21
@@ -18,7 +18,7 @@ class VaeGateConfig:
     output_hard_silhouettes: bool = True
     outlier_sigma: float = 2.0
     hf_cutoff_fraction: float = 0.25
-    max_side: Optional[int] = 1536
+    max_side: int | None = 1536
     seed: int = 42
 
     def __post_init__(self) -> None:

@@ -21,36 +21,14 @@ from prepare_lora_kit.cancellation import check_cancel
 _FAKE_RENDER_SECONDS = 0.6
 
 
-def _mock_caption_verifier(
-        working_dir: Path,
-        output_dir: Path,
-        *,
-        interaction=None,
-        enabled_substeps: list[str] | None = None,
-        cancel_check=None,
-) -> dict:
-    from prepare_lora_kit.report import reporter
-    from prepare_lora_kit.steps.caption_verifier import captions as caption_io
-    from prepare_lora_kit.steps.caption_verifier import reports
-    from prepare_lora_kit.steps.caption_verifier import verdicts
+def _make_mock_generator(preview_root: Path, generations: dict, cancel_check):
+    """Build the render callback the modal calls, faking a diffusion pass.
+
+    Records exactly the same shape the real T2I runtime returns, and appends to
+    ``generations`` so re-rolls accumulate per source image the way they do in a
+    real run.
+    """
     from prepare_lora_kit.steps.caption_verifier.loader import preview_dir_for
-    from prepare_lora_kit.steps.caption_verifier.step import (
-        BACKUP_DIR_NAME,
-        PREVIEW_DIR_NAME,
-        STEP_TYPE,
-    )
-    from prepare_lora_kit.project.pipeline.substeps import substep_ids_for
-    from prepare_lora_kit.utils.verdict_ledger import VerdictLedger
-
-    reporter.step_header("Caption Verifier — Text-Encoder Probe (mock)")
-    enabled = set(enabled_substeps or substep_ids_for(STEP_TYPE))
-    report_path = output_dir / "reports" / "CaptionVerifierStep_report.json"
-    preview_root = report_path.parent / PREVIEW_DIR_NAME
-
-    items = caption_io.collect_verifiable_images(working_dir)
-    verdicts.seed_initial_verdicts(items, VerdictLedger(report_path.parent))
-    generations: dict[str, list[dict]] = {}
-    failures: list[dict] = []
 
     def _generator(prompt: str, options: dict | None = None) -> dict:
         check_cancel(cancel_check)
@@ -72,6 +50,40 @@ def _mock_caption_verifier(
         }
         entries.append(record)
         return record
+
+    return _generator
+
+
+def _mock_caption_verifier(
+        working_dir: Path,
+        output_dir: Path,
+        *,
+        interaction=None,
+        enabled_substeps: list[str] | None = None,
+        cancel_check=None,
+) -> dict:
+    from prepare_lora_kit.project.pipeline.substeps import substep_ids_for
+    from prepare_lora_kit.report import reporter
+    from prepare_lora_kit.steps.caption_verifier import captions as caption_io
+    from prepare_lora_kit.steps.caption_verifier import reports, verdicts
+    from prepare_lora_kit.steps.caption_verifier.step import (
+        BACKUP_DIR_NAME,
+        PREVIEW_DIR_NAME,
+        STEP_TYPE,
+    )
+    from prepare_lora_kit.utils.verdict_ledger import VerdictLedger
+
+    reporter.step_header("Caption Verifier — Text-Encoder Probe (mock)")
+    enabled = set(enabled_substeps or substep_ids_for(STEP_TYPE))
+    report_path = output_dir / "reports" / "CaptionVerifierStep_report.json"
+    preview_root = report_path.parent / PREVIEW_DIR_NAME
+
+    items = caption_io.collect_verifiable_images(working_dir)
+    verdicts.seed_initial_verdicts(items, VerdictLedger(report_path.parent))
+    generations: dict[str, list[dict]] = {}
+    failures: list[dict] = []
+
+    _generator = _make_mock_generator(preview_root, generations, cancel_check)
 
     verify = getattr(interaction, "caption_verify", None) if interaction else None
     results: dict[str, dict] = {}
@@ -158,12 +170,12 @@ def _plate(prompt: str, seed: int):
     """
     from PIL import Image, ImageDraw
 
-    digest = zlib.crc32(f"{prompt}|{seed}".encode("utf-8"))
+    digest = zlib.crc32(f"{prompt}|{seed}".encode())
     base = ((digest >> 16) & 0xFF, (digest >> 8) & 0xFF, digest & 0xFF)
     image = Image.new("RGB", (384, 384), base)
     draw = ImageDraw.Draw(image)
     for index in range(6):
-        shade = zlib.crc32(f"{prompt}|{seed}|{index}".encode("utf-8"))
+        shade = zlib.crc32(f"{prompt}|{seed}|{index}".encode())
         draw.rectangle(
             [24, 40 + index * 52, 360, 80 + index * 52],
             fill=((shade >> 16) & 0xFF, (shade >> 8) & 0xFF, shade & 0xFF),

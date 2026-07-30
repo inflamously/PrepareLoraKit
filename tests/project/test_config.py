@@ -1,15 +1,8 @@
 import re
 
-import yaml
 import pytest
+import yaml
 
-from prepare_lora_kit.steps.upscale.seedvr2_catalog import (
-    DEFAULT_SEEDVR2_DIT_MODEL,
-    SUPPORTED_SEEDVR2_DIT_MODELS,
-    get_seedvr2_dit_model,
-    list_seedvr2_dit_models,
-)
-from prepare_lora_kit.project.base import ProjectConfig
 from prepare_lora_kit.pipeline import (
     STEP_DEFINITIONS,
     is_optional_step_type,
@@ -21,8 +14,15 @@ from prepare_lora_kit.pipeline import (
     step_type_for_slug,
     step_types,
 )
-from prepare_lora_kit.project import project_registry
 from prepare_lora_kit.pipeline.configs import UpscaleConfig
+from prepare_lora_kit.project import project_registry
+from prepare_lora_kit.project.base import ProjectConfig
+from prepare_lora_kit.steps.upscale.seedvr2_catalog import (
+    DEFAULT_SEEDVR2_DIT_MODEL,
+    SUPPORTED_SEEDVR2_DIT_MODELS,
+    get_seedvr2_dit_model,
+    list_seedvr2_dit_models,
+)
 from prepare_lora_kit_ui.runner import project_payload
 
 
@@ -92,7 +92,7 @@ pipeline:
   - type: QualityGateStep
 """
 
-    with pytest.raises(ValueError, match="QualityGateStep.*ImportStep"):
+    with pytest.raises(ValueError, match=r"QualityGateStep.*ImportStep"):
         _project(yaml_text)
 
 
@@ -155,7 +155,7 @@ pipeline:
   - type: CurateStep
 """
 
-    with pytest.raises(ValueError, match="CurateStep.*QualityGateStep"):
+    with pytest.raises(ValueError, match=r"CurateStep.*QualityGateStep"):
         _project(yaml_text)
 
 
@@ -192,7 +192,7 @@ pipeline:
   - type: UpscaleStep
 """
 
-    with pytest.raises(ValueError, match="UpscaleStep.*out of order"):
+    with pytest.raises(ValueError, match=r"UpscaleStep.*out of order"):
         _project(yaml_text)
 
 
@@ -291,7 +291,7 @@ def test_seedvr2_catalog_lists_supported_models():
 
     assert len(models) == 10
     assert DEFAULT_SEEDVR2_DIT_MODEL == "seedvr2_ema_3b_fp8_e4m3fn.safetensors"
-    assert SUPPORTED_SEEDVR2_DIT_MODELS == tuple(model.name for model in models)
+    assert tuple(model.name for model in models) == SUPPORTED_SEEDVR2_DIT_MODELS
     assert get_seedvr2_dit_model("seedvr2_ema_7b-Q4_K_M.gguf").parameter_size == "7B"
 
 

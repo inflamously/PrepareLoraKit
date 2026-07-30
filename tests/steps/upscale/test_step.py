@@ -246,7 +246,8 @@ def test_custom_upscaler_runs_when_injected(tmp_path, monkeypatch):
         upscaler=upscaler,
     )
 
-    assert calls and calls[0][0] == image
+    assert calls
+    assert calls[0][0] == image
     assert result["upscaled"][0]["upscaled"] == str(output_dir / image.name)
     with Image.open(output_dir / image.name) as img:
         assert img.size == (72, 64)
@@ -451,7 +452,8 @@ def test_jpeg_cleanup_runs_under_seedvr2(tmp_path, monkeypatch):
 
         def process_many(self, outputs_by_source, *, sources_by_path=None, cancel_check=None):
             # Cleanup must feed the model a pre-downscaled copy, not the raw JPEG.
-            assert sources_by_path and set(sources_by_path) == set(outputs_by_source)
+            assert sources_by_path
+            assert set(sources_by_path) == set(outputs_by_source)
             for output_path in outputs_by_source.values():
                 Image.new("RGB", (300, 300), "green").save(output_path)
             return {}
@@ -511,7 +513,8 @@ def test_dest_collision_keeps_jpeg_untouched(tmp_path, monkeypatch):
     assert {entry["original"] for entry in result["upscaled"]} == {str(png)}
 
 
-def test_upscale_review_called_only_when_flagged_and_skip_forces_pass_through(tmp_path, monkeypatch):
+def test_upscale_review_called_only_when_flagged_and_skip_forces_pass_through(
+        tmp_path, monkeypatch):
     flagged_image = _image(tmp_path / "flagged.png", (40, 40))
     _image(tmp_path / "ok.png", (4000, 4000))
     monkeypatch.setattr(upscale_step, "_hallucination_check", lambda *_args: 1.0)

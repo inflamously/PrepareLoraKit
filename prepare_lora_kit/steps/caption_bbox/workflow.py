@@ -1,13 +1,14 @@
 """Per-image caption workflow for CaptionBboxStep."""
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
 
+from prepare_lora_kit.cancellation import CancelCheck, CancelledRun, check_cancel
 from prepare_lora_kit.interaction import annotate_dataset_via_images
 from prepare_lora_kit.providers.interaction import InteractionProvider
-from prepare_lora_kit.cancellation import CancelCheck, CancelledRun, check_cancel
 from prepare_lora_kit.report import reporter
 
 if TYPE_CHECKING:
@@ -16,6 +17,7 @@ if TYPE_CHECKING:
 from prepare_lora_kit.steps.caption_bbox.artifacts import _update_bbox_caption, load_boxes_sidecar
 from prepare_lora_kit.steps.caption_bbox.reports import _save_failure_report
 from prepare_lora_kit.steps.caption_bbox.validation import clean_caption_for_mode
+
 
 @dataclass
 class CaptionWorkflowResult:
@@ -98,7 +100,9 @@ def resolve_decision(
     existing sidecar caption is kept so reports stay complete.
     """
     if "caption_images" not in enabled:
-        reporter.info(f"Caption substep disabled for {path.name}; preserving existing sidecar if present.")
+        reporter.info(
+            f"Caption substep disabled for {path.name}; "
+            f"preserving existing sidecar if present.")
         if txt_path.exists():
             result.captions[str(path)] = txt_path.read_text(encoding="utf-8").strip()
         return None
@@ -204,4 +208,5 @@ def _write_caption(
     check_cancel(cancel_check)
     txt_path.write_text(caption, encoding="utf-8")
     captions[str(path)] = caption
-    reporter.ok(f"{path.name} → {caption[:80]}…" if len(caption) > 80 else f"{path.name} → {caption}")
+    reporter.ok(f"{path.name} → {caption[:80]}…" if len(caption) > 80
+                else f"{path.name} → {caption}")

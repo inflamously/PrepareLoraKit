@@ -5,8 +5,8 @@ import json
 from pathlib import Path
 from typing import Any
 
-
 from prepare_lora_kit.steps.caption_bbox import caption_text as cap_text
+
 BBOX_PREFIX = "plk_bbox__"
 
 # Fields persisted per box in the reload sidecar. Coordinates are normalized

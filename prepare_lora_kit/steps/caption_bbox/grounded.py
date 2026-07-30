@@ -18,7 +18,8 @@ pipeline never returns worse than a single pass.
 """
 from __future__ import annotations
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from prepare_lora_kit.cancellation import CancelCheck, check_cancel
 from prepare_lora_kit.steps.caption_bbox import caption_text, gap_fill

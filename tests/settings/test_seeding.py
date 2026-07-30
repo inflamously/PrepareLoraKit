@@ -6,8 +6,8 @@ import yaml
 from prepare_lora_kit import settings
 from prepare_lora_kit.pipeline.configuration import step_config_class
 from prepare_lora_kit.project import project_registry
-from prepare_lora_kit.project.defaults import default_pipeline
 from prepare_lora_kit.project.base import ProjectConfig
+from prepare_lora_kit.project.defaults import default_pipeline
 from prepare_lora_kit.settings.model import AppSettings
 from prepare_lora_kit.settings.seeding import _SEEDS, apply_settings_to_pipeline
 

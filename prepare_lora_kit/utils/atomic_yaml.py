@@ -10,6 +10,7 @@ import from ``project``.
 """
 from __future__ import annotations
 
+import contextlib
 import os
 from pathlib import Path
 from typing import Any
@@ -34,10 +35,8 @@ def write_yaml_atomic(
     if secure_parent and os.name == "posix":
         # User config, not a secret (no token is ever stored here) — but there is
         # no reason for it to be world-readable either.
-        try:
+        with contextlib.suppress(OSError):
             path.parent.chmod(0o700)
-        except OSError:
-            pass
 
     body = yaml.dump(
         data,
@@ -48,7 +47,7 @@ def write_yaml_atomic(
     )
     tmp = path.with_name(f".{path.name}.plk_tmp")
     tmp.write_text(f"{header}{body}", encoding="utf-8")
-    os.replace(tmp, path)
+    tmp.replace(path)
     return path
 
 

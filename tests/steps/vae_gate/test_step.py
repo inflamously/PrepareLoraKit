@@ -134,7 +134,9 @@ def test_vae_load_failure_replaces_stale_previews_and_writes_report(tmp_path, mo
     preview_root.mkdir(parents=True)
     _image(dataset / "image.png", "red")
     (preview_root / "stale.txt").write_text("stale", encoding="utf-8")
-    monkeypatch.setattr(vae_step, "_load_vae", lambda *_args: (_ for _ in ()).throw(RuntimeError("bad model")))
+    monkeypatch.setattr(
+        vae_step, "_load_vae",
+        lambda *_args: (_ for _ in ()).throw(RuntimeError("bad model")))
 
     report = vae_step.run(dataset, "bad-vae", report_path=report_path)
 
@@ -257,7 +259,7 @@ def test_encode_decode_accepts_no_size_cap_and_uses_seed(tmp_path, monkeypatch):
             observed["resized"] = image.size
             return FakeTensor()
 
-    fake_torch = SimpleNamespace(Generator=FakeGenerator, no_grad=lambda: NoGrad())
+    fake_torch = SimpleNamespace(Generator=FakeGenerator, no_grad=NoGrad)
     fake_transforms = SimpleNamespace(ToTensor=ToTensor)
     monkeypatch.setitem(sys.modules, "torch", fake_torch)
     monkeypatch.setitem(sys.modules, "torchvision", SimpleNamespace(transforms=fake_transforms))

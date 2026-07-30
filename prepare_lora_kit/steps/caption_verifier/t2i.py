@@ -15,11 +15,13 @@ heavy imports stay function-local.
 """
 from __future__ import annotations
 
+import contextlib
 import os
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 
 from prepare_lora_kit.report import reporter
 from prepare_lora_kit.steps.caption_verifier import (
@@ -31,7 +33,7 @@ from prepare_lora_kit.steps.caption_verifier import (
 )
 from prepare_lora_kit.steps.caption_verifier.plan import GenerationPlan, resolve_plan
 
-_CACHE: dict[tuple, "LoadedT2IPipeline"] = {}
+_CACHE: dict[tuple, LoadedT2IPipeline] = {}
 # How often the load republishes itself. Faster than the UI's 800 ms poll would
 # only burn ticks the frontend never reads.
 _PROGRESS_INTERVAL_S = 1.0
@@ -375,10 +377,9 @@ class T2IRuntime:
 
         self._status = status
         if self._status_callback is not None:
-            try:
+            # Status is best effort; a broken listener must not fail the render.
+            with contextlib.suppress(Exception):  # pragma: no cover
                 self._status_callback(dict(status))
-            except Exception:  # pragma: no cover - status is best effort
-                pass
 
 
 def unload() -> None:

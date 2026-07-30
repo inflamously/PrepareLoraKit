@@ -225,7 +225,7 @@ def test_load_returns_a_validated_project(isolated_projects):
 
     assert cfg.name == "demo"
     assert cfg.input_dir == "/data/demo"
-    assert [step.type for step in cfg.pipeline][0] == "ImportStep"
+    assert next(step.type for step in cfg.pipeline) == "ImportStep"
 
 
 def test_load_raises_value_error_for_an_unknown_project(isolated_projects):

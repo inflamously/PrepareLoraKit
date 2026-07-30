@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING, Any
 from prepare_lora_kit.pipeline.execution import execute_pipeline
 from prepare_lora_kit.project import project_registry
 from prepare_lora_kit.project.base import ProjectConfig
-
 from prepare_lora_kit_ui.runner.execution_hooks import StepConfigResolver, UiJobHooks
 from prepare_lora_kit_ui.runner.job import PipelineJob
 from prepare_lora_kit_ui.runner.run_request import UiRunRequest
@@ -50,7 +49,7 @@ class UiPipelineExecutor:
         if interaction_provider_cls is None:
             # Resolve through the facade so integrations can replace the
             # provider without coupling the core engine to the desktop UI.
-            import prepare_lora_kit_ui.runner as runner
+            from prepare_lora_kit_ui import runner
             interaction_provider_cls = runner.UiInteractionProvider
         return interaction_provider_cls(job, self._media_base_url)
 

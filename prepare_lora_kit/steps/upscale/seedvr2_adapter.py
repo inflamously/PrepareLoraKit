@@ -10,8 +10,8 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-
 from prepare_lora_kit.steps.upscale.seedvr2_catalog import DEFAULT_SEEDVR2_DIT_MODEL
+
 DEFAULT_SEEDVR2_MODEL_DIR = "~/.cache/prepare_lora_kit/seedvr2"
 SEEDVR2_MODEL_RESIDENCY_MODES = ("auto", "gpu", "cpu")
 
@@ -69,7 +69,8 @@ class SeedVR2Upscaler:
         debug: bool = False,
     ) -> None:
         self.resolution = resolution
-        self.submodule_dir = Path(submodule_dir).expanduser() if submodule_dir else default_seedvr2_submodule_dir()
+        self.submodule_dir = (Path(submodule_dir).expanduser() if submodule_dir
+                              else default_seedvr2_submodule_dir())
         self.model_dir = Path(model_dir).expanduser() if model_dir else default_seedvr2_model_dir()
         self.dit_model = dit_model
         self.cuda_device = cuda_device if cuda_device else default_seedvr2_cuda_device()

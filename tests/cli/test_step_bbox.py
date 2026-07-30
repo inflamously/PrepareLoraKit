@@ -1,14 +1,13 @@
 """Tests for the CLI bbox region-annotation path of the `step` command."""
 from pathlib import Path
 
-from PIL import Image
 import click
 import pytest
+from PIL import Image
 
 from prepare_lora_kit.cli.step import _parse_bbox, _resolve_bbox_target
 from prepare_lora_kit.interaction import CliBboxRegionProvider
 from prepare_lora_kit.steps.caption_bbox import step as caption_bbox_step
-
 
 # ── _parse_bbox ────────────────────────────────────────────────────────────────
 
@@ -31,7 +30,8 @@ def test_parse_bbox_already_normalized_passthrough():
 
 def test_parse_bbox_out_of_order_sorted():
     box = _parse_bbox("80,60,20,10", 100, 100)
-    assert box["x1"] < box["x2"] and box["y1"] < box["y2"]
+    assert box["x1"] < box["x2"]
+    assert box["y1"] < box["y2"]
     assert (box["x1"], box["x2"]) == (0.2, 0.8)
 
 

@@ -9,9 +9,8 @@ Commands:
 """
 from __future__ import annotations
 
-from ._shared import cli
-
 # Import command modules for their side effect of registering on `cli`.
-from . import run, step, projects, ui  # noqa: F401,E402
+from . import projects, run, step, ui
+from ._shared import cli
 
 __all__ = ["cli"]

@@ -1,7 +1,6 @@
 """Shared constants for UI end-to-end mock fixtures."""
 from __future__ import annotations
 
-
 MOCK_PROJECT_NAME = "plk-ui-mock"
 MOCK_TOKEN = "plk_mock"
 

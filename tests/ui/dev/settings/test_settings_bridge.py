@@ -90,7 +90,7 @@ def test_model_ids_skip_sentinels_and_local_paths(bridge):
 def test_check_model_access_uses_the_configured_ids(bridge, monkeypatch):
     pytest.importorskip("huggingface_hub")
     seen = []
-    monkeypatch.setattr("huggingface_hub.auth_check", lambda repo_id: seen.append(repo_id))
+    monkeypatch.setattr("huggingface_hub.auth_check", seen.append)
     bridge.save_settings({"project_defaults": {"caption_model_id": "Qwen/Qwen3-VL-2B-Instruct"}})
 
     results = bridge.check_model_access()["results"]
@@ -102,7 +102,7 @@ def test_check_model_access_uses_the_configured_ids(bridge, monkeypatch):
 def test_check_model_access_accepts_an_explicit_list(bridge, monkeypatch):
     pytest.importorskip("huggingface_hub")
     seen = []
-    monkeypatch.setattr("huggingface_hub.auth_check", lambda repo_id: seen.append(repo_id))
+    monkeypatch.setattr("huggingface_hub.auth_check", seen.append)
 
     bridge.check_model_access(["only/this-one"])
 

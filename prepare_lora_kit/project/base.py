@@ -7,10 +7,12 @@ parsing and validation here are independent of how the config is laid out on
 disk.
 """
 from __future__ import annotations
+
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
+from prepare_lora_kit.pipeline.configs import ScorerEntry
 from prepare_lora_kit.pipeline.configuration import (
     step_config_class,
     step_definition,
@@ -18,12 +20,10 @@ from prepare_lora_kit.pipeline.configuration import (
     step_slug,
     step_types,
 )
-from prepare_lora_kit.pipeline.configs import ScorerEntry
 from prepare_lora_kit.project.steps import (
     PipelineSubstep,
     normalize_substeps,
 )
-
 
 # ── PipelineStep ──────────────────────────────────────────────────────────────
 
@@ -39,8 +39,8 @@ class PipelineStep:
 @dataclass
 class ProjectConfig:
     name: str
-    input_dir: Optional[str] = None
-    output_dir: Optional[str] = None
+    input_dir: str | None = None
+    output_dir: str | None = None
     pipeline: list[PipelineStep] = field(default_factory=list)
     # Steps the index lists but switches off. Never reaches the engine or the UI
     # payload — a disabled step is simply absent from ``pipeline``, which is a
@@ -82,7 +82,7 @@ class ProjectConfig:
             previous_index = index
 
     @classmethod
-    def from_data(cls, data: dict[str, Any]) -> "ProjectConfig":
+    def from_data(cls, data: dict[str, Any]) -> ProjectConfig:
         """Build a project from one flat dict — no I/O.
 
         This is the seam the on-disk layout plugs into: the store assembles a
@@ -117,9 +117,8 @@ class ProjectConfig:
             # Type-specific coercions
             if step_type == "QualityGateStep" and raw.get("scorers") is not None:
                 raw["scorers"] = [ScorerEntry(**s) for s in raw["scorers"]]
-            if step_type == "BucketPoolsCheckStep":
-                if raw.get("resolution_buckets") is not None:
-                    raw["resolution_buckets"] = [tuple(b) for b in raw["resolution_buckets"]]
+            if step_type == "BucketPoolsCheckStep" and raw.get("resolution_buckets") is not None:
+                raw["resolution_buckets"] = [tuple(b) for b in raw["resolution_buckets"]]
             config = config_cls(**raw)
             pipeline.append(
                 PipelineStep(
@@ -139,7 +138,7 @@ class ProjectConfig:
         )
 
     @classmethod
-    def from_dir(cls, directory: Path) -> "ProjectConfig":
+    def from_dir(cls, directory: Path) -> ProjectConfig:
         """Load a project folder. Advisory notes are dropped; see project_registry.load."""
 
         from prepare_lora_kit.project import store

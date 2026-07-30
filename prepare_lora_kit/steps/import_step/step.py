@@ -38,7 +38,7 @@ def run(
             target_image_path = get_recursive_mirror_paths(input_dir, source_image_path)
             check_cancel(cancel_check)
             dst = output_dir / target_image_path
-            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            dst.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source_image_path, dst)
             imported.append(str(dst))
         check_cancel(cancel_check)
@@ -52,7 +52,8 @@ def run(
         "imported": imported,
         "count": len(imported),
         "substeps": {
-            "import_images": {"enabled": "import_images" in set(enabled_substeps or ["import_images"])},
+            "import_images": {
+                "enabled": "import_images" in set(enabled_substeps or ["import_images"])},
         },
     }
     reporter.info(f"Imported {len(imported)} image(s) into {output_dir}.")
@@ -63,7 +64,7 @@ def run(
 
 def _iter_images(folder: Path) -> list[Path]:
     images = []
-    for root, dirs, files in os.walk(folder):
+    for root, _dirs, files in os.walk(folder):
         for file in files:
             path = Path(root) / Path(file)
             if path.is_file() and path.suffix in IMAGE_EXTS:
