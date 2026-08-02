@@ -54,3 +54,15 @@
     background: var(--night-850);
     border-color: var(--border);
 }
+
+/* "Available, not scheduled" — deliberately the quietest pill in the set. It
+   sits in the same column as the status pills but must not read as one, so it
+   drops the filled background for a dashed outline: a different shape carries
+   the distinction even where the colours are close. */
+.nf-pill--optional {
+    color: var(--text-3);
+    background: transparent;
+    border-style: dashed;
+    border-color: var(--border-subtle);
+    letter-spacing: 0.02em;
+}

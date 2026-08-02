@@ -49,7 +49,6 @@ function renderStep(step) {
   const prereq = step.prerequisites?.length
     ? `Requires ${step.prerequisites.join(", ")}`
     : "No special prerequisites";
-  const optional = step.optional ? " - Optional" : "";
   const availableSubsteps = step.substeps || [];
   const checked = state.selectedSteps.has(step.type) ? "checked" : "";
   const collapsed = state.collapsedSteps.has(step.type);
@@ -73,11 +72,11 @@ function renderStep(step) {
     </div>
     <div class="step-content nf-step__body">
       <strong class="nf-step__title">${escapeText(stepLabel(step.type))}</strong>
-      <small class="nf-step__meta">${escapeText(step.type)} <span class="nf-sep">&middot;</span> ${escapeText(prereq)}${optional}${
+      <small class="nf-step__meta">${escapeText(step.type)} <span class="nf-sep">&middot;</span> ${escapeText(prereq)}${
         attention ? ` <span class="nf-step__hint">&middot; recommended</span>` : ""
       }</small>
     </div>
-    <span class="step-status nf-step__status ${pillClass(status)}"${statusTitle(step, status)}>${escapeText(status)}</span>
+    ${renderStatusBadge(step, status)}
     <button class="nf-step__help" type="button" title="What does this step do?" aria-label="Step help">?</button>
     <div class="substep-list">
       ${availableSubsteps.map((substep) => renderSubstep(step, substep, disabled)).join("")}
@@ -156,6 +155,18 @@ function renderSubstep(step, substep, disabled) {
 // The run that is still producing status, or null once it has finished.
 function liveJob() {
   return state.job && !TERMINAL_STATUSES.has(state.job.status) ? state.job : null;
+}
+
+// An optional step that has never run reads `optional` rather than `pending`:
+// nothing is outstanding, the step is simply there to be run whenever you want
+// it. The badge carries this instead of the meta line so the row says it once,
+// in the column the eye already scans for state. Once the step has actually run,
+// its real status is the more useful thing to show and wins the badge back.
+function renderStatusBadge(step, status) {
+  if (step.optional && status === "pending") {
+    return `<span class="step-status nf-step__status nf-pill nf-pill--optional" title="Optional — run it whenever you like; no selection picks it for you.">optional</span>`;
+  }
+  return `<span class="step-status nf-step__status ${pillClass(status)}"${statusTitle(step, status)}>${escapeText(status)}</span>`;
 }
 
 // Why a step is not simply "done" — e.g. it ran but its report says it found

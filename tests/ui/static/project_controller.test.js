@@ -9,6 +9,7 @@ import {
   expandAll,
   loadProject,
   selectPending,
+  selectSteps,
   unselectAll,
 } from "../../../prepare_lora_kit_ui/static/project/controller.js";
 import { selectedSubstepMap } from "../../../prepare_lora_kit_ui/static/project/selection.js";
@@ -102,8 +103,8 @@ describe("project controller selection", () => {
     });
   });
 
-  it("resets to active non-optional steps only", () => {
-    selectPending();
+  it("resets to non-optional steps regardless of status on select steps", () => {
+    selectSteps();
 
     assert.deepEqual([...state.selectedSteps], [
       "ImportStep",
@@ -114,6 +115,33 @@ describe("project controller selection", () => {
     assert.deepEqual(selectedSubstepMap().QualityGateStep, [
       "score_images",
       "review_decisions",
+    ]);
+  });
+
+  it("skips done and optional steps on select pending", () => {
+    selectPending();
+
+    assert.deepEqual([...state.selectedSteps], [
+      "ImportStep",
+      "QualityGateStep",
+      "VaeGateStep",
+    ]);
+    assert.deepEqual(selectedSubstepMap().VaeGateStep, ["reconstruct_images"]);
+  });
+
+  it("treats skipped and stale steps as pending", () => {
+    state.project = project("sample", [
+      step("ImportStep", "done", false),
+      step("QualityGateStep", "skipped", false),
+      step("CurateStep", "stale", false),
+      step("VaeGateStep", "done", false),
+    ]);
+
+    selectPending();
+
+    assert.deepEqual([...state.selectedSteps], [
+      "QualityGateStep",
+      "CurateStep",
     ]);
   });
 

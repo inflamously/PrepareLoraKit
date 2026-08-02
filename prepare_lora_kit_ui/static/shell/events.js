@@ -5,6 +5,7 @@ import {
   expandAll,
   reloadCurrentProject,
   selectPending,
+  selectSteps,
   unselectAll,
 } from "../project/controller.js";
 import { cancelRun, openInput, openOutput, startRun } from "../job/controller.js";
@@ -23,6 +24,7 @@ export function bindEvents() {
   $("collapseAllSteps").addEventListener("click", collapseAll);
   $("expandAllSteps").addEventListener("click", expandAll);
   $("unselectAllSteps").addEventListener("click", unselectAll);
+  $("selectSteps").addEventListener("click", selectSteps);
   $("selectPending").addEventListener("click", selectPending);
   $("runButton").addEventListener("click", startRun);
   $("cancelButton").addEventListener("click", cancelRun);

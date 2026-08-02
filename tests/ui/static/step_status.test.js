@@ -107,6 +107,37 @@ describe("step status badges", () => {
     assert.match(badge.getAttribute("title"), /CurateStep_report\.json is missing/);
   });
 
+  it("badges an optional step that has never run as optional, not pending", () => {
+    state.project = {
+      name: "sample",
+      steps: [step("UpscaleStep", { optional: true })],
+    };
+
+    renderSteps();
+
+    const badge = document.querySelector("#stepList > .nf-step > .step-status");
+    assert.equal(badge.textContent, "optional");
+    assert.equal(badge.classList.contains("nf-pill--optional"), true);
+    // The meta line no longer repeats it — the badge is the single carrier.
+    assert.doesNotMatch(
+      document.querySelector(".nf-step__meta").textContent,
+      /optional/i,
+    );
+  });
+
+  it("still badges an optional step once it has a real status", () => {
+    state.project = {
+      name: "sample",
+      steps: [step("UpscaleStep", { optional: true, status: "done" })],
+    };
+
+    renderSteps();
+
+    const badge = document.querySelector("#stepList > .nf-step > .step-status");
+    assert.equal(badge.textContent, "done");
+    assert.equal(badge.classList.contains("nf-pill--done"), true);
+  });
+
   it("renders a step that reported no work as skipped, with the reason as a tooltip", () => {
     state.project = {
       name: "sample",

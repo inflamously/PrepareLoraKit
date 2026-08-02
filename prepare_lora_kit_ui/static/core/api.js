@@ -3,41 +3,90 @@
  */
 
 /**
+ * One ordered unit inside a parent step, built by `substep_payloads` in
+ * `prepare_lora_kit/project/pipeline/substeps.py`. Every substep the registry
+ * defines for the parent is always present — `enabled` says whether it is on,
+ * the list is never filtered.
+ *
  * @typedef {Object} SubstepPayload
- * @property {string} id
- * @property {string} label
- * @property {boolean} enabled
+ * @property {string} id Registry id, unique within the parent step (e.g.
+ *   `score_images`). The value `RunRequest.substeps[stepType]` carries and the
+ *   key `state.selectedSubsteps` stores.
+ * @property {string} label Human name from the substep registry, shown as the
+ *   row title. The step list falls back to `id` if it is ever missing.
+ * @property {boolean} enabled Config-level on/off from the project's
+ *   `<slug>.yaml`, not a UI selection. `false` labels the row "Disabled", keeps
+ *   the substep out of its parent's default selection, and stops it running.
  * @property {"pending" | "done" | "skipped"} status What this substep did on the
  *   last run. `pending` covers "never ran" — including substeps of a parent that
  *   is itself done, which a partial run leaves behind.
- * @property {string[]} prerequisites
- * @property {boolean} optional
+ * @property {string[]} prerequisites Sibling substep ids in the same parent that
+ *   must run first (`review_decisions` requires `score_images`). Ordering
+ *   metadata — the UI neither displays nor enforces it.
+ * @property {boolean} optional Registry metadata, rendered as "- Optional" in
+ *   the row. Display only, unlike {@link StepPayload}`.optional`: it drives no
+ *   selection or run logic, `enabled` is what decides whether the substep runs.
  */
 
 /**
+ * Dataset precheck behind the soft step recommendation, computed on every
+ * project load by `upscale_attention` in
+ * `prepare_lora_kit_ui/runner/recommendations.py`. It scans the working dataset
+ * (`<output_dir>/dataset`) when that exists, else the raw input folder.
+ *
  * @typedef {Object} StepAttention
- * @property {boolean} recommended
+ * @property {boolean} recommended True when `undersized` or `jpeg` is non-zero.
+ *   This, not the raw counts, is what sets `StepPayload.needs_attention`.
  * @property {number} undersized Images whose short side is <= the step's highlight threshold.
  * @property {number} jpeg JPEG-encoded images (compression artifacts).
- * @property {number} scanned How many images were scanned (capped for large folders).
+ * @property {number} scanned How many images were scanned (capped at 5000, so on
+ *   a bigger folder the counts describe a sample, not the whole dataset).
+ */
+
+/**
+ * One pipeline step as the bridge sends it, built by `_step_payload` in
+ * `prepare_lora_kit_ui/runner/payloads.py`. `ProjectPayload.steps` holds one per
+ * configured step, in pipeline order.
  *
  * @typedef {Object} StepPayload
- * @property {string} type
- * @property {Record<string, unknown>} config
+ * @property {string} type CamelCase step class name (e.g. `ImportStep`) — the id
+ *   everything else keys off: `state.selectedSteps`, `RunRequest.steps`,
+ *   run-state records, `reports/<type>_report.json`. Not the on-disk name: the
+ *   project YAML file is named after the step's slug (`caption_bbox.yaml`).
+ * @property {Record<string, unknown>} config The step's config dataclass from
+ *   its `<slug>.yaml`, flattened to JSON (nested dataclasses become objects,
+ *   `Path` values become strings). Shape varies per step type; only the step
+ *   config modal reads it.
  * @property {"pending" | "done" | "skipped" | "stale"} status Persisted run-state
  *   status. `skipped` is a step that ran but whose own report said it did no work
  *   (an empty dataset, a disabled substep); it is still `done` for prerequisites
  *   and resume, so a plain re-run skips it until `force`. `stale` is a step whose
  *   run state claims a run whose `reports/<StepType>_report.json` is no longer on
  *   disk — the record outlived its evidence and the step wants re-running.
+ *   `pending` also covers "no output dir resolved yet", where nothing has been
+ *   read from disk at all.
  * @property {string} status_reason Why the step is not plainly done — the reason
  *   its report gave, or which report has gone missing. Empty string when the
  *   status speaks for itself.
- * @property {string[]} prerequisites
- * @property {boolean} optional
- * @property {SubstepPayload[]} substeps
- * @property {boolean} [needs_attention] Soft step-list recommendation (UpscaleStep only today).
+ * @property {string[]} prerequisites Step types that must have run before this
+ *   one, from `StepDefinition.prerequisites`. Checked against the persisted run
+ *   state at run time (a `skipped` step satisfies them — run state records it as
+ *   done); the step list only surfaces them as "Requires ..." and never blocks
+ *   selection on them.
+ * @property {boolean} optional Static `StepDefinition.optional` flag — today
+ *   `UpscaleStep`, `CaptionVerifierStep` and `ExportStep`. It means opt-in, not
+ *   unrunnable: no toolbar selection ever checks an optional step ("Select
+ *   steps" and "Select pending tasks" both skip them, as does project load),
+ *   the library card's completed check ignores them, and the step list leaves
+ *   their badge blank while they are `pending`. Only a manual click runs one.
+ * @property {SubstepPayload[]} substeps Every substep the registry defines for
+ *   this step type, in canonical order. Empty for step types that have none.
+ * @property {boolean} [needs_attention] Soft step-list recommendation. Only
+ *   UpscaleStep ever carries it — for every other step type the key is absent
+ *   rather than `false`, so test it as optional.
  * @property {StepAttention | null} [attention] Why the step is recommended.
+ *   `null` when there was no readable dataset to scan, and absent alongside
+ *   `needs_attention` for every step but UpscaleStep.
  */
 
 /**
