@@ -1,5 +1,5 @@
 """
-Step 1 — Source Image Quality Gates + Manual Review
+QualityGateStep — Source Image Quality Gates + Manual Review
 
 Phase A: automated scoring via pluggable scorer registry.
 Phase B: tkinter gallery — all images shown with pass/fail borders, click to

@@ -1,5 +1,5 @@
 """
-Step 2 — Curation
+CurateStep — Curation
 
 1. Perceptual-hash dedupe (phash, configurable Hamming distance).
 2. Coverage embedding (CLIP/DINOv2/Qwen, VRAM-auto): UMAP (N > 30) or PCA (N ≤ 30) scatter.

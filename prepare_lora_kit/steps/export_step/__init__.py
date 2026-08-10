@@ -1,4 +1,4 @@
-"""Step 9 — Export finalized dataset to a training folder."""
+"""ExportStep — Export finalized dataset to a training folder."""
 from __future__ import annotations
 
 from typing import Any

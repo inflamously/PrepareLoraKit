@@ -1,4 +1,4 @@
-"""Perceptual-hash dedupe for Step 2 curation."""
+"""Perceptual-hash dedupe for CurateStep."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -72,7 +72,7 @@ def _resolve_duplicates(
                 choice = easygui.buttonbox(
                     f"Near-duplicate pair (Hamming={dist}):\n\nA: {a.name}  (blur={blur_a:.1f})\n"
                     f"B: {b.name}  (blur={blur_b:.1f})\n\nWhich to DROP?",
-                    title="Step 2 — Dedupe",
+                    title="Curate — Dedupe",
                     choices=[f"Drop {a.name}", f"Drop {b.name}", "Keep both"],
                 )
                 if choice and "Drop " in choice:

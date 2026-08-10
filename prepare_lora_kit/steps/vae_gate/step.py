@@ -1,5 +1,5 @@
 """
-Step 4 — VAE Reconstruction Gate
+VaeGateStep — VAE Reconstruction Gate
 
 Encodes each image through the target model's VAE, decodes back, and measures
 high-frequency loss via FFT spectrum comparison. Outliers (> mean + 2σ) are

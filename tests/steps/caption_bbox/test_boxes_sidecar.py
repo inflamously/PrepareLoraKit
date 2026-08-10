@@ -1,4 +1,4 @@
-"""Tests for per-image bbox-coordinate sidecars (reload support, Step 5)."""
+"""Tests for per-image bbox-coordinate sidecars (reload support, CaptionBboxStep)."""
 from PIL import Image
 
 from prepare_lora_kit.steps.caption_bbox.artifacts import (

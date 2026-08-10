@@ -56,7 +56,7 @@ class InteractionProvider(Protocol):
         """Return per-original VAE gate decisions: keep or drop."""
 
     def upscale_review(self, items: list[dict]) -> dict[str, str]:
-        """Return per-original Step 3 decisions for flagged images: upscale or skip."""
+        """Return per-original upscale decisions for flagged images: upscale or skip."""
 
     def bucket_pool_details(self, report: dict[str, Any], report_path: Path) -> bool:
         """Show read-only bucket assignments and wait for confirmation."""

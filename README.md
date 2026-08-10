@@ -33,7 +33,7 @@ If `--output` is not supplied, output goes to:
 outputs/<input-folder-name>/
 ```
 
-The original image folder is left untouched. Step 1 creates:
+The original image folder is left untouched. `ImportStep` creates:
 
 ```text
 outputs/<dataset-name>/dataset/
@@ -223,9 +223,9 @@ python -m pip install -r requirements/seedvr2-windows.txt   # or seedvr2-linux.t
 python -m pip install -e third_party/seedvr2
 ```
 
-PLK runs SeedVR2's standalone `inference_cli.py` inside an isolated Step 3 worker
-process and does not import ComfyUI nodes into the main app process. All Step 3
-upscale candidates are sent through one worker process so SeedVR2 can cache its
+PLK runs SeedVR2's standalone `inference_cli.py` inside an isolated upscale worker
+process and does not import ComfyUI nodes into the main app process. All upscale
+candidates are sent through one worker process so SeedVR2 can cache its
 DiT and VAE models across the image loop. SeedVR2 models are downloaded into
 `~/.cache/prepare_lora_kit/seedvr2` by default, configurable with
 `seedvr2_model_dir`.

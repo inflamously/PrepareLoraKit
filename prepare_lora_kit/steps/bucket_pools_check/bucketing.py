@@ -1,5 +1,5 @@
 """
-Bucketing helpers for Step 8.
+Bucketing helpers for BucketPoolsCheckStep.
 
 Aspect-ratio math and bucket assignment / crop-suggestion utilities used by the
 bucket dry-run step.

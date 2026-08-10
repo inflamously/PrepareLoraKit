@@ -12,7 +12,7 @@ MOCK_SOURCE_SPECS = [
     ("mock_landscape.png", (1792, 1536), (121, 78, 55), True),
     ("mock_portrait.png", (1536, 1792), (65, 112, 82), True),
     ("mock_bad_too_small.png", (384, 384), (130, 45, 58), False),
-    # A JPEG below the upscale target so Step 3 flags it and converts it to a
+    # A JPEG below the upscale target so the upscale step flags it and converts it to a
     # clean PNG (exercises the JPEG→PNG path under the Lanczos mock, which needs
     # no SeedVR2 runtime).
     ("mock_artifact_jpeg.jpg", (1400, 1400), (90, 60, 150), True),

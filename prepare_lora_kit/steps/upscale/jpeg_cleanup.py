@@ -1,4 +1,4 @@
-"""Shared helpers for cleaning up JPEG compression artifacts during Step 3.
+"""Shared helpers for cleaning up JPEG compression artifacts during upscale.
 
 JPEG block/ringing artifacts are baked in at the file's original encoding
 resolution, so a plain resize (up or down) just rescales the artifacts along

@@ -1,4 +1,4 @@
-"""CLIP coverage visualisation for Step 2 curation."""
+"""CLIP coverage visualisation for CurateStep."""
 from __future__ import annotations
 
 from collections import Counter

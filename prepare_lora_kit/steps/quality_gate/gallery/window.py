@@ -27,7 +27,7 @@ def _gallery_review(items: list[tuple[Path, dict]]) -> dict[str, str]:
     }
 
     root = tk.Tk()
-    root.title("Step 1 — Source Review")
+    root.title("Quality Gate — Source Review")
     root.configure(bg="#1e1e1e")
 
     header = tk.Label(root, bg="#1e1e1e", fg="#dddddd", font=("TkDefaultFont", 11, "bold"))

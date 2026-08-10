@@ -23,7 +23,7 @@ def _manual_review(path: Path, score_info: dict) -> str:
         if score_info["auto_reasons"]:
             msg += f"\n\nAuto-flags: {', '.join(score_info['auto_reasons'])}"
 
-        choice = easygui.buttonbox(msg, title="Step 1 — Review Image",
+        choice = easygui.buttonbox(msg, title="Quality Gate — Review Image",
                                    choices=["Keep", "Reject", "Flag for later"])
         if choice == "Keep":
             return "keep"

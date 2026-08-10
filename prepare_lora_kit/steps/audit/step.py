@@ -1,5 +1,5 @@
 """
-Step 6 — Pairing & Integrity Audit
+AuditStep — Pairing & Integrity Audit
 
 Checks:
   1. Every image has exactly one .txt sidecar (no orphans either direction).

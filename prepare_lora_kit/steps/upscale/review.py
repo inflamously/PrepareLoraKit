@@ -1,4 +1,4 @@
-"""CLI fallback reviewer for flagged Step 3 images (mirrors vae_gate/review.py)."""
+"""CLI fallback reviewer for flagged upscale candidates (mirrors vae_gate/review.py)."""
 from __future__ import annotations
 
 from pathlib import Path

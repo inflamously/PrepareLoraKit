@@ -1,5 +1,5 @@
 """
-Step 8 — Bucket Dry-run
+BucketPoolsCheckStep — Bucket Dry-run
 
 Simulates ai-toolkit's multi-resolution bucketing without actually training.
 Assigns each image to its closest bucket by aspect-ratio distance, then flags

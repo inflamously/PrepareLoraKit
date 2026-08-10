@@ -1,4 +1,4 @@
-"""Step 0 - Import source images into the working dataset."""
+"""ImportStep — Import source images into the working dataset."""
 from __future__ import annotations
 
 import os

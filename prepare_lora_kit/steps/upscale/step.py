@@ -1,10 +1,11 @@
 """
-Step 3 — Upscale (optional)
+UpscaleStep — Upscale (optional)
 
 Selectively upscales images below the target min-side.
 The project config selects the upscaler. Missing configured upscalers skip with
 a warning instead of silently falling back to another algorithm.
-Re-runs Step 1 quality checks post-upscale to reject hallucinated-texture outputs.
+Compares each result's low-frequency structure against its original (blurred
+grayscale SSIM) to reject hallucinated-texture outputs.
 
 JPEG sources are always converted to PNG when processed (never on a plain
 pass-through), since JPEG compression artifacts shouldn't survive into

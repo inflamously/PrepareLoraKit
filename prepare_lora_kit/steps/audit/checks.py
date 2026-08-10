@@ -1,5 +1,5 @@
 """
-Step 6 — Pairing & Integrity Audit: check helpers.
+AuditStep — Pairing & Integrity Audit: check helpers.
 
 Pure helper functions extracted from step.run(). Each keeps its report.* logging
 calls so behavior and log messages remain identical to the inline version.

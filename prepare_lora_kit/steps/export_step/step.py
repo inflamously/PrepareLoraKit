@@ -1,4 +1,4 @@
-"""Step 9 — Export finalized dataset to a training folder.
+"""ExportStep — Export finalized dataset to a training folder.
 
 Copies the finalized image + ``.txt`` caption pairs out of the working dataset
 into a separate export folder an ai-toolkit / LoRA trainer can point at,

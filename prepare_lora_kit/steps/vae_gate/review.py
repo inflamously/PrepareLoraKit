@@ -156,7 +156,7 @@ def _manual_flag_decision(original: Path, recon_arr: np.ndarray, hf_score: float
             "• Keep: silhouette / outline still carries the concept\n"
             "• Drop: concept lives in the lost detail\n"
             "The reconstruction is diagnostic only and never replaces the input.",
-            title="Step 4 — VAE Gate",
+            title="VAE Gate",
             choices=["Keep", "Drop"],
         )
         return (choice or "keep").lower()
