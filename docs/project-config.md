@@ -34,9 +34,9 @@ output_dir: null                       # omit or null → outputs/<input folder 
 
 pipeline:
   - {step: import, enabled: true}
+  - {step: upscale, enabled: false}    # parked: skipped, upscale.yaml is kept
   - {step: quality_gate, enabled: true}
   - {step: curate, enabled: true}
-  - {step: upscale, enabled: false}    # parked: skipped, upscale.yaml is kept
   - {step: caption_bbox, enabled: true}
   - {step: caption_verifier, enabled: true}
   - {step: vae_gate, enabled: true}
@@ -57,7 +57,9 @@ order**, and each entry names a sibling `<step>.yaml`.
   That means an `index.yaml` on its own is a valid, minimal project.
 - The order must follow the canonical pipeline order below. Reordering is
   rejected on load rather than silently corrected, so the file never lies about
-  what will run.
+  what will run. The one exception is a list written by an older PrepareLoraKit
+  whose canonical order has since changed: that is relocated *and the file is
+  rewritten*, with a note saying so, precisely so it goes on matching what runs.
 
 Steps are only constrained by their prerequisites: disabling `quality_gate` while
 `curate` is on is an error (and says so), but disabling a step nothing depends on
@@ -72,9 +74,9 @@ sends you looking for the file to edit:
 | File | Step type | Optional |
 | --- | --- | --- |
 | `import.yaml` | `ImportStep` | |
+| `upscale.yaml` | `UpscaleStep` | ✓ |
 | `quality_gate.yaml` | `QualityGateStep` | |
 | `curate.yaml` | `CurateStep` | |
-| `upscale.yaml` | `UpscaleStep` | ✓ |
 | `caption_bbox.yaml` | `CaptionBboxStep` | |
 | `caption_verifier.yaml` | `CaptionVerifierStep` | ✓ |
 | `vae_gate.yaml` | `VaeGateStep` | |

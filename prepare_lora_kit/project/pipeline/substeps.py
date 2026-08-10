@@ -28,6 +28,13 @@ SUBSTEP_REGISTRY: dict[str, tuple[SubstepDefinition, ...]] = {
     "ImportStep": (
         SubstepDefinition("import_images", "Import source images"),
     ),
+    "UpscaleStep": (
+        SubstepDefinition("select_upscale_candidates", "Select candidates"),
+        SubstepDefinition("upscale_images", "Upscale images",
+                          prerequisites=("select_upscale_candidates",)),
+        SubstepDefinition("hallucination_check", "Hallucination check",
+                          prerequisites=("upscale_images",)),
+    ),
     "QualityGateStep": (
         SubstepDefinition("score_images", "Score images"),
         SubstepDefinition("review_decisions", "Review decisions", prerequisites=("score_images",)),
@@ -36,13 +43,6 @@ SUBSTEP_REGISTRY: dict[str, tuple[SubstepDefinition, ...]] = {
         SubstepDefinition("duplicate_check", "Duplicate check"),
         SubstepDefinition("clip_scan", "CLIP scan", optional=True),
         SubstepDefinition("drop_images", "Drop images", prerequisites=("duplicate_check",)),
-    ),
-    "UpscaleStep": (
-        SubstepDefinition("select_upscale_candidates", "Select candidates"),
-        SubstepDefinition("upscale_images", "Upscale images",
-                          prerequisites=("select_upscale_candidates",)),
-        SubstepDefinition("hallucination_check", "Hallucination check",
-                          prerequisites=("upscale_images",)),
     ),
     "CaptionBboxStep": (
         SubstepDefinition("annotate_regions", "Annotate regions"),

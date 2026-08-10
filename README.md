@@ -108,9 +108,9 @@ project folder.
 | Step | Type | File | Purpose | Main outputs |
 | --- | --- | --- | --- | --- |
 | 0 | `ImportStep` | `import.yaml` | Copies source images into the working dataset. | Working `dataset/`, `ImportStep_report.json` |
-| 1 | `QualityGateStep` | `quality_gate.yaml` | Scores imported images for size, blur, noise, JPEG artifacts, and watermark likelihood. Supports manual review. | Updated `dataset/`, `QualityGateStep_report.json` |
-| 2 | `CurateStep` | `curate.yaml` | Removes perceptual-hash duplicates and creates CLIP coverage plots. | Updated `dataset/`, coverage image, `CurateStep_report.json` |
-| 3 | `UpscaleStep` | `upscale.yaml` | Upscales images below the target minimum side with the configured algorithm; unavailable algorithms warn and skip. | Updated images, `UpscaleStep_report.json` |
+| 1 | `UpscaleStep` | `upscale.yaml` | Upscales images below the target minimum side with the configured algorithm; unavailable algorithms warn and skip. Runs first so it can rescue images the gate would otherwise reject. | Updated images, `UpscaleStep_report.json` |
+| 2 | `QualityGateStep` | `quality_gate.yaml` | Scores imported images for size, blur, noise, JPEG artifacts, and watermark likelihood. Supports manual review. | Updated `dataset/`, `QualityGateStep_report.json` |
+| 3 | `CurateStep` | `curate.yaml` | Removes perceptual-hash duplicates and creates CLIP coverage plots. | Updated `dataset/`, coverage image, `CurateStep_report.json` |
 | 4 | `CaptionBboxStep` | `caption_bbox.yaml` | Opens bbox annotation UI, captions with Qwen VL, enforces concept token when supplied, and writes `.txt` sidecars. | Caption sidecars, `CaptionBboxStep_report.json` |
 | 5 | `CaptionVerifierStep` | `caption_verifier.yaml` | Renders each caption with a text-to-image model so you can see what the text encoder made of it. | Preview renders, `CaptionVerifierStep_report.json` |
 | 6 | `VaeGateStep` | `vae_gate.yaml` | Reconstructs images through the target VAE and flags high-frequency loss outliers. | Updated `dataset/`, `VaeGateStep_report.json` |

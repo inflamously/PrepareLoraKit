@@ -47,9 +47,9 @@ def _project() -> ProjectConfig:
         name="test",
         pipeline=[
             PipelineStep("ImportStep", ImportConfig()),
+            PipelineStep("UpscaleStep", UpscaleConfig()),
             PipelineStep("QualityGateStep", QualityGateConfig(auto_only=True)),
             PipelineStep("CurateStep", CurateConfig()),
-            PipelineStep("UpscaleStep", UpscaleConfig()),
             PipelineStep("CaptionBboxStep", CaptionBboxConfig()),
             PipelineStep("VaeGateStep", VaeGateConfig()),
             PipelineStep("AuditStep", AuditConfig()),
@@ -420,9 +420,11 @@ def test_ui_force_run_only_executes_selected_and_invalidates_later_state(tmp_pat
     assert persisted.is_done("ImportStep")
     assert persisted.is_done("QualityGateStep")
     assert not persisted.is_done("CurateStep")
-    assert job.snapshot()["invalidated_steps"] == [
-        step.type for step in project.pipeline[1:]
-    ]
+    # Everything from the forced step onward — and nothing before it, which is
+    # why UpscaleStep survives now that it runs ahead of the gate.
+    types = [step.type for step in project.pipeline]
+    assert persisted.is_done("UpscaleStep")
+    assert job.snapshot()["invalidated_steps"] == types[types.index("QualityGateStep"):]
 
 
 def test_ui_force_run_reimports_existing_working_dataset(tmp_path):

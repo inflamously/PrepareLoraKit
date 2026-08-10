@@ -58,12 +58,16 @@ def test_mock_upscale_review_flags_and_converts_jpeg_to_png(tmp_path, monkeypatc
     report = json.loads(
         (fixture.output_dir / "reports" / "UpscaleStep_report.json").read_text(encoding="utf-8")
     )
+    # mock_bad_too_small.png is here because upscale now runs ahead of the quality
+    # gate: it sees the raw import, so the undersized image gets rescued instead of
+    # being deleted before the step that exists to fix it ever runs.
     assert {Path(entry["original"]).name for entry in report["upscaled"]} == {
         "mock_square.png",
         "mock_square_duplicate.png",
         "mock_landscape.png",
         "mock_portrait.png",
         "mock_artifact_jpeg.jpg",
+        "mock_bad_too_small.png",
     }
     # The JPEG was rewritten as a PNG with the original removed — no stray .jpg.
     assert (dataset_dir / "mock_artifact_jpeg.png").exists()

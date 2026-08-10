@@ -43,24 +43,28 @@ class StepDefinition:
 # substep registries, UI payloads) stays on the CamelCase step type.
 STEP_DEFINITIONS: dict[str, StepDefinition] = {
     "ImportStep": StepDefinition(ImportConfig, order=0, slug="import"),
+    # First after import, because both steps below it destroy images: the
+    # QualityGate ``min_side`` scorer rejects anything under its threshold and
+    # Curate drops near-duplicates. Run later, upscale could only ever rescue
+    # images that had already been thrown away.
+    "UpscaleStep": StepDefinition(
+        UpscaleConfig,
+        order=1,
+        slug="upscale",
+        prerequisites=("ImportStep",),
+        optional=True,
+    ),
     "QualityGateStep": StepDefinition(
         QualityGateConfig,
-        order=1,
+        order=2,
         slug="quality_gate",
         prerequisites=("ImportStep",),
     ),
     "CurateStep": StepDefinition(
         CurateConfig,
-        order=2,
+        order=3,
         slug="curate",
         prerequisites=("QualityGateStep",),
-    ),
-    "UpscaleStep": StepDefinition(
-        UpscaleConfig,
-        order=3,
-        slug="upscale",
-        prerequisites=("ImportStep",),
-        optional=True,
     ),
     "CaptionBboxStep": StepDefinition(
         CaptionBboxConfig,

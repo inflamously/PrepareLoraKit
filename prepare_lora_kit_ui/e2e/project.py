@@ -27,6 +27,10 @@ def mock_project(input_dir: Path) -> ProjectConfig:
         pipeline=[
             PipelineStep("ImportStep", ImportConfig()),
             PipelineStep(
+                "UpscaleStep",
+                UpscaleConfig(upscale_target=1664, upscale_model="lanczos"),
+            ),
+            PipelineStep(
                 "QualityGateStep",
                 QualityGateConfig(
                     scorers=[
@@ -42,10 +46,6 @@ def mock_project(input_dir: Path) -> ProjectConfig:
             # Mock runtime uses deterministic embeddings; keep clipscan enabled
             # so coverage plot flows exercise the UI without loading CLIP.
             PipelineStep("CurateStep", CurateConfig(skip_clip=False)),
-            PipelineStep(
-                "UpscaleStep",
-                UpscaleConfig(upscale_target=1664, upscale_model="lanczos"),
-            ),
             PipelineStep(
                 "CaptionBboxStep",
                 CaptionBboxConfig(

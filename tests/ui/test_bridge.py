@@ -58,8 +58,9 @@ def test_bridge_folder_first_updates_existing_project_without_losing_pipeline(
 
     assert result["project_name"] == "existing"
     assert result["project"]["input_dir"] == str(input_dir.resolve())
-    assert [step["type"] for step in result["project"]["steps"]][:3] == [
+    assert [step["type"] for step in result["project"]["steps"]][:4] == [
         "ImportStep",
+        "UpscaleStep",
         "QualityGateStep",
         "CurateStep",
     ]

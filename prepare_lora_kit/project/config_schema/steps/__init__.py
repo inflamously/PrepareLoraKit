@@ -22,9 +22,9 @@ from . import (
 # Order here defines the order of CONFIG_FIELD_SCHEMA (pipeline order).
 STEP_MODULES = [
     import_step,
+    upscale,
     quality_gate,
     curate,
-    upscale,
     caption_bbox,
     caption_verifier,
     vae_gate,

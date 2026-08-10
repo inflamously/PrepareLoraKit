@@ -27,6 +27,13 @@ def default_pipeline() -> list[dict[str, Any]]:
             "substeps": _default_substep_data("ImportStep"),
         },
         {
+            "type": "UpscaleStep",
+            "upscale_target": 3072,
+            "hallucination_ssim_threshold": 0.60,
+            "upscale_model": "seedvr2",
+            "substeps": _default_substep_data("UpscaleStep"),
+        },
+        {
             "type": "QualityGateStep",
             "scorers": [
                 {"name": "min_side", "enabled": True, "op": "lt", "threshold": 1024.0},
@@ -50,13 +57,6 @@ def default_pipeline() -> list[dict[str, Any]]:
             "pca_n_components": 2,
             "coverage_embedding_model": "auto",
             "substeps": _default_substep_data("CurateStep"),
-        },
-        {
-            "type": "UpscaleStep",
-            "upscale_target": 3072,
-            "hallucination_ssim_threshold": 0.60,
-            "upscale_model": "seedvr2",
-            "substeps": _default_substep_data("UpscaleStep"),
         },
         {
             "type": "CaptionBboxStep",

@@ -63,7 +63,8 @@ def test_step_file_never_contains_a_top_level_enabled(isolated_projects):
     """
     directory = isolated_projects / "demo"
     data = default_project_data("demo")
-    data["pipeline"][3]["enabled"] = False
+    upscale = next(step for step in data["pipeline"] if step["type"] == "UpscaleStep")
+    upscale["enabled"] = False
 
     store.write_project_folder(directory, data)
 
@@ -92,14 +93,18 @@ def test_index_lists_every_step_enabled_by_default(isolated_projects):
 def test_disabled_step_round_trips_through_the_index(isolated_projects):
     directory = isolated_projects / "demo"
     data = default_project_data("demo")
-    data["pipeline"][3]["enabled"] = False
+    upscale = next(step for step in data["pipeline"] if step["type"] == "UpscaleStep")
+    upscale["enabled"] = False
 
     store.write_project_folder(directory, data)
     restored, _ = store.read_project_folder(directory)
 
     index = yaml.safe_load((directory / "index.yaml").read_text())
     assert {"step": "upscale", "enabled": False} in index["pipeline"]
-    assert restored["pipeline"][3]["enabled"] is False
+    restored_upscale = next(
+        step for step in restored["pipeline"] if step["type"] == "UpscaleStep"
+    )
+    assert restored_upscale["enabled"] is False
     assert (directory / "upscale.yaml").exists()
 
 

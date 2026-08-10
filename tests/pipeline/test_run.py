@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from prepare_lora_kit.cancellation import CancelledRun
-from prepare_lora_kit.pipeline import RunConfig, run_all
+from prepare_lora_kit.pipeline import RunConfig, run_all, step_types
 from prepare_lora_kit.pipeline.configs import (
     AuditConfig,
     BucketPoolsCheckConfig,
@@ -25,15 +25,24 @@ def _project() -> ProjectConfig:
         name="test",
         pipeline=[
             PipelineStep("ImportStep", ImportConfig()),
+            PipelineStep("UpscaleStep", UpscaleConfig()),
             PipelineStep("QualityGateStep", QualityGateConfig(auto_only=True)),
             PipelineStep("CurateStep", CurateConfig()),
-            PipelineStep("UpscaleStep", UpscaleConfig()),
             PipelineStep("CaptionBboxStep", CaptionBboxConfig()),
             PipelineStep("VaeGateStep", VaeGateConfig()),
             PipelineStep("AuditStep", AuditConfig()),
             PipelineStep("BucketPoolsCheckStep", BucketPoolsCheckConfig()),
         ],
     )
+
+
+# Derived, not spelled out: these lists were duplicated in five tests and every
+# one of them had to be hand-edited the last time a step moved.
+PIPELINE_STEPS = [step.type for step in _project().pipeline]
+
+
+def _steps_after(step_type: str) -> list[str]:
+    return PIPELINE_STEPS[PIPELINE_STEPS.index(step_type) + 1:]
 
 
 def test_pipeline_runs_project_steps_in_order(tmp_path):
@@ -48,16 +57,7 @@ def test_pipeline_runs_project_steps_in_order(tmp_path):
 
     invoke_map = {
         step_type: invoke_for(step_type)
-        for step_type in [
-            "ImportStep",
-            "QualityGateStep",
-            "CurateStep",
-            "UpscaleStep",
-            "CaptionBboxStep",
-            "VaeGateStep",
-            "AuditStep",
-            "BucketPoolsCheckStep",
-        ]
+        for step_type in PIPELINE_STEPS
     }
 
     cfg = RunConfig(
@@ -75,12 +75,25 @@ def test_pipeline_runs_project_steps_in_order(tmp_path):
         invoke.assert_called_once()
 
 
+def test_upscale_runs_before_the_quality_gate():
+    """The whole point of upscale sitting second.
+
+    QualityGate's ``min_side`` scorer rejects small images and Curate drops
+    near-duplicates. Run after either of them, upscale could only ever rescue
+    images that had already been deleted from the working dataset.
+    """
+    canonical = list(step_types())
+    assert canonical.index("UpscaleStep") < canonical.index("QualityGateStep")
+    assert canonical.index("UpscaleStep") < canonical.index("CurateStep")
+    assert canonical.index("ImportStep") < canonical.index("UpscaleStep")
+
+
 def test_pipeline_resumes_from_first_pending_step_in_order(tmp_path):
     calls = []
     output_dir = tmp_path / "out"
     state = RunState(output_dir)
     state.mark_done("ImportStep")
-    state.mark_done("QualityGateStep")
+    state.mark_done("UpscaleStep")
 
     def invoke_for(step_type):
         fn = MagicMock(name=step_type)
@@ -91,16 +104,7 @@ def test_pipeline_resumes_from_first_pending_step_in_order(tmp_path):
 
     invoke_map = {
         step_type: invoke_for(step_type)
-        for step_type in [
-            "ImportStep",
-            "QualityGateStep",
-            "CurateStep",
-            "UpscaleStep",
-            "CaptionBboxStep",
-            "VaeGateStep",
-            "AuditStep",
-            "BucketPoolsCheckStep",
-        ]
+        for step_type in PIPELINE_STEPS
     }
 
     cfg = RunConfig(
@@ -113,16 +117,9 @@ def test_pipeline_resumes_from_first_pending_step_in_order(tmp_path):
     with patch.dict("prepare_lora_kit.pipeline.STEP_INVOKE_MAP", invoke_map, clear=True):
         run_all(cfg)
 
-    assert calls == [
-        "CurateStep",
-        "UpscaleStep",
-        "CaptionBboxStep",
-        "VaeGateStep",
-        "AuditStep",
-        "BucketPoolsCheckStep",
-    ]
+    assert calls == _steps_after("UpscaleStep")
     invoke_map["ImportStep"].assert_not_called()
-    invoke_map["QualityGateStep"].assert_not_called()
+    invoke_map["UpscaleStep"].assert_not_called()
     assert invoke_map["CurateStep"].call_args.kwargs["enabled_substeps"] == [
         "duplicate_check",
         "clip_scan",
@@ -143,16 +140,7 @@ def test_pipeline_skips_import_for_existing_legacy_working_dataset(tmp_path):
 
     invoke_map = {
         step_type: invoke_for(step_type)
-        for step_type in [
-            "ImportStep",
-            "QualityGateStep",
-            "CurateStep",
-            "UpscaleStep",
-            "CaptionBboxStep",
-            "VaeGateStep",
-            "AuditStep",
-            "BucketPoolsCheckStep",
-        ]
+        for step_type in PIPELINE_STEPS
     }
 
     cfg = RunConfig(
@@ -165,15 +153,7 @@ def test_pipeline_skips_import_for_existing_legacy_working_dataset(tmp_path):
     with patch.dict("prepare_lora_kit.pipeline.STEP_INVOKE_MAP", invoke_map, clear=True):
         run_all(cfg)
 
-    assert calls == [
-        "QualityGateStep",
-        "CurateStep",
-        "UpscaleStep",
-        "CaptionBboxStep",
-        "VaeGateStep",
-        "AuditStep",
-        "BucketPoolsCheckStep",
-    ]
+    assert calls == _steps_after("ImportStep")
     invoke_map["ImportStep"].assert_not_called()
 
 
@@ -183,16 +163,7 @@ def test_pipeline_force_reimports_from_original(tmp_path):
     working = output_dir / "dataset"
     working.mkdir(parents=True)
 
-    all_steps = [
-        "ImportStep",
-        "QualityGateStep",
-        "CurateStep",
-        "UpscaleStep",
-        "CaptionBboxStep",
-        "VaeGateStep",
-        "AuditStep",
-        "BucketPoolsCheckStep",
-    ]
+    all_steps = PIPELINE_STEPS
     state = RunState(output_dir)
     for step_type in all_steps:
         state.mark_done(step_type)
@@ -219,16 +190,7 @@ def test_pipeline_force_reimports_from_original(tmp_path):
 
     # --force reset the manifest so every previously-done step re-runs, including
     # ImportStep, which re-seeds the working dataset from the original.
-    assert calls == [
-        "ImportStep",
-        "QualityGateStep",
-        "CurateStep",
-        "UpscaleStep",
-        "CaptionBboxStep",
-        "VaeGateStep",
-        "AuditStep",
-        "BucketPoolsCheckStep",
-    ]
+    assert calls == PIPELINE_STEPS
     invoke_map["ImportStep"].assert_called_once()
 
 
@@ -239,9 +201,7 @@ def test_pipeline_reruns_resume_aware_caption_without_force(tmp_path):
     output_dir = tmp_path / "out"
     (output_dir / "dataset").mkdir(parents=True)
     state = RunState(output_dir)
-    for step_type in ["ImportStep", "QualityGateStep", "CurateStep", "UpscaleStep",
-                      "CaptionBboxStep", "VaeGateStep", "AuditStep",
-                      "BucketPoolsCheckStep"]:
+    for step_type in PIPELINE_STEPS:
         state.mark_done(step_type)
 
     def invoke_for(step_type):
@@ -251,10 +211,7 @@ def test_pipeline_reruns_resume_aware_caption_without_force(tmp_path):
         )
         return fn
 
-    invoke_map = {step_type: invoke_for(step_type) for step_type in [
-        "ImportStep", "QualityGateStep", "CurateStep", "UpscaleStep", "CaptionBboxStep",
-        "VaeGateStep", "AuditStep", "BucketPoolsCheckStep",
-    ]}
+    invoke_map = {step_type: invoke_for(step_type) for step_type in PIPELINE_STEPS}
 
     cfg = RunConfig(
         dataset_dir=tmp_path / "dataset",

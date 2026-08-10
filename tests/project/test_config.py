@@ -59,9 +59,9 @@ def test_default_project_creation_writes_index_and_step_files(tmp_path):
     # The index pins the on-disk contract: slugs, in canonical order.
     assert [entry["step"] for entry in index["pipeline"]] == [
         "import",
+        "upscale",
         "quality_gate",
         "curate",
-        "upscale",
         "caption_bbox",
         "caption_verifier",
         "vae_gate",
@@ -254,9 +254,9 @@ def test_step_slugs_match_the_documented_file_names():
     """
     assert step_slugs() == (
         "import",
+        "upscale",
         "quality_gate",
         "curate",
-        "upscale",
         "caption_bbox",
         "caption_verifier",
         "vae_gate",
@@ -340,8 +340,6 @@ def test_project_config_parses_seedvr2_fields():
 name: sample
 pipeline:
   - type: ImportStep
-  - type: QualityGateStep
-  - type: CurateStep
   - type: UpscaleStep
     upscale_model: seedvr2
     seedvr2_submodule_dir: /opt/seedvr2
@@ -355,7 +353,7 @@ pipeline:
 """
 
     cfg = _project(yaml_text)
-    upscale = cfg.pipeline[3].config
+    upscale = next(s.config for s in cfg.pipeline if s.type == "UpscaleStep")
 
     assert upscale.upscale_model == "seedvr2"
     assert upscale.seedvr2_submodule_dir == "/opt/seedvr2"
@@ -379,15 +377,13 @@ def test_project_config_normalizes_blank_seedvr2_dit_model(yaml_value):
 name: sample
 pipeline:
   - type: ImportStep
-  - type: QualityGateStep
-  - type: CurateStep
   - type: UpscaleStep
     upscale_model: seedvr2
     seedvr2_dit_model: {yaml_value}
 """
 
     cfg = _project(yaml_text)
-    upscale = cfg.pipeline[3].config
+    upscale = next(s.config for s in cfg.pipeline if s.type == "UpscaleStep")
 
     assert upscale.seedvr2_dit_model == DEFAULT_SEEDVR2_DIT_MODEL
 
@@ -405,9 +401,9 @@ def test_project_payload_marks_upscale_optional():
 name: sample
 pipeline:
   - type: ImportStep
+  - type: UpscaleStep
   - type: QualityGateStep
   - type: CurateStep
-  - type: UpscaleStep
   - type: CaptionBboxStep
   - type: VaeGateStep
 """
