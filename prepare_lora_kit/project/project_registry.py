@@ -202,7 +202,23 @@ def load(name: str) -> ProjectConfig:
         available = ", ".join(list_projects()) or "(none)"
         raise ValueError(f"Unknown project '{name}'. Available: {available}")
 
-    data, notes = store.read_project_folder(directory)
+    notes: list[str] = []
+    try:
+        repaired = store.repair_index_order(directory)
+    except (OSError, ValueError) as exc:
+        # A read-only folder must degrade to an in-memory fix, not an error tile:
+        # read_project_folder relocates too, so the project still loads correctly
+        # — the file just goes on disagreeing with it until the next writable load.
+        notes.append(
+            f"Could not rewrite {directory / store.INDEX_FILENAME} ({exc}). "
+            f"The pipeline order is corrected in memory for this session only."
+        )
+    else:
+        if repaired:
+            notes.append(repaired)
+
+    data, folder_notes = store.read_project_folder(directory)
+    notes.extend(folder_notes)
     if notes:
         # Lazily imported (as every other reporter caller does) to keep rich off
         # the import path of the UI bridge.

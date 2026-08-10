@@ -38,6 +38,7 @@ from prepare_lora_kit.pipeline.configuration import (
     step_slugs,
     step_type_for_slug,
 )
+from prepare_lora_kit.project.legacy_order import relocate_legacy_entries
 from prepare_lora_kit.project.pipeline.substeps import substep_ids_for
 from prepare_lora_kit.project.yaml_style import ProjectDumper, inline
 from prepare_lora_kit.utils.atomic_yaml import write_yaml_atomic
@@ -169,9 +170,12 @@ def read_project_folder(directory: Path) -> tuple[dict[str, Any], list[str]]:
         if key in index:
             data[key] = index[key]
 
+    entries, relocated = relocate_legacy_entries(_index_entries(index, index_file))
+    if relocated:
+        notes.append(relocated)
+
     pipeline: list[dict[str, Any]] = []
-    for entry in index.get("pipeline") or []:
-        slug, enabled = _read_index_entry(entry, index_file)
+    for slug, enabled in entries:
         step_type = step_type_for_slug(slug)
         if step_type is None:
             raise ValueError(
@@ -225,11 +229,43 @@ def write_index(directory: Path, data: dict[str, Any]) -> Path:
     )
 
 
+def repair_index_order(directory: Path) -> str | None:
+    """Rewrite ``index.yaml`` when its pipeline order came from an older release.
+
+    Returns the advisory note, or ``None`` when nothing needed moving. Only
+    ``index.yaml`` is touched — no ``<step>.yaml`` is opened, let alone written,
+    so a user's tuned settings and their comments are never in the blast radius.
+
+    This is the *only* place a load may write. :func:`read_project_folder` does
+    the same relocation in memory and stays a pure read; keeping the write here
+    is what lets ``ProjectConfig.from_dir`` remain side-effect free.
+    """
+    index_file = directory / INDEX_FILENAME
+    index = read_index(directory)
+    ordered, note = relocate_legacy_entries(_index_entries(index, index_file))
+    if note is None:
+        return None
+
+    index["pipeline"] = [inline({"step": slug, "enabled": enabled}) for slug, enabled in ordered]
+    before = index_file.stat()
+    write_index(directory, index)
+    # The library grid sorts on this mtime. A migration that touched every
+    # project would otherwise flatten the user's recency order for good, over a
+    # change they did not make.
+    with contextlib.suppress(OSError):
+        os.utime(index_file, ns=(before.st_atime_ns, before.st_mtime_ns))
+    return note
+
+
 def rename_project_dir(source: Path, destination: Path) -> None:
     """Move a project folder, keeping every step file byte-identical."""
 
     assert_inside_projects_dir(source)
     _rename_dir(source, destination)
+
+
+def _index_entries(index: dict[str, Any], index_file: Path) -> list[tuple[str, bool]]:
+    return [_read_index_entry(entry, index_file) for entry in index.get("pipeline") or []]
 
 
 def _read_index_entry(entry: Any, index_file: Path) -> tuple[str, bool]:
@@ -441,6 +477,7 @@ __all__ = [
     "read_index",
     "read_project_folder",
     "rename_project_dir",
+    "repair_index_order",
     "step_path",
     "write_index",
     "write_project_folder",
