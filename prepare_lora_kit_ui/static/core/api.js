@@ -261,7 +261,9 @@
  * @property {string} label
  * @property {"select" | "number" | "text" | "checkbox"} control
  * @property {"str" | "int" | "float" | "bool"} value_type
- * @property {{value: string, label: string}[]} options
+ * @property {{value: string, label: string}[]} options - some fields (e.g. the
+ *   UpscaleStep SeedVR2 model) recompute these per request from machine state,
+ *   so labels may differ between two payloads for the same step.
  * @property {boolean} allow_custom
  * @property {boolean} nullable
  *

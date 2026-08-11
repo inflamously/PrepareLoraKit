@@ -31,7 +31,7 @@ def choices() -> dict[str, list[dict[str, str]]]:
     """Select options for every field the modal renders."""
     from prepare_lora_kit.embedding import catalog as embedding_catalog
     from prepare_lora_kit.steps.caption_verifier import catalog as t2i_catalog
-    from prepare_lora_kit.steps.upscale.seedvr2_catalog import list_seedvr2_dit_models
+    from prepare_lora_kit.steps.upscale.seedvr2_catalog import dit_model_choices
 
     return {
         "caption_model_id": _caption_model_choices(),
@@ -44,16 +44,9 @@ def choices() -> dict[str, list[dict[str, str]]]:
         ),
         "t2i_model_id": _pairs(t2i_catalog.model_choices()),
         "coverage_embedding_model": _pairs(embedding_catalog.coverage_choices()),
-        "seedvr2_dit_model": [
-            {
-                "value": model.name,
-                "label": (
-                    f"{model.parameter_size} {model.precision_quantization} "
-                    f"({model.suitability_label})"
-                ),
-            }
-            for model in list_seedvr2_dit_models()
-        ],
+        # No downloaded/not-downloaded markers here: this picks a default for
+        # *future* projects, where the current machine's cache is not the point.
+        "seedvr2_dit_model": _pairs(dit_model_choices()),
         "caption_model_type": _pairs(
             [("auto", "Auto"), ("clip", "CLIP"), ("t5", "T5"), ("llm", "LLM")]
         ),
@@ -79,7 +72,7 @@ def placeholders() -> dict[str, str]:
         DEFAULT_SEEDVR2_MODEL_DIR,
         default_seedvr2_submodule_dir,
     )
-    from prepare_lora_kit.steps.upscale.seedvr2_catalog import DEFAULT_SEEDVR2_DIT_MODEL
+    from prepare_lora_kit.steps.upscale.seedvr2_catalog import AUTO as SEEDVR2_DIT_MODEL_AUTO
 
     return {
         "hf_home": "~/.cache/huggingface",
@@ -92,7 +85,7 @@ def placeholders() -> dict[str, str]:
         "t2i_model_id": "auto",
         "vae_model_id": VaeGateConfig().vae_model_id,
         "coverage_embedding_model": "auto",
-        "seedvr2_dit_model": DEFAULT_SEEDVR2_DIT_MODEL,
+        "seedvr2_dit_model": SEEDVR2_DIT_MODEL_AUTO,
         "caption_model_type": "auto",
     }
 

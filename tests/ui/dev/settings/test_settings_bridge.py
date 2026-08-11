@@ -42,6 +42,18 @@ def test_get_settings_offers_the_same_caption_models_as_the_step_config(bridge):
     assert offered == [option["value"] for option in spec.options]
 
 
+def test_get_settings_offers_the_same_seedvr2_models_as_the_step_config(bridge):
+    from prepare_lora_kit.project.config_schema.steps import upscale
+
+    spec = next(f for f in upscale.FIELDS if f.name == "seedvr2_dit_model")
+    offered = [
+        choice["value"] for choice in bridge.get_settings()["choices"]["seedvr2_dit_model"]
+    ]
+
+    assert offered == [option["value"] for option in spec.options]
+    assert offered[0] == "auto"
+
+
 def test_save_settings_persists_and_echoes_the_new_payload(bridge):
     payload = bridge.save_settings(
         {

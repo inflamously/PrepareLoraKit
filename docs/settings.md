@@ -41,6 +41,11 @@ meant "app default" before and still does — and a project that names a value s
 `vram_tier` is one machine fact seeding two steps: a user with a 16 GB card should not have to say
 so twice.
 
+`project_defaults.seedvr2_dit_model` accepts `auto` (the default) as well as a checkpoint filename.
+`auto` is resolved per run against the detected VRAM, so one setting stays right across machines —
+see the model table in the README. Pin a filename only when you want a specific quality tier or the
+`sharp` look everywhere.
+
 The SeedVR2 directories and CUDA device are deliberately **not** seeded. They are absent from the
 curated UI field schema, and baking a machine path into every project YAML would go stale the
 moment the checkpoint cache moves.

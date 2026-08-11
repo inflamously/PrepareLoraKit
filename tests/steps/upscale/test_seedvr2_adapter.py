@@ -4,6 +4,8 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
+from prepare_lora_kit.embedding import vram
+from prepare_lora_kit.steps.upscale import seedvr2_adapter
 from prepare_lora_kit.steps.upscale.seedvr2_adapter import (
     DEFAULT_SEEDVR2_DIT_MODEL as ADAPTER_DEFAULT_SEEDVR2_DIT_MODEL,
 )
@@ -11,7 +13,13 @@ from prepare_lora_kit.steps.upscale.seedvr2_adapter import (
     SeedVR2Unavailable,
     SeedVR2Upscaler,
 )
-from prepare_lora_kit.steps.upscale.seedvr2_catalog import DEFAULT_SEEDVR2_DIT_MODEL
+from prepare_lora_kit.steps.upscale.seedvr2_catalog import (
+    AUTO as SEEDVR2_DIT_MODEL_AUTO,
+)
+from prepare_lora_kit.steps.upscale.seedvr2_catalog import (
+    DEFAULT_SEEDVR2_DIT_MODEL,
+    auto_select,
+)
 from prepare_lora_kit.steps.upscale.seedvr2_worker import (
     _build_args,
     _resolve_model_residency,
@@ -84,6 +92,82 @@ def _read_log(path: Path) -> list[dict]:
 
 def test_seedvr2_adapter_default_dit_model_comes_from_catalog():
     assert ADAPTER_DEFAULT_SEEDVR2_DIT_MODEL == DEFAULT_SEEDVR2_DIT_MODEL
+
+
+def test_prepare_resolves_auto_dit_model_from_detected_vram(tmp_path, monkeypatch):
+    submodule = _fake_seedvr2_submodule(tmp_path / "seedvr2")
+    seen: list[int] = []
+    monkeypatch.setattr(vram, "total_vram_gb", lambda index=0: seen.append(index) or 48.0)
+
+    upscaler = SeedVR2Upscaler(
+        resolution=1024,
+        submodule_dir=submodule,
+        model_dir=tmp_path / "models",
+        dit_model=SEEDVR2_DIT_MODEL_AUTO,
+        cuda_device="cuda:3",
+    )
+    upscaler.prepare()
+
+    assert upscaler.dit_model == auto_select(48.0)
+    assert seen == [3]  # probes the card SeedVR2 was pinned to, not device 0
+
+
+def test_prepare_leaves_an_explicit_dit_model_alone(tmp_path, monkeypatch):
+    submodule = _fake_seedvr2_submodule(tmp_path / "seedvr2")
+    monkeypatch.setattr(vram, "total_vram_gb", lambda index=0: 80.0)
+
+    upscaler = SeedVR2Upscaler(
+        resolution=1024,
+        submodule_dir=submodule,
+        model_dir=tmp_path / "models",
+        dit_model="custom_dit.safetensors",
+    )
+    upscaler.prepare()
+
+    assert upscaler.dit_model == "custom_dit.safetensors"
+
+
+def test_prepare_resolves_auto_once_even_across_batches(tmp_path, monkeypatch):
+    submodule = _fake_seedvr2_submodule(tmp_path / "seedvr2")
+    calls: list[int] = []
+    monkeypatch.setattr(vram, "total_vram_gb", lambda index=0: calls.append(index) or 24.0)
+
+    upscaler = SeedVR2Upscaler(
+        resolution=1024,
+        submodule_dir=submodule,
+        model_dir=tmp_path / "models",
+        dit_model=SEEDVR2_DIT_MODEL_AUTO,
+    )
+    upscaler.prepare()
+    upscaler.prepare()
+
+    assert len(calls) == 1
+
+
+def test_downloaded_dit_models_reports_only_catalog_files_present(tmp_path, monkeypatch):
+    cache = tmp_path / "cache"
+    cache.mkdir()
+    (cache / "seedvr2_ema_3b_fp16.safetensors").write_bytes(b"")
+    (cache / "some_other_checkpoint.safetensors").write_bytes(b"")
+    monkeypatch.setattr(seedvr2_adapter, "default_seedvr2_model_dir", lambda: cache)
+    monkeypatch.setattr(
+        seedvr2_adapter, "SEEDVR2_COMFY_STYLE_MODEL_DIR", tmp_path / "absent"
+    )
+
+    assert seedvr2_adapter.downloaded_dit_models() == {"seedvr2_ema_3b_fp16.safetensors"}
+
+
+def test_downloaded_dit_models_survives_an_unresolvable_cache_dir(tmp_path, monkeypatch):
+    def boom() -> Path:
+        raise RuntimeError("settings.yaml is corrupt")
+
+    monkeypatch.setattr(seedvr2_adapter, "default_seedvr2_model_dir", boom)
+    monkeypatch.setattr(
+        seedvr2_adapter, "SEEDVR2_COMFY_STYLE_MODEL_DIR", tmp_path / "absent"
+    )
+
+    # Labelling a dropdown must never take the config modal down with it.
+    assert seedvr2_adapter.downloaded_dit_models() == set()
 
 
 def test_seedvr2_adapter_batches_outputs_in_one_worker(tmp_path, monkeypatch):

@@ -10,10 +10,19 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from prepare_lora_kit.steps.upscale.seedvr2_catalog import DEFAULT_SEEDVR2_DIT_MODEL
+from prepare_lora_kit.steps.upscale.seedvr2_catalog import (
+    AUTO,
+    DEFAULT_SEEDVR2_DIT_MODEL,
+    SUPPORTED_SEEDVR2_DIT_MODELS,
+    auto_select,
+)
 
 DEFAULT_SEEDVR2_MODEL_DIR = "~/.cache/prepare_lora_kit/seedvr2"
 SEEDVR2_MODEL_RESIDENCY_MODES = ("auto", "gpu", "cpu")
+# SeedVR2's own cache fallback when ComfyUI is absent, and the directory its
+# ``find_model_file`` searches *before* the configured one — see
+# third_party/seedvr2/src/utils/constants.get_base_cache_dir.
+SEEDVR2_COMFY_STYLE_MODEL_DIR = Path("models") / "SEEDVR2"
 
 
 class SeedVR2Unavailable(RuntimeError):
@@ -49,6 +58,37 @@ def default_seedvr2_cuda_device() -> str | None:
     from prepare_lora_kit.settings import load_settings
 
     return load_settings().hardware.cuda_device
+
+
+def downloaded_dit_models() -> set[str]:
+    """Catalog checkpoints already on disk, in SeedVR2's own lookup order.
+
+    Used to label the model dropdown, so it must never raise: an unreadable or
+    missing cache directory simply means "nothing is downloaded yet".
+    """
+    try:
+        directories = (default_seedvr2_model_dir(), SEEDVR2_COMFY_STYLE_MODEL_DIR)
+    except Exception:
+        directories = (SEEDVR2_COMFY_STYLE_MODEL_DIR,)
+
+    found: set[str] = set()
+    for directory in directories:
+        for name in SUPPORTED_SEEDVR2_DIT_MODELS:
+            try:
+                if (directory / name).is_file():
+                    found.add(name)
+            except OSError:
+                continue
+    return found
+
+
+def _cuda_device_index(cuda_device: str | None) -> int:
+    """First index out of a ``"0"`` / ``"cuda:1"`` / ``"0,1"`` device selection."""
+    first = str(cuda_device or "0").split(",")[0].strip()
+    try:
+        return int(first.split(":")[-1])
+    except ValueError:
+        return 0
 
 
 class SeedVR2Upscaler:
@@ -87,7 +127,25 @@ class SeedVR2Upscaler:
                 f"SeedVR2 submodule not found at {self.submodule_dir}; "
                 "run `git submodule update --init --recursive third_party/seedvr2`"
             )
+        self._resolve_auto_dit_model()
         self.model_dir.mkdir(parents=True, exist_ok=True)
+
+    def _resolve_auto_dit_model(self) -> None:
+        """Turn ``auto`` into a concrete checkpoint before the request is built.
+
+        Resolving here rather than in the worker means the download, the
+        residency heuristic, the request payload and the run log all see one
+        name. Runs once per upscaler — ``prepare`` is re-entered per batch.
+        """
+        if self.dit_model != AUTO:
+            return
+        from prepare_lora_kit.embedding.vram import total_vram_gb
+        from prepare_lora_kit.report import reporter
+
+        vram_gb = total_vram_gb(_cuda_device_index(self.cuda_device))
+        self.dit_model = auto_select(vram_gb)
+        detected = f"{vram_gb:.0f} GB VRAM" if vram_gb else "no CUDA device"
+        reporter.info(f"SeedVR2: auto-selected {self.dit_model} ({detected})")
 
     def __call__(self, path: Path, output_path: Path) -> Path:
         failures = self.process_many({path: output_path})

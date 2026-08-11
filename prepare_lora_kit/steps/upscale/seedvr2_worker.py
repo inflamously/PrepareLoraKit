@@ -255,12 +255,22 @@ def _resolve_model_residency(policy: object, dit_model: str, device_id: str) -> 
 
 
 def _minimum_gpu_residency_gb(dit_model: str) -> float:
+    """VRAM needed to keep this checkpoint on the GPU.
+
+    The catalog owns the numbers for supported models; the filename heuristic
+    below only covers custom checkpoints, which the config deliberately allows.
+    """
+    from prepare_lora_kit.steps.upscale.seedvr2_catalog import get_seedvr2_dit_model
+
+    known = get_seedvr2_dit_model(dit_model)
+    if known is not None:
+        return known.min_gpu_residency_gb
+
     name = dit_model.lower()
-    if "7b" in name and "fp16" in name and "fp8" not in name:
+    pure_fp16 = "fp16" in name and "fp8" not in name
+    if "7b" in name and pure_fp16:
         return 40.0
-    if "7b" in name:
-        return 24.0
-    if "fp16" in name and "fp8" not in name:
+    if "7b" in name or pure_fp16:
         return 24.0
     return 16.0
 

@@ -230,35 +230,49 @@ DiT and VAE models across the image loop. SeedVR2 models are downloaded into
 `~/.cache/prepare_lora_kit/seedvr2` by default, configurable with
 `seedvr2_model_dir`.
 
-Select a supported DiT checkpoint with `seedvr2_dit_model`. Leaving the field
-out, setting it to `null`, or leaving the YAML value empty uses the default
-`seedvr2_ema_3b_fp8_e4m3fn.safetensors`.
+Select a DiT checkpoint with `seedvr2_dit_model`, either from the dropdown in the
+step-config modal or in `upscale.yaml`. Leaving the field out, setting it to
+`null`, or leaving the YAML value empty means `auto`.
 
 ```yaml
 upscale_model: seedvr2
-seedvr2_dit_model: seedvr2_ema_7b_fp8_e4m3fn_mixed_block35_fp16.safetensors
+seedvr2_dit_model: auto  # or a filename from the table below
 seedvr2_model_residency: auto  # auto | gpu | cpu
 ```
 
-Supported SeedVR2 DiT models:
+`auto` picks the highest-quality *base* model that fits the detected VRAM, so
+the default on a modest card is the smallest checkpoint and larger cards get
+more quality for free:
 
-| Model | Size | Precision / quantization | Format | Variant | Label |
-| --- | --- | --- | --- | --- | --- |
-| `seedvr2_ema_3b_fp8_e4m3fn.safetensors` | 3B | fp8 e4m3fn | safetensors | base | default |
-| `seedvr2_ema_3b_fp16.safetensors` | 3B | fp16 | safetensors | base | 3B quality |
-| `seedvr2_ema_3b-Q4_K_M.gguf` | 3B | Q4_K_M | gguf | base | lower VRAM |
-| `seedvr2_ema_3b-Q8_0.gguf` | 3B | Q8_0 | gguf | base | balanced GGUF |
-| `seedvr2_ema_7b_fp8_e4m3fn_mixed_block35_fp16.safetensors` | 7B | fp8 e4m3fn mixed block35 fp16 | safetensors | base | higher quality |
-| `seedvr2_ema_7b_fp16.safetensors` | 7B | fp16 | safetensors | base | highest quality |
-| `seedvr2_ema_7b-Q4_K_M.gguf` | 7B | Q4_K_M | gguf | base | lower VRAM 7B |
-| `seedvr2_ema_7b_sharp_fp8_e4m3fn_mixed_block35_fp16.safetensors` | 7B | fp8 e4m3fn mixed block35 fp16 | safetensors | sharp | sharp |
-| `seedvr2_ema_7b_sharp_fp16.safetensors` | 7B | fp16 | safetensors | sharp | sharp highest quality |
-| `seedvr2_ema_7b_sharp-Q4_K_M.gguf` | 7B | Q4_K_M | gguf | sharp | sharp lower VRAM |
+| Detected VRAM | Auto picks |
+| --- | --- |
+| no CUDA, or < 24 GB | `seedvr2_ema_3b_fp8_e4m3fn.safetensors` |
+| 24–39 GB | `seedvr2_ema_7b_fp8_e4m3fn_mixed_block35_fp16.safetensors` |
+| 40 GB and up | `seedvr2_ema_7b_fp16.safetensors` |
 
-For a 20-24 GB 7B path, start with
-`seedvr2_ema_7b_fp8_e4m3fn_mixed_block35_fp16.safetensors`. Unknown filenames
-emit a warning but are still accepted so local or experimental checkpoints can
-be used.
+`sharp` variants are a look rather than a quality tier, so `auto` never picks
+one — choose them explicitly.
+
+Supported SeedVR2 DiT models, lowest VRAM first (download sizes are approximate):
+
+| Model | Size | Precision / quantization | Format | Variant | GPU-resident VRAM | Download |
+| --- | --- | --- | --- | --- | --- | --- |
+| `seedvr2_ema_3b-Q4_K_M.gguf` | 3B | Q4_K_M | gguf | base | 16 GB | ~1.8 GB |
+| `seedvr2_ema_3b-Q8_0.gguf` | 3B | Q8_0 | gguf | base | 16 GB | ~3.4 GB |
+| `seedvr2_ema_3b_fp8_e4m3fn.safetensors` | 3B | fp8 e4m3fn | safetensors | base | 16 GB | ~3.2 GB |
+| `seedvr2_ema_3b_fp16.safetensors` | 3B | fp16 | safetensors | base | 24 GB | ~6.3 GB |
+| `seedvr2_ema_7b-Q4_K_M.gguf` | 7B | Q4_K_M | gguf | base | 24 GB | ~4.3 GB |
+| `seedvr2_ema_7b_fp8_e4m3fn_mixed_block35_fp16.safetensors` | 7B | fp8 e4m3fn mixed block35 fp16 | safetensors | base | 24 GB | ~7.7 GB |
+| `seedvr2_ema_7b_fp16.safetensors` | 7B | fp16 | safetensors | base | 40 GB | ~15.3 GB |
+| `seedvr2_ema_7b_sharp-Q4_K_M.gguf` | 7B | Q4_K_M | gguf | sharp | 24 GB | ~4.3 GB |
+| `seedvr2_ema_7b_sharp_fp8_e4m3fn_mixed_block35_fp16.safetensors` | 7B | fp8 e4m3fn mixed block35 fp16 | safetensors | sharp | 24 GB | ~7.7 GB |
+| `seedvr2_ema_7b_sharp_fp16.safetensors` | 7B | fp16 | safetensors | sharp | 40 GB | ~15.3 GB |
+
+The VRAM column is the threshold above which the model stays resident on the GPU;
+below it SeedVR2 still runs, with CPU offload (see `seedvr2_model_residency`).
+Models are downloaded on first use, and the dropdown marks the ones already in
+`seedvr2_model_dir`. Unknown filenames emit a warning but are still accepted so
+local or experimental checkpoints can be used.
 
 If the submodule, SeedVR2 runtime dependencies, or SeedVR2 models are not
 available, `upscale_model: seedvr2` skips upscale candidates with a report

@@ -83,7 +83,8 @@ export const STEP_HELP = {
       { label: "Hallucination SSIM",
         desc: "Minimum similarity to the original (0–1). Lower allows more change before rejecting." },
       { label: "SeedVR2 DiT model",
-        desc: "The SeedVR2 model file to load. Leave blank to use the default." },
+        desc: "Which SeedVR2 checkpoint to load. Auto picks the best one your VRAM can " +
+              "hold; larger models are higher quality and download on first use." },
       { label: "SeedVR2 residency",
         desc: "Where the model lives: Auto, GPU (fast), or CPU (saves VRAM, slower)." },
       { label: "SeedVR2 batch size",

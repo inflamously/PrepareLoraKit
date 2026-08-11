@@ -6,7 +6,9 @@ from dataclasses import dataclass
 
 from prepare_lora_kit.steps.upscale.seedvr2_adapter import SEEDVR2_MODEL_RESIDENCY_MODES
 from prepare_lora_kit.steps.upscale.seedvr2_catalog import (
-    DEFAULT_SEEDVR2_DIT_MODEL,
+    AUTO as SEEDVR2_DIT_MODEL_AUTO,
+)
+from prepare_lora_kit.steps.upscale.seedvr2_catalog import (
     get_seedvr2_dit_model,
 )
 
@@ -20,7 +22,7 @@ class UpscaleConfig:
     upscale_model: str = "seedvr2"
     seedvr2_submodule_dir: str | None = None
     seedvr2_model_dir: str | None = None
-    seedvr2_dit_model: str | None = DEFAULT_SEEDVR2_DIT_MODEL
+    seedvr2_dit_model: str | None = SEEDVR2_DIT_MODEL_AUTO
     seedvr2_cuda_device: str | None = None
     seedvr2_batch_size: int = 1
     seedvr2_vae_tiled: bool = True
@@ -62,12 +64,17 @@ class UpscaleConfig:
             )
 
     def _normalize_seedvr2_dit_model(self) -> None:
-        """Default the DiT checkpoint, warning about ones outside the catalog."""
+        """Default the DiT checkpoint, warning about ones outside the catalog.
+
+        An unset value means ``auto``: the upscaler resolves it against the
+        detected VRAM when the step runs (see ``seedvr2_adapter.prepare``).
+        """
         if self.seedvr2_dit_model is not None:
             self.seedvr2_dit_model = str(self.seedvr2_dit_model).strip()
         if not self.seedvr2_dit_model:
-            self.seedvr2_dit_model = DEFAULT_SEEDVR2_DIT_MODEL
+            self.seedvr2_dit_model = SEEDVR2_DIT_MODEL_AUTO
         if (self.upscale_model == "seedvr2"
+                and self.seedvr2_dit_model != SEEDVR2_DIT_MODEL_AUTO
                 and get_seedvr2_dit_model(self.seedvr2_dit_model) is None):
             warnings.warn(
                 "SeedVR2 DiT model "

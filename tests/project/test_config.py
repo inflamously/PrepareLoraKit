@@ -18,6 +18,9 @@ from prepare_lora_kit.pipeline.configs import UpscaleConfig
 from prepare_lora_kit.project import project_registry
 from prepare_lora_kit.project.base import ProjectConfig
 from prepare_lora_kit.steps.upscale.seedvr2_catalog import (
+    AUTO as SEEDVR2_DIT_MODEL_AUTO,
+)
+from prepare_lora_kit.steps.upscale.seedvr2_catalog import (
     DEFAULT_SEEDVR2_DIT_MODEL,
     SUPPORTED_SEEDVR2_DIT_MODELS,
     get_seedvr2_dit_model,
@@ -278,7 +281,7 @@ def test_upscale_config_defaults_to_seedvr2():
     assert cfg.upscale_model == "seedvr2"
     assert cfg.seedvr2_submodule_dir is None
     assert cfg.seedvr2_model_dir is None
-    assert cfg.seedvr2_dit_model == DEFAULT_SEEDVR2_DIT_MODEL
+    assert cfg.seedvr2_dit_model == SEEDVR2_DIT_MODEL_AUTO
     assert cfg.seedvr2_batch_size == 1
     assert cfg.seedvr2_vae_tiled is True
     assert cfg.seedvr2_cache_models is True
@@ -296,10 +299,18 @@ def test_seedvr2_catalog_lists_supported_models():
 
 
 @pytest.mark.parametrize("value", [None, ""])
-def test_upscale_config_normalizes_blank_seedvr2_dit_model(value):
+def test_upscale_config_normalizes_blank_seedvr2_dit_model_to_auto(value):
+    # Unset means "let the run pick by VRAM", not "pin the smallest model".
     cfg = UpscaleConfig(seedvr2_dit_model=value)
 
-    assert cfg.seedvr2_dit_model == DEFAULT_SEEDVR2_DIT_MODEL
+    assert cfg.seedvr2_dit_model == SEEDVR2_DIT_MODEL_AUTO
+
+
+def test_upscale_config_accepts_auto_seedvr2_dit_model_without_warning(recwarn):
+    cfg = UpscaleConfig(seedvr2_dit_model=SEEDVR2_DIT_MODEL_AUTO)
+
+    assert cfg.seedvr2_dit_model == SEEDVR2_DIT_MODEL_AUTO
+    assert not recwarn
 
 
 @pytest.mark.parametrize(
@@ -372,7 +383,7 @@ def test_upscale_config_rejects_unknown_seedvr2_model_residency():
 
 
 @pytest.mark.parametrize("yaml_value", ["", "null", '""'])
-def test_project_config_normalizes_blank_seedvr2_dit_model(yaml_value):
+def test_project_config_normalizes_blank_seedvr2_dit_model_to_auto(yaml_value):
     yaml_text = f"""\
 name: sample
 pipeline:
@@ -385,7 +396,7 @@ pipeline:
     cfg = _project(yaml_text)
     upscale = next(s.config for s in cfg.pipeline if s.type == "UpscaleStep")
 
-    assert upscale.seedvr2_dit_model == DEFAULT_SEEDVR2_DIT_MODEL
+    assert upscale.seedvr2_dit_model == SEEDVR2_DIT_MODEL_AUTO
 
 
 def test_project_payload_includes_input_dir():

@@ -40,7 +40,10 @@ function settingsPayload(overrides = {}) {
       caption_model_task: [{ value: "auto", label: "Auto" }],
       t2i_model_id: [{ value: "auto", label: "Auto" }],
       coverage_embedding_model: [{ value: "ViT-B-32", label: "ViT-B-32" }],
-      seedvr2_dit_model: [{ value: "seedvr2_ema_3b_fp8_e4m3fn.safetensors", label: "3B fp8" }],
+      seedvr2_dit_model: [
+        { value: "auto", label: "Auto (match VRAM)" },
+        { value: "seedvr2_ema_3b_fp8_e4m3fn.safetensors", label: "3B fp8" },
+      ],
       caption_model_type: [{ value: "clip", label: "CLIP" }],
       vram_tier: [
         { value: "low", label: "Low (<=16 GB)" },
@@ -60,7 +63,7 @@ function settingsPayload(overrides = {}) {
       t2i_model_id: "auto",
       vae_model_id: "black-forest-labs/FLUX.2-klein-base-9B",
       coverage_embedding_model: "auto",
-      seedvr2_dit_model: "seedvr2_ema_3b_fp8_e4m3fn.safetensors",
+      seedvr2_dit_model: "auto",
       caption_model_type: "auto",
     },
     vram_tiers: ["low", "mid", "high", "max"],
