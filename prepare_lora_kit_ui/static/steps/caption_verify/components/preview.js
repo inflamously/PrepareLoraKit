@@ -13,7 +13,10 @@ export function renderCaptionPreview(panel, item, view, handlers) {
     return;
   }
 
-  const { preview, status, caption, elapsedSeconds, jobStatus } = view;
+  const { preview, status, caption, elapsedSeconds, jobStatus, busy } = view;
+  // `busy` is a render running for another image. One GPU job at a time, so its
+  // buttons are dead here too — and this pane is the only place that can say why.
+  const blocked = Boolean(busy) || status.state === "generating";
 
   panel.innerHTML = `
     <div class="caption-verify-compare">
@@ -29,15 +32,14 @@ export function renderCaptionPreview(panel, item, view, handlers) {
     <div class="caption-verify-render">
       ${renderMeta(preview)}
       <div class="caption-verify-controls">
-        <button class="primary" id="generateCaptionPreview" ${item.has_caption ? "" : "disabled"}>
+        <button class="primary" id="generateCaptionPreview"
+                ${item.has_caption && !blocked ? "" : "disabled"}>
           ${preview ? "Render again" : "Render from caption"}
         </button>
-        <button class="nf-btn" id="rerollCaptionPreview" ${preview ? "" : "disabled"}>
+        <button class="nf-btn" id="rerollCaptionPreview" ${preview && !blocked ? "" : "disabled"}>
           Re-roll seed
         </button>
-        <p class="caption-verify-shortcut">
-            <kbd>Ctrl</kbd> + <kbd>Enter</kbd> to generate
-        </p>
+        ${busy ? renderBusyNote(busy) : renderShortcut()}
       </div>
     </div>
     <div class="caption-verify-notices">
@@ -55,11 +57,25 @@ export function renderCaptionPreview(panel, item, view, handlers) {
   panel
     .querySelector("#rerollCaptionPreview")
     ?.addEventListener("click", () => handlers.onGenerate({ reroll: true }));
+}
 
-  if (status.state === "generating") {
-    panel.querySelector("#generateCaptionPreview")?.setAttribute("disabled", "");
-    panel.querySelector("#rerollCaptionPreview")?.setAttribute("disabled", "");
-  }
+function renderShortcut() {
+  return `
+    <p class="caption-verify-shortcut">
+        <kbd>Ctrl</kbd> + <kbd>Enter</kbd> to generate
+    </p>
+  `;
+}
+
+// Takes the shortcut hint's place rather than sitting beside it: Ctrl+Enter is
+// blocked for exactly as long as the buttons are, so advertising it would be a
+// lie about the only other way in.
+function renderBusyNote(busy) {
+  return `
+    <p class="caption-verify-shortcut caption-verify-busy">
+      Rendering ${escapeText(busy.name)} — one render at a time
+    </p>
+  `;
 }
 
 // Typing must not rebuild the pane — that would reload both <img> tags on every

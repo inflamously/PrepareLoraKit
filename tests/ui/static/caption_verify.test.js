@@ -213,6 +213,33 @@ describe("caption verify modal", () => {
     assert.ok(!layer().querySelector("#generateCaptionPreview").disabled);
   });
 
+  it("blocks rendering on every other image while one render is in flight", async () => {
+    const release = deferRender();
+    showCaptionVerify(captionVerifyPending(), { onSubmitted: calls() });
+
+    await generate();
+    click(tiles()[1]); // move on while the first render is still running
+    await nextTick();
+
+    const button = layer().querySelector("#generateCaptionPreview");
+    assert.ok(button.disabled, "a second image must not queue a parallel render");
+    assert.ok(layer().querySelector("#rerollCaptionPreview").disabled);
+    assert.match(
+      layer().querySelector(".caption-verify-busy").textContent,
+      /first\.png/,
+      "the pane with no spinner has to name what is holding the GPU",
+    );
+
+    await generate();
+    press("Enter", { ctrlKey: true });
+    await nextTick();
+    assert.equal(apiCalls.generated.length, 1, "neither route may start a job");
+
+    await release();
+    assert.ok(!layer().querySelector("#generateCaptionPreview").disabled);
+    assert.equal(layer().querySelector(".caption-verify-busy"), null);
+  });
+
   it("routes a late render to the image it was started for", async () => {
     let release;
     apiCalls.generateHandler = (call) =>

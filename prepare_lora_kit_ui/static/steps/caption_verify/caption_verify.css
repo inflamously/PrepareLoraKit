@@ -265,6 +265,9 @@
   color: var(--muted, #aeb7dc);
 }
 
+/* Reads as a state, not a hint: it says why the buttons beside it are dead. */
+.caption-verify-busy { color: var(--muted, #aeb7dc); font-weight: 650; }
+
 .caption-verify-notices {
   display: grid;
   gap: 8px;

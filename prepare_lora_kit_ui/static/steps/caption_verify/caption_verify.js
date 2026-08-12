@@ -258,12 +258,22 @@ class CaptionVerify {
         caption: path ? readCaption(this.captions, path) : "",
         elapsedSeconds: this.elapsedSeconds,
         jobStatus: state.job?.caption_status,
+        busy: this.busyElsewhere(),
       },
       { onGenerate: (options) => this.generate(options) },
     );
     // The pane was just rebuilt, so its wait label is back to whatever the
     // template guessed without a job status to read.
     this.showJobStatus(state.job?.caption_status);
+  }
+
+  // The GPU runs one render at a time, so a render in flight has to disable the
+  // buttons on *every* image, not just its own. Its own pane says so with the
+  // spinner; the others show nothing, so they get the name of what is running —
+  // an inert button with no explanation just reads as broken.
+  busyElsewhere() {
+    if (!this.inflight || this.inflight === this.selected?.path) return null;
+    return this.items.find((item) => item.path === this.inflight) || null;
   }
 
   // The status badge lives in the editor column and the wait label in the
