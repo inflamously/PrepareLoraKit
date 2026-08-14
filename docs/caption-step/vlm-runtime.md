@@ -18,6 +18,17 @@ Characteristics worth knowing:
 
 - **No batching.** Strictly one image per `generate()` call, greedy
   (`do_sample=False`).
+- **Reasoning models.** `_build_chat_text` renders the prompt with
+  `enable_thinking=False`, retrying without the kwarg for processors that validate
+  their signature. Because a template may ignore it, `_finalize_caption` also runs
+  `caption_text.strip_reasoning` over every generation before `strip_boilerplate`
+  — it removes a closed `<think>…</think>` block, a stray `</think>` (templates
+  that enable thinking append the opener to the *prompt*, so only the close is
+  decoded), and a stray `<think>` left by a thought that `max_new_tokens` cut off.
+  The last case yields an empty caption by design: a truncated thought is not a
+  caption, and it would otherwise be written to the training `.txt`. Both
+  `_run_prompted` and `_run_image_to_text` return through `_finalize_caption`, so
+  no pass can bypass it; a pass that strips to nothing logs a one-time warning.
 - **Lazy imports.** `torch`, `transformers` and `PIL` are imported inside
   functions, and `__init__.py` is a `__getattr__` shim, so nothing heavy loads
   until the step actually runs.

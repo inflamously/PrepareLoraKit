@@ -295,6 +295,45 @@ def _to_device(inputs: dict[str, Any], device: Any) -> dict[str, Any]:
     return {k: v.to(device) if hasattr(v, "to") else v for k, v in inputs.items()}
 
 
+# Warn-once guard for a pass whose output was nothing but reasoning. A set rather
+# than a module-level bool so the flag flips without `global` (and clears in tests).
+_REASONING_WARNED: set[str] = set()
+
+
+def _build_chat_text(processor, messages: list[dict[str, Any]]) -> str:
+    """Render the chat prompt with thinking switched off where the template allows it.
+
+    A reasoning model's chain of thought is worse than useless here: the caption is
+    the product, and the thought preceding it eats the ``max_new_tokens`` budget the
+    caption needs — the 48-token gap pass has no room for both. Most processors
+    forward unknown kwargs into the Jinja render and quietly ignore them; the ones
+    that validate their signature get a second, plain attempt.
+    """
+    kwargs: dict[str, Any] = {"tokenize": False, "add_generation_prompt": True}
+    try:
+        return processor.apply_chat_template(messages, **kwargs, enable_thinking=False)
+    except TypeError:
+        return processor.apply_chat_template(messages, **kwargs)
+
+
+def _finalize_caption(generated: str) -> str:
+    """Clean one raw generation: drop the chain of thought, then the boilerplate.
+
+    Every caption pass funnels through here, so a model that thinks anyway cannot
+    write its reasoning into a training file by any route.
+    """
+    text = cap_text.strip_reasoning(generated)
+    if not text and (generated or "").strip() and "budget" not in _REASONING_WARNED:
+        _REASONING_WARNED.add("budget")
+        reporter.warn(
+            "Caption model returned only reasoning: its chat template ignored "
+            "enable_thinking=False and the thought used the whole token budget. "
+            "Raise max_new_tokens or pick a non-reasoning caption model — "
+            "captions from these passes will come back empty."
+        )
+    return cap_text.strip_boilerplate(text)
+
+
 def _run_prompted(loaded: LoadedCaptionModel, image, prompt_text: str, max_new_tokens: int) -> str:
     import torch
 
@@ -308,7 +347,7 @@ def _run_prompted(loaded: LoadedCaptionModel, image, prompt_text: str, max_new_t
             ],
         }
     ]
-    text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+    text = _build_chat_text(processor, messages)
     inputs = processor(text=[text], images=[image], return_tensors="pt")
     device = _input_device(loaded.model)
     inputs = _to_device(inputs, device)
@@ -328,7 +367,7 @@ def _run_prompted(loaded: LoadedCaptionModel, image, prompt_text: str, max_new_t
         del inputs
         _clear_cuda(torch)
 
-    return cap_text.strip_boilerplate(generated.strip())
+    return _finalize_caption(generated)
 
 
 def _run_image_to_text(loaded: LoadedCaptionModel, image, max_new_tokens: int) -> str:
@@ -362,7 +401,7 @@ def _run_image_to_text(loaded: LoadedCaptionModel, image, max_new_tokens: int) -
         del inputs
         _clear_cuda(torch)
 
-    return cap_text.strip_boilerplate(generated.strip())
+    return _finalize_caption(generated)
 
 
 def _image_to_text_prompt(model_id: str) -> str:

@@ -102,6 +102,39 @@ _BOILERPLATE = [
 ]
 
 
+# Reasoning ("thinking") models emit their chain of thought inline, ahead of the
+# answer. The markers are ordinary vocabulary tokens, so `skip_special_tokens=True`
+# does not remove them — and even where it did, the reasoning *prose* between them
+# is plain text that would land verbatim in the training .txt file.
+_THINK_TAG = r"(?:think|thinking|thought)"
+_THINK_BLOCK_RE = re.compile(rf"<{_THINK_TAG}\s*>.*?</{_THINK_TAG}\s*>", re.I | re.S)
+_THINK_LEAD_RE = re.compile(rf"^.*</{_THINK_TAG}\s*>", re.I | re.S)
+_THINK_OPEN_RE = re.compile(rf"<{_THINK_TAG}\s*>.*$", re.I | re.S)
+
+
+def strip_reasoning(text: str) -> str:
+    """Remove a reasoning model's chain of thought, keeping only its answer.
+
+    Three shapes have to be handled, and the order below is what makes them
+    compose:
+
+    1. A complete ``<think>…</think>`` block before the answer.
+    2. A stray closing tag with no opener — chat templates that enable thinking
+       append ``<think>`` to the *prompt*, so generation starts inside the block
+       and only ``</think>`` is ever decoded.
+    3. A stray opening tag with no close — ``max_new_tokens`` ran out mid-thought.
+       Everything after it is reasoning, so the result is empty: there was no
+       answer in the output at all, and a truncated thought is not a caption.
+    """
+    text = (text or "").strip()
+    if not text:
+        return ""
+    text = _THINK_BLOCK_RE.sub("", text)
+    text = _THINK_LEAD_RE.sub("", text)
+    text = _THINK_OPEN_RE.sub("", text)
+    return text.strip()
+
+
 def strip_boilerplate(text: str) -> str:
     text = text.strip()
     changed = True

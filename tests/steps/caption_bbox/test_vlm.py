@@ -228,3 +228,68 @@ def test_runtime_normalises_and_reports_the_domain_brief():
     runtime = vlm.CaptionRuntime("fake/model", domain_brief="  Game screenshots.  ")
     assert runtime.domain_brief == "Game screenshots."
     assert runtime.metadata["domain_brief"] is True
+
+
+class _RecordingProcessor:
+    """Chat-template stub that records the kwargs it was called with."""
+
+    def __init__(self, *, accepts_thinking=True):
+        self._accepts_thinking = accepts_thinking
+        self.kwargs = None
+
+    def apply_chat_template(self, messages, **kwargs):
+        if "enable_thinking" in kwargs and not self._accepts_thinking:
+            raise TypeError("apply_chat_template() got an unexpected keyword argument")
+        self.kwargs = kwargs
+        return "PROMPT"
+
+
+_MESSAGES = [{"role": "user", "content": [{"type": "text", "text": "describe"}]}]
+
+
+def test_chat_text_asks_the_template_to_disable_thinking():
+    processor = _RecordingProcessor()
+
+    assert vlm._build_chat_text(processor, _MESSAGES) == "PROMPT"
+    assert processor.kwargs["enable_thinking"] is False
+    assert processor.kwargs["add_generation_prompt"] is True
+
+
+def test_chat_text_retries_without_the_kwarg_for_older_processors():
+    # Most processors forward unknown kwargs into the Jinja render and ignore them,
+    # but the ones that validate their signature must not break captioning.
+    processor = _RecordingProcessor(accepts_thinking=False)
+
+    assert vlm._build_chat_text(processor, _MESSAGES) == "PROMPT"
+    assert "enable_thinking" not in processor.kwargs
+
+
+def test_finalize_removes_reasoning_before_the_caption():
+    raw = "<think>The user wants a caption.</think>This image shows a brass telescope."
+
+    assert vlm._finalize_caption(raw) == "A brass telescope."
+
+
+def test_finalize_warns_once_when_reasoning_consumed_the_whole_budget(monkeypatch):
+    # A thought truncated by max_new_tokens leaves nothing behind. Empty beats
+    # leaking reasoning into the dataset, but it must not fail silently.
+    warnings = []
+    monkeypatch.setattr(vlm.reporter, "warn", warnings.append)
+    vlm._REASONING_WARNED.clear()
+
+    assert vlm._finalize_caption("<think>First I should identify the main sub") == ""
+    assert vlm._finalize_caption("<think>Another truncated thought about the") == ""
+
+    assert len(warnings) == 1
+    assert "enable_thinking" in warnings[0] or "reasoning" in warnings[0]
+
+
+def test_finalize_does_not_warn_for_an_ordinary_caption(monkeypatch):
+    warnings = []
+    monkeypatch.setattr(vlm.reporter, "warn", warnings.append)
+    vlm._REASONING_WARNED.clear()
+
+    assert vlm._finalize_caption("A brass telescope on a tripod.") == (
+        "A brass telescope on a tripod."
+    )
+    assert warnings == []
