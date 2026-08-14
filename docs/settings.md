@@ -138,6 +138,12 @@ Dropdown options come from the existing catalogs rather than hand-typed lists â€
 list is read straight off `config_schema/steps/caption_bbox.FIELDS`, so the Settings dropdown and the
 step-config dropdown cannot diverge.
 
+Model fields render as a real `<select>` over that catalog plus a "Customâ€¦" entry that reveals a
+free-text box, the same control the step config uses. Not a `<datalist>`: that is a typeahead
+filtered against whatever the box already holds, so a field carrying a saved repo id opens onto that
+single entry and reads as an almost-empty dropdown. A field with no catalog (the VAE) stays a plain
+text box.
+
 The Settings modal is opened by a button and must stay out of
 `job/controller.js:handlePendingInput`; it must not use `modalCancelButton`, which cancels a *run*.
 

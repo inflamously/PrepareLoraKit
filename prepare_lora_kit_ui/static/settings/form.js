@@ -5,7 +5,14 @@
  * saving, the Hub buttons) and this file stays about shape.
  */
 import { escapeText } from "../core/dom.js";
-import { modelField, selectField, textField } from "./fields.js";
+import {
+  modelField,
+  readField,
+  selectField,
+  textField,
+  wireModelFields,
+  writeField,
+} from "./fields.js";
 
 /** Build the modal element for a `get_settings` payload. */
 export function buildSettingsModal(payload) {
@@ -112,6 +119,7 @@ export function buildSettingsModal(payload) {
   // Assigned rather than interpolated: the command is server-supplied text and
   // an input's value is not a place markup escaping can be reasoned about.
   modal.querySelector("#settingsLoginCommand").value = loginCommand || "";
+  wireModelFields(modal);
   return modal;
 }
 
@@ -136,10 +144,7 @@ const STORED_KEY = { hf_home: "home" };
 export function applySettings(modal, settings) {
   for (const [group, names] of Object.entries(GROUPS)) {
     for (const name of names) {
-      const el = modal.querySelector(`[data-setting="${name}"]`);
-      if (!el) continue;
-      const value = (settings[group] || {})[STORED_KEY[name] || name];
-      el.value = value == null ? "" : String(value);
+      writeField(modal, name, (settings[group] || {})[STORED_KEY[name] || name]);
     }
   }
 }
@@ -150,11 +155,9 @@ export function collectSettings(modal) {
   for (const [group, names] of Object.entries(GROUPS)) {
     payload[group] = {};
     for (const name of names) {
-      const el = modal.querySelector(`[data-setting="${name}"]`);
-      const value = el ? el.value.trim() : "";
       // Empty means "not configured"; sending null keeps that unambiguous on
       // the Python side, where None is the only unset marker.
-      payload[group][STORED_KEY[name] || name] = value || null;
+      payload[group][STORED_KEY[name] || name] = readField(modal, name) || null;
     }
   }
   return payload;

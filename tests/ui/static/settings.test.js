@@ -8,10 +8,21 @@ let calls;
 
 const layer = () => document.getElementById("modalLayer");
 const field = (name) => layer().querySelector(`[data-setting="${name}"]`);
+const customBox = (name) => layer().querySelector(`[data-setting-custom="${name}"]`);
 const click = (id) =>
   layer()
     .querySelector(`#${id}`)
     .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+
+/** Pick "Custom…" in a model dropdown and type a repo id the catalog lacks. */
+function typeCustomModel(name, value) {
+  const select = field(name);
+  select.value = "__custom__";
+  select.dispatchEvent(new window.Event("change", { bubbles: true }));
+  customBox(name).value = value;
+}
+
+const optionValues = (name) => [...field(name).options].map((option) => option.value);
 
 function settingsPayload(overrides = {}) {
   return {
@@ -36,7 +47,11 @@ function settingsPayload(overrides = {}) {
       ...overrides,
     },
     choices: {
-      caption_model_id: [{ value: "Qwen/Qwen3-VL-8B-Instruct", label: "Qwen3-VL 8B" }],
+      caption_model_id: [
+        { value: "Qwen/Qwen3-VL-4B-Instruct", label: "Qwen3-VL 4B" },
+        { value: "Qwen/Qwen3-VL-8B-Instruct", label: "Qwen3-VL 8B" },
+        { value: "OpenGVLab/InternVL3-8B", label: "InternVL3 8B" },
+      ],
       caption_model_task: [{ value: "auto", label: "Auto" }],
       t2i_model_id: [{ value: "auto", label: "Auto" }],
       coverage_embedding_model: [{ value: "ViT-B-32", label: "ViT-B-32" }],
@@ -165,6 +180,68 @@ describe("settings modal", () => {
     );
     const unset = field("vram_tier").querySelector('option[value=""]');
     assert.match(unset.textContent, /Not set/);
+  });
+
+  it("offers the whole caption model catalog as a real dropdown", async () => {
+    await openSettingsModal();
+
+    const select = field("caption_model_id");
+    assert.equal(select.tagName, "SELECT");
+    assert.deepEqual(optionValues("caption_model_id"), [
+      "",
+      "Qwen/Qwen3-VL-4B-Instruct",
+      "Qwen/Qwen3-VL-8B-Instruct",
+      "OpenGVLab/InternVL3-8B",
+      "__custom__",
+    ]);
+    assert.deepEqual(
+      [...select.options].slice(1, -1).map((option) => option.textContent.trim()),
+      ["Qwen3-VL 4B", "Qwen3-VL 8B", "InternVL3 8B"],
+    );
+    assert.match(select.options[0].textContent, /Not set — required/);
+    // A datalist is filtered against whatever is typed, so a saved id makes it
+    // open onto that single entry — the bug this dropdown replaces.
+    assert.equal(layer().querySelector("datalist"), null);
+  });
+
+  it("pre-selects a stored caption model and keeps the custom box hidden", async () => {
+    record.payload = settingsPayload({
+      project_defaults: { caption_model_id: "Qwen/Qwen3-VL-8B-Instruct" },
+    });
+    await openSettingsModal();
+
+    assert.equal(field("caption_model_id").value, "Qwen/Qwen3-VL-8B-Instruct");
+    assert.ok(customBox("caption_model_id").classList.contains("hidden"));
+  });
+
+  it("restores a model id outside the catalog into the custom box", async () => {
+    record.payload = settingsPayload({
+      project_defaults: { caption_model_id: "acme/private-vlm" },
+    });
+    await openSettingsModal();
+
+    assert.equal(field("caption_model_id").value, "__custom__");
+    const box = customBox("caption_model_id");
+    assert.equal(box.value, "acme/private-vlm");
+    assert.ok(!box.classList.contains("hidden"), "custom box must be visible for a custom id");
+  });
+
+  it("saves the value typed into the custom box, not the sentinel", async () => {
+    await openSettingsModal();
+
+    typeCustomModel("caption_model_id", "acme/private-vlm");
+    assert.ok(!customBox("caption_model_id").classList.contains("hidden"));
+    click("settingsSave");
+    await nextTick();
+
+    assert.equal(record.saved[0].project_defaults.caption_model_id, "acme/private-vlm");
+  });
+
+  it("keeps a plain text box for a model field with no catalog", async () => {
+    await openSettingsModal();
+
+    assert.equal(field("vae_model_id").tagName, "INPUT");
+    assert.equal(customBox("vae_model_id"), null);
   });
 
   it("never offers to store a token", async () => {
@@ -306,7 +383,7 @@ describe("settings modal", () => {
   it("checks the ids currently on screen, not the last saved ones", async () => {
     await openSettingsModal();
 
-    field("caption_model_id").value = "typed/but-not-saved";
+    typeCustomModel("caption_model_id", "typed/but-not-saved");
     field("t2i_model_id").value = "auto";
     field("vae_model_id").value = "/local/file.safetensors";
     click("settingsCheckModels");
@@ -319,7 +396,7 @@ describe("settings modal", () => {
   it("renders one result row per model with its status", async () => {
     await openSettingsModal();
 
-    field("caption_model_id").value = "some/model";
+    typeCustomModel("caption_model_id", "some/model");
     click("settingsCheckModels");
     await nextTick();
 
