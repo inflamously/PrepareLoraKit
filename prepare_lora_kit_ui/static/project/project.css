@@ -7,7 +7,9 @@
 .step-list {
   flex: 1 1 auto;
   gap: var(--space-3);
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overflow-x: clip;
   padding-right: var(--space-5);
 }
 

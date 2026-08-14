@@ -1,9 +1,7 @@
 """Single source of truth for filesystem locations.
 
-Anchored to this module's own location in the package root, so the constants
-stay correct no matter how deeply nested the modules that import them are.
-Compute paths from these — never re-derive them with ``Path(__file__).parents[n]``
-in individual modules, which silently breaks when a file moves.
+Compute paths from these — never re-derive them with ``Path(__file__).parents[n]`` in
+individual modules, which silently breaks when a file moves.
 """
 from pathlib import Path
 

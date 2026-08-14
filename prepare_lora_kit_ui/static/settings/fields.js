@@ -1,10 +1,8 @@
 /**
  * Field-level markup helpers for the Settings modal.
  *
- * Every field renders the *app default* as placeholder text, so an empty box
- * always reads as "not configured, using X" rather than as a missing value.
- * That is the whole reason `null` is the only "unset" marker in the settings
- * document — see prepare_lora_kit/settings/model.py.
+ * Every field renders the *app default* as placeholder text, so an empty box reads as
+ * "not configured, using X" rather than as a missing value.
  */
 import { escapeText } from "../core/dom.js";
 

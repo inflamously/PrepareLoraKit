@@ -1,13 +1,9 @@
 /**
  * Settings modal: machine-wide options shared by every project.
  *
- * Opened from a button, never from the pipeline — it must stay out of
- * job/controller.js `handlePendingInput`, and it must not use
- * `modalCancelButton`, which cancels a *run*.
- *
- * The modal opens on `get_settings` alone, which is pure disk plus torch-free
- * catalogs. Anything slower — the Hub, a VRAM probe — is behind its own button
- * so opening Settings can never stall on the network or a torch import.
+ * Opened from a button, never from the pipeline — so it stays out of
+ * job/controller.js `handlePendingInput` and never uses `modalCancelButton`,
+ * which cancels a *run*.
  */
 import { api } from "../core/api.js";
 import { escapeText } from "../core/dom.js";

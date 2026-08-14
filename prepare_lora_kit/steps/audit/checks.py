@@ -1,9 +1,4 @@
-"""
-AuditStep — Pairing & Integrity Audit: check helpers.
-
-Pure helper functions extracted from step.run(). Each keeps its report.* logging
-calls so behavior and log messages remain identical to the inline version.
-"""
+"""Pure check helpers extracted from ``step.run()``, each keeping its own report logging."""
 from __future__ import annotations
 
 from pathlib import Path

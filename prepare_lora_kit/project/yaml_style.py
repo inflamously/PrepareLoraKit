@@ -1,14 +1,4 @@
-"""Flow-style markers for the handful of project values that read badly as blocks.
-
-Block style is right for a step's settings — one key per line, easy to scan and
-to diff. It is wrong for short uniform records: PyYAML renders the nine
-``resolution_buckets`` coordinate pairs as eighteen lines, and every substep as
-two. Wrapping just those in :func:`inline` gets them onto one line each, which is
-the shape the project config was split up to achieve.
-
-Markers only affect serialization. Reading a project back yields plain dicts and
-lists, so nothing downstream ever has to know these types exist.
-"""
+"""Flow-style markers for the handful of project values that read badly as blocks."""
 from __future__ import annotations
 
 from typing import Any

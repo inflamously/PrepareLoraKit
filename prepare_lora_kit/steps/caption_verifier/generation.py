@@ -1,14 +1,7 @@
 """The generator closure the UI's bridge RPC lands on.
 
-``make_caption_generator`` returns a plain callable that the step hands to the
-interaction provider. The provider stashes it for the lifetime of the modal and
-calls it from the pywebview RPC thread each time the user clicks Generate or
-Re-roll; the step keeps ownership of where artifacts land and what the report
-records.
-
-Preview PNGs are written **outside** ``dataset/`` on purpose: ``iter_images``
-recurses, so a probe image inside the working dataset would be picked up by
-AuditStep, BucketPoolsCheckStep and ExportStep as if it were training data.
+Preview PNGs are written outside ``dataset/`` on purpose: ``iter_images`` recurses, so a
+probe image inside the working dataset would be picked up as training data.
 """
 from __future__ import annotations
 

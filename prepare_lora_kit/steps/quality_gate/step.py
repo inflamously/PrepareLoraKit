@@ -1,11 +1,4 @@
-"""
-QualityGateStep — Source Image Quality Gates + Manual Review
-
-Phase A: automated scoring via pluggable scorer registry.
-Phase B: tkinter gallery — all images shown with pass/fail borders, click to
-         toggle, hover for per-gate scores + overall quality score.
-         Falls back to easygui/terminal one-by-one review when tkinter absent.
-"""
+"""QualityGateStep — automated quality scoring plus a manual pass/fail gallery review."""
 from __future__ import annotations
 
 import os

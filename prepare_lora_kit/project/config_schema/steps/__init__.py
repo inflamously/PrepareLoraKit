@@ -1,9 +1,4 @@
-"""Per-step config field definitions.
-
-Each submodule exposes a ``STEP_TYPE`` string and a ``FIELDS`` list of
-:class:`~..fields.FieldSpec`. ``STEP_MODULES`` lists them in pipeline order; the
-parent :mod:`..schema` assembles them into ``CONFIG_FIELD_SCHEMA``.
-"""
+"""Per-step config field definitions; each submodule exposes ``STEP_TYPE`` and ``FIELDS``."""
 from __future__ import annotations
 
 from . import (

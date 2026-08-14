@@ -1,10 +1,5 @@
-"""ProjectConfig — top-level per-project dataset workflow configuration.
-
-A project is stored as a folder (see :mod:`prepare_lora_kit.project.store`), but
-this module never touches the filesystem beyond :meth:`ProjectConfig.from_dir`:
-it builds itself from one flat dict of the shape the store assembles, so the
-parsing and validation here are independent of how the config is laid out on
-disk.
+"""ProjectConfig — per-project workflow config, built from one flat dict the store
+assembles.
 """
 from __future__ import annotations
 

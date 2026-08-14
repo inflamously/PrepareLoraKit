@@ -1,16 +1,5 @@
-"""Caption-verification half of the UI interaction provider.
-
-Split out of ``interactions.py`` to keep both files under the repo's 500-line
-convention. Mixed into :class:`UiInteractionProvider`.
-
-Two locks, deliberately:
-
-* ``_verify_lock`` guards the small pieces of state below and is **never** held
-  across a render. Holding it for the 30 s a diffusion call takes would block
-  ``caption_verify``'s teardown and every cancel path.
-* ``_generate_lock`` is held for the whole render and is acquired
-  **non-blocking**: a second concurrent click fails fast instead of queueing a
-  thread for half a minute and then drawing a caption the user already changed.
+"""Caption-verification half of the UI interaction provider, mixed into
+:class:`UiInteractionProvider`.
 """
 from __future__ import annotations
 
@@ -32,6 +21,8 @@ class CaptionVerifyInteractionMixin:
     """``caption_verify`` plus the live ``generate_caption_preview`` RPC."""
 
     def _init_caption_verify(self) -> None:
+        # Guards the small state below and is never held across a render: holding it for the
+        # 30 s a diffusion call takes would block teardown and every cancel path.
         self._verify_lock = threading.Lock()
         self._generate_lock = threading.Lock()
         self._verify_generator = None
@@ -143,6 +134,9 @@ class CaptionVerifyInteractionMixin:
                 "Requested image is not in the active caption verification batch"
             )
 
+        # Held for the whole render, acquired non-blocking: a second concurrent click fails
+        # fast instead of queueing a thread for half a minute and then drawing a caption the
+        # user has already changed.
         if not self._generate_lock.acquire(blocking=False):
             raise RuntimeError("A preview is already being generated")
         try:

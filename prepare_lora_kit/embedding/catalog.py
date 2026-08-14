@@ -1,12 +1,4 @@
-"""Image-embedding model catalog owned by PrepareLoraKit.
-
-This module is the single source of truth for the embedding models offered in
-the Curate step. Both the UI config schema (dropdown options) and the runtime
-loaders read from here so the two can never drift apart.
-
-Kept deliberately import-light: no ``torch``/``open_clip``/``transformers`` at
-module load, so importing the config schema stays cheap.
-"""
+"""Single source of truth for the embedding models offered in the Curate step."""
 from __future__ import annotations
 
 from dataclasses import dataclass

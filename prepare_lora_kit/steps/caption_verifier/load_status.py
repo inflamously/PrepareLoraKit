@@ -1,30 +1,4 @@
-"""Live progress for the model load that blocks the first caption preview.
-
-``loader.load_pipeline`` is one opaque call. For a 9B FLUX.2 klein it can take
-ten minutes — download, shard reads, 4-bit quantization, offload wiring — and it
-returns nothing at all until it is finished. The review modal polls the job
-every 800 ms, so unless something emits *during* that call the UI shows one
-frozen line, which is indistinguishable from a hang.
-
-Three signals, one context manager:
-
-* a **heartbeat**, so the elapsed counter keeps moving even while the load has
-  nothing to say. This is the part that makes "slow" readable as slow;
-* a **tqdm tap**, because a tqdm bar is the only progress Hugging Face exposes;
-* the **weights loaded so far**, when the caller passes a tracker to convert
-  those bars into bytes (:mod:`.weights`). A bar says "3/6 shards of whichever
-  component this is"; bytes say how much of the checkpoint is in.
-
-The tap patches ``tqdm.std.tqdm`` rather than ``tqdm.auto.tqdm`` on purpose:
-diffusers, transformers and huggingface_hub each did ``from tqdm.auto import
-tqdm`` at import time, so their module-level names are already bound and
-rebinding ``tqdm.auto.tqdm`` now would reach none of them. Every one of those
-bindings is a *subclass* of ``tqdm.std.tqdm`` that inherits ``update`` and calls
-``super().__init__``, so wrapping the base class's methods catches all of them.
-
-All of it is best effort: a tqdm that cannot be patched costs the detail line,
-never the load.
-"""
+"""Live progress for the model load that blocks the first caption preview."""
 from __future__ import annotations
 
 import contextlib
@@ -156,6 +130,9 @@ class _Watcher:
 def _tqdm_tap(note: Callable[[Any], None]) -> Iterator[None]:
     """Report every tqdm bar created or advanced inside the block."""
     try:
+        # ``tqdm.std``, not ``tqdm.auto``: diffusers, transformers and huggingface_hub each
+        # did ``from tqdm.auto import tqdm`` at import time, so rebinding ``tqdm.auto.tqdm``
+        # now would reach none of them. Their bindings are all subclasses of this base class.
         from tqdm.std import tqdm as tqdm_cls
     except Exception:  # pragma: no cover - tqdm ships with huggingface_hub
         yield

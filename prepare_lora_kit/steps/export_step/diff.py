@@ -1,9 +1,5 @@
-"""Compute the export diff between the finalized dataset and the target folder.
-
-Pure functions only — no writes. The step module renders this diff for review
-before any copy happens. A *finalized* dataset image is one that has a matching
-``.txt`` caption sidecar beside it (the ai-toolkit training convention); images
-without a caption are not exported.
+"""Compute the export diff against the target folder; an image counts as finalized when a
+``.txt`` caption sits beside it.
 """
 from __future__ import annotations
 

@@ -1,8 +1,5 @@
-"""Human-in-the-loop interaction hooks used by pipeline steps.
-
-The CLI implementation keeps the existing tkinter/easygui behavior. Other
-frontends can provide the same methods to collect decisions without importing
-desktop UI code from the step modules.
+"""Human-in-the-loop hooks, so a frontend can supply decisions without step modules
+importing UI code.
 """
 from __future__ import annotations
 

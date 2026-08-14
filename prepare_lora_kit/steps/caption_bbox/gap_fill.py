@@ -1,18 +1,7 @@
 """Additive gap-fill for a drafted caption: gate → parse → merge.
 
-The third grounded pass used to hand the whole draft back to the VLM and ask for
-"the corrected caption". Because the *output format* was a full caption, the model
-rewrote freely — paraphrasing human-authored region labels, reordering attributes
-and dropping detail. No prompt wording can prevent that; the contract has to change.
-
-Here the model is asked only for a short list of elements the draft is missing, and
-the merge happens in Python. That makes the pass additive **by construction** (it
-never sees a chance to emit a replacement), roughly an order of magnitude cheaper to
-decode, and auditable.
-
-:func:`needs_gap_pass` gates the extra generation on cheap text signals so a good
-draft costs nothing at all — on a VLM the expensive part of any pass is re-encoding
-the image, so skipping the pass is the only real saving.
+The model is asked only for elements the draft is missing and the merge happens in
+Python, so the pass cannot reword or drop what the draft already says.
 """
 from __future__ import annotations
 

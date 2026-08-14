@@ -1,23 +1,8 @@
-"""Durable per-image caption verdicts, shared by two steps.
+"""Durable per-image caption verdicts, shared by CaptionVerifierStep and CaptionBboxStep.
 
-``CaptionVerifierStep`` asks whether the text encoder understands each caption
-and records one of ``correct`` / ``generic`` / ``wrong``. That answer is only
-worth collecting if something acts on it, so it is kept here rather than in the
-step report: a report is rebuilt from scratch every run, and a re-run in which
-the user judged nothing would wipe the previous session's work.
-
-``CaptionBboxStep`` reads the same file to decide which already-captioned images
-to reopen for a fix, and flips ``resolved`` once it has rewritten one.
-
-Lives in ``utils`` rather than beside either caller because
-``steps/caption_verifier/captions.py`` already imports from
-``steps/caption_bbox/artifacts.py``; putting a module both steps need inside
-either package would make that dependency mutual.
-
-**``resolved`` has exactly one meaning: the caption this verdict judged has
-since been replaced.** Every rule in here follows from it — a resolved entry
-stops flagging, stops reopening, and stops seeding the review modal, while the
-verdict text itself is kept forever as history.
+``resolved`` has exactly one meaning: the caption this verdict judged has since been
+replaced. A resolved entry stops flagging, reopening and seeding the review modal,
+while the verdict text is kept forever as history.
 """
 from __future__ import annotations
 

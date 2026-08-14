@@ -1,17 +1,7 @@
 """Locked, cached text-to-image runtime for CaptionVerifierStep.
 
-Structurally mirrors ``steps/caption_bbox/vlm.py``'s ``CaptionRuntime``: a
-module-level cache plus a ``threading.Lock``, because the UI reaches this object
-from a **different thread** than the one that created it. While the pipeline
-thread is blocked inside ``PipelineJob.request_input`` waiting for the modal,
-pywebview dispatches each bridge call on its own thread — so two quick clicks
-would otherwise race into the same CUDA pipeline.
-
-This module owns the *contract* — locking, caching, seeds, truncation, and the
-status it publishes while a load blocks. Its neighbours own the rest: heavy
-diffusers construction in :mod:`.loader`, everything said to torch in
-:mod:`.runtime_env`, and the live load progress in :mod:`.load_status`. All
-heavy imports stay function-local.
+The UI reaches this object from a different thread than the one that created it, so
+two quick clicks would otherwise race into the same CUDA pipeline.
 """
 from __future__ import annotations
 

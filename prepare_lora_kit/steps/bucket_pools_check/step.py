@@ -1,13 +1,4 @@
-"""
-BucketPoolsCheckStep — Bucket Dry-run
-
-Simulates ai-toolkit's multi-resolution bucketing without actually training.
-Assigns each image to its closest bucket by aspect-ratio distance, then flags
-thin buckets (≤ 2 images) and suggests fixes (crop or repeats).
-
-Optional --cache-mode: writes a cache_info.json compatible with ai-toolkit's
-cache_latents_to_disk path structure for re-use on the real run.
-"""
+"""BucketPoolsCheckStep — simulate ai-toolkit's bucketing and flag thin buckets."""
 from __future__ import annotations
 
 from pathlib import Path

@@ -1,9 +1,4 @@
-"""Field spec model and builder helpers for config schemas.
-
-:class:`FieldSpec` is the UI metadata for one editable config field; the
-``_select``/``_number``/``_check``/``_text`` helpers are thin constructors used
-by :mod:`.schema` to declare fields concisely.
-"""
+""":class:`FieldSpec` — the UI metadata for one editable config field — and its builders."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field

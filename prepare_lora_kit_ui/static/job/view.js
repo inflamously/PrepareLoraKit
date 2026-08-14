@@ -4,6 +4,13 @@ import { renderCaptionStatus } from "../caption/status.js";
 
 const TERMINAL_STATUSES = new Set(["completed", "failed", "cancelled"]);
 
+/** Last log buffer rendered into a given console, so a poll that changed nothing
+ *  is skipped. Keyed by the element rather than held in a plain variable so it
+ *  dies with the DOM instead of leaking across it. It cannot be derived from the
+ *  element any more: the lines are block elements, so the newlines live in line
+ *  boxes and `textContent` returns them concatenated. */
+const renderedLogs = new WeakMap();
+
 export function renderJob() {
     const job = state.job;
     const cancelButton = $("cancelButton");
@@ -19,7 +26,7 @@ export function renderJob() {
         currentStepLabel.classList.add("hidden");
         renderCaptionStatus(captionStatusLabel, null);
         currentStepLabel.textContent = "";
-        logRail.textContent = "";
+        clearLogs(logRail);
         cancelButton.disabled = true;
         cancelButton.textContent = "Cancel";
         renderOpenOutput(openOutput, null);
@@ -36,9 +43,11 @@ export function renderJob() {
     renderCurrentStep(job, currentStepLabel);
     renderCaptionStatus(captionStatusLabel, job.caption_status);
 
-    const nextLogs = (job.logs || []).join("\n");
-    if (logRail.textContent !== nextLogs && !hasSelectionInside(logRail)) {
-        logRail.textContent = nextLogs;
+    const logs = job.logs || [];
+    const nextLogs = logs.join("\n");
+    if (renderedLogs.get(logRail) !== nextLogs && !hasSelectionInside(logRail)) {
+        logRail.replaceChildren(...logs.map(toLogLine));
+        renderedLogs.set(logRail, nextLogs);
         scrollLogsToBottom(logRail);
     }
 
@@ -69,6 +78,21 @@ function renderCurrentStep(job, currentStepLabel) {
     const substep = job.current_substep ? ` / ${job.current_substep}` : "";
     currentStepLabel.textContent = `Current step: ${stepLabel(job.current_step)}${substep}`;
     currentStepLabel.classList.remove("hidden");
+}
+
+/** A blank line would render as no line box at all, which is only harmless
+ *  because the runner drops empty lines before they ever reach the buffer
+ *  (`prepare_lora_kit_ui/runner/logging.py`). */
+function toLogLine(text) {
+    const line = document.createElement("span");
+    line.className = "nf-console__line";
+    line.textContent = text;
+    return line;
+}
+
+function clearLogs(logRail) {
+    logRail.replaceChildren();
+    renderedLogs.delete(logRail);
 }
 
 export function scrollLogsToBottom(logRail = $("logOutput")) {

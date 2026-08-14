@@ -1,9 +1,5 @@
-"""
-VaeGateStep — VAE Reconstruction Gate
-
-Encodes each image through the target model's VAE, decodes back, and measures
-high-frequency loss via FFT spectrum comparison. Outliers (> mean + 2σ) are
-flagged for a manual keep / drop decision. Reconstructions are diagnostics only.
+"""VaeGateStep — round-trip each image through the target VAE and flag high-frequency
+loss outliers for a manual keep/drop.
 """
 from __future__ import annotations
 

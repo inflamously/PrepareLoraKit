@@ -1,7 +1,5 @@
-"""Copy finalized image + caption pairs into the export target folder.
-
-Only ``added``/``modified`` entries are copied, preserving subject subfolders.
-``orphaned`` target files are never touched (non-destructive export).
+"""Copy ``added``/``modified`` pairs into the export target; ``orphaned`` files are left
+in place.
 """
 from __future__ import annotations
 

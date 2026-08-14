@@ -1,11 +1,9 @@
 /**
  * Global error surface.
  *
- * The app runs inside a pywebview window with no visible console unless launched
- * with `--debug`, and the entry point (`init`) is an async event listener whose
- * rejections are otherwise swallowed. Without this, any uncaught error leaves the
- * UI silently half-initialised with no trace. This installs catch-all handlers
- * that log to the console AND paint a visible banner, so failures are never silent.
+ * A pywebview window has no visible console unless launched with `--debug`, so these
+ * catch-all handlers paint a banner as well as logging — otherwise an uncaught error
+ * leaves the UI silently half-initialised.
  */
 
 let bannerEl = null;

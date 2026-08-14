@@ -1,33 +1,4 @@
-"""How much of a checkpoint's weights have landed, in bytes.
-
-The elapsed counter in :mod:`.load_status` proves a load is alive; it cannot say
-how far through it is. This module answers that in the only unit that means
-anything to someone waiting: the weight bytes themselves.
-
-**The denominator is exact.** It is the size of the weight files this load will
-read, measured on disk in the Hugging Face cache — not a parameter-count
-estimate like the ``params_b`` figures in :mod:`.catalog`.
-
-**The numerator is component-granular**, because that is all diffusers exposes.
-Two tqdm bars carry it:
-
-* ``Loading pipeline components...`` counts *components* (``vae``,
-  ``text_encoder``, ``transformer``, …) as each finishes. Sizes differ by an
-  order of magnitude between them, so counting them is useless on its own —
-  this module converts each completed one into its real byte size instead.
-* ``Loading checkpoint shards`` moves *within* a component, and only for the
-  multi-shard ones. That is exactly where the wait is on a 9B: it refines the
-  transformer and the text encoder, and single-file components (a VAE) never
-  need it because they complete in one step of the bar above.
-
-So the reading is precise to a shard inside the big components and to a
-component elsewhere. It never runs backwards: the figure is high-watermarked,
-because a progress line that retreats reads as a fault rather than as the
-re-scan it actually is.
-
-Nothing here imports torch, diffusers or huggingface_hub at module scope —
-``tests/steps/test_imports.py`` imports every module under ``steps/``.
-"""
+"""How much of a checkpoint's weights have landed, in bytes."""
 from __future__ import annotations
 
 import json

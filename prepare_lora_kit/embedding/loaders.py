@@ -1,9 +1,5 @@
-"""Image-embedding loaders and dispatch for the Curate step.
-
-All heavy imports (``torch``, ``open_clip``, ``transformers``) are lazy so this
-module — and anything importing the catalog through it — stays cheap to import.
-
-Entry point: :func:`embed_images` — coverage embeddings for any catalog family.
+"""Image-embedding loaders and dispatch for the Curate step; entry point
+:func:`embed_images`.
 """
 from __future__ import annotations
 

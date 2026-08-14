@@ -6,8 +6,13 @@
   overflow: hidden;
 }
 
+/* Vertical only: there is no zoom, and `fitCanvasSize` (canvas-utils.js) only
+   ever scales the canvas down, so it can never be wider than this pane — but it
+   is capped on height independently and can be taller. */
 .canvas-wrap {
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overflow-x: clip;
   background: rgba(5, 7, 15, 0.9);
   padding: 14px;
 }
@@ -19,8 +24,8 @@
   border-radius: var(--radius-md);
   background: #05070f;
   cursor: crosshair;
-  /* Stop the overflow:auto .canvas-wrap from treating a drag as a scroll/pan
-     gesture, which fires pointercancel and aborts the box mid-stroke. */
+  /* Stop the scrollable .canvas-wrap from treating a drag as a scroll gesture,
+     which fires pointercancel and aborts the box mid-stroke. */
   touch-action: none;
 }
 
@@ -28,7 +33,9 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overflow-x: clip;
   border-left: 1px solid var(--hairline);
   background: rgba(11, 16, 36, 0.72);
   padding: 14px;
@@ -167,6 +174,8 @@
   flex: 1 1 auto;
   gap: 8px;
   overflow-x: auto;
+  overflow-y: hidden;
+  overflow-y: clip;
   padding: 4px 2px;
 }
 

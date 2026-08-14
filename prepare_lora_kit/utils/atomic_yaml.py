@@ -1,12 +1,5 @@
-"""Durable YAML writes for the files under ``~/.prepare_lora_kit``.
-
-Both the settings document and every project file are things the app must be
-able to read on its next launch, so neither may ever be left half-written: the
-write goes to a temp file beside the target and is swapped in with
-``os.replace``, which is atomic on the same filesystem.
-
-Lives in ``utils`` rather than beside either caller because ``settings`` must not
-import from ``project``.
+"""Durable YAML writes under ``~/.prepare_lora_kit``: temp file beside the target,
+swapped in with ``os.replace``.
 """
 from __future__ import annotations
 

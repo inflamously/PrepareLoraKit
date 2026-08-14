@@ -1,14 +1,4 @@
-"""CaptionBboxStep — Bbox Annotation + Hugging Face captioning.
-
-Thin entry point: :func:`run` constructs a :class:`RealCaptionStep` and runs it.
-The orchestration lives in :mod:`~prepare_lora_kit.steps.caption_bbox.base`; the
-real and mock implementations in ``real.py`` / ``mock.py``.
-
-For each image:
-  1. Optional region annotations are collected (UI-only; the CLI captions full images).
-  2. Bbox context + image are sent to a HF caption model to produce a structured caption.
-  3. Caption is cleaned, token-checked, and saved as {stem}.txt.
-"""
+"""CaptionBboxStep — thin entry point; the orchestration lives in :mod:`.base`."""
 from __future__ import annotations
 
 from collections.abc import Callable

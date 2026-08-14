@@ -1,25 +1,7 @@
 """The on-disk shape of a project: one folder, one file per pipeline step.
 
-A project lives at ``~/.prepare_lora_kit/projects/<name>/`` — outside the
-checkout, for the same reason ``settings.yaml`` does (it survives a re-clone and
-is shared by every working copy), and because dataset paths are machine-specific
-user data that has no business in a repo.
-
-    demo/
-      index.yaml            name, input/output dirs, and which steps run
-      caption_bbox.yaml     one file per step: its substeps and its settings
-      ...
-
-**Slugs are the on-disk vocabulary; CamelCase step types are the in-memory one.**
-The translation happens in exactly two functions here, :func:`read_project_folder`
-and :func:`write_project_folder`. Everything downstream — ``RunState`` keys,
-``reports/<StepType>_report.json``, ``STEP_INVOKE_MAP``, ``SUBSTEP_REGISTRY``,
-``CONFIG_FIELD_SCHEMA``, the UI's ``StepPayload.type`` — stays CamelCase. Keeping
-that line sharp is what stops a file-layout change from reaching the engine.
-
-:func:`read_project_folder` returns the same flat dict shape the single-file YAML
-used to parse into, so ``ProjectConfig`` builds itself from a folder exactly as it
-did from a file.
+Slugs are the on-disk vocabulary and CamelCase step types the in-memory one;
+:func:`read_project_folder` and :func:`write_project_folder` are the only translators.
 """
 from __future__ import annotations
 

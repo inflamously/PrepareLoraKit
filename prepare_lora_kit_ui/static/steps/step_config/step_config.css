@@ -38,6 +38,8 @@
   min-height: 0;
   gap: 14px;
   overflow-y: auto;
+  overflow-x: hidden;
+  overflow-x: clip;
   padding: 16px;
 }
 
@@ -54,7 +56,11 @@
   justify-content: space-between;
 }
 
+/* Label text comes from the backend field schema; in the `--wide` two-column
+   tier a long one would otherwise escape its column. */
 .step-config__label {
+  min-width: 0;
+  overflow-wrap: anywhere;
   color: var(--caption);
   font-size: 12px;
   text-transform: uppercase;
@@ -110,6 +116,8 @@
   min-width: 0;
   min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 /* Let the prompt textareas grow to fill the taller right column. */

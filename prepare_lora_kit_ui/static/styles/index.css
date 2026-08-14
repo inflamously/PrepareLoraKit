@@ -1,12 +1,8 @@
 /*
- * nf-* design kit — single entry point.
+ * nf-* design kit — single entry point: the token contract first, then every component.
  *
- * Self-contained: imports the token contract first, then every component.
- * To use the kit in another project, copy this `styles/` folder and add one line:
- *
- *     @import "styles/index.css";
- *
- * Override any custom property from tokens.css in your own :root to reskin.
+ * Self-contained. Copy this `styles/` folder into another project, `@import` this file,
+ * and override any tokens.css custom property in your own :root to reskin.
  */
 @import "./tokens.css";
 

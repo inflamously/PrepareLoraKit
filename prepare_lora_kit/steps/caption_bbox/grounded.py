@@ -1,21 +1,4 @@
-"""Grounded caption generation: observe → compose → gap-fill.
-
-Splits the single-shot VLM caption into prompt passes over the *same*
-already-loaded model, so accuracy comes from grounding the caption in observed
-facts rather than from a bigger model:
-
-- **A. OBSERVE** — list only-visible facts under fixed headings (the accuracy pass).
-- **B. COMPOSE** — write one fluent caption from those facts + bbox placement.
-- **C. GAP-FILL** — *conditional and additive*: only when a cheap text signal says
-  the draft is thin, ask the model for the elements it omitted and merge them in
-  Python (:mod:`.gap_fill`). It cannot reword or drop what the draft already says.
-
-Used only for prompt-capable (``image-text-to-text``) runtimes; the caller in
-``vlm.CaptionRuntime.caption_image`` falls back to the single pass for classic
-``image-to-text`` models, which cannot follow multi-turn instructions. Each stage
-degrades gracefully: an empty/degenerate result falls back to the prior stage so the
-pipeline never returns worse than a single pass.
-"""
+"""Grounded captioning over one loaded VLM: observe → compose → gap-fill."""
 from __future__ import annotations
 
 from collections.abc import Callable

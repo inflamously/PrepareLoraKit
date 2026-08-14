@@ -1,14 +1,4 @@
-"""VRAM planning for the Caption Verifier text-to-image runtime.
-
-Pure and side-effect free: every capability (CUDA, bitsandbytes, VRAM figures)
-is passed in, and warnings are *returned* as ``GenerationPlan.notes`` rather
-than printed, so the whole quantization/offload ladder is testable without a
-GPU. :mod:`.t2i` is responsible for probing the environment and emitting the
-notes through ``reporter``.
-
-No ``torch`` or ``diffusers`` import at module scope — ``tests/steps/
-test_imports.py`` imports every module under ``steps/``.
-"""
+"""VRAM planning for the text-to-image runtime: pure, with every capability passed in."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field

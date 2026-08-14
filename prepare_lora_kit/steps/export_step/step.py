@@ -1,13 +1,5 @@
-"""ExportStep — Export finalized dataset to a training folder.
-
-Copies the finalized image + ``.txt`` caption pairs out of the working dataset
-into a separate export folder an ai-toolkit / LoRA trainer can point at,
-preserving subject subfolders. A diff pre-step previews the changes (added /
-modified / orphaned) and requires confirmation before anything is written.
-
-The export is non-destructive: the pristine source input and the working
-dataset are never mutated, and target files no longer in the final set
-(``orphaned``) are reported but left in place.
+"""ExportStep — copy finalized image/caption pairs into a training folder after a
+reviewed diff, mutating neither the source nor the working dataset.
 """
 from __future__ import annotations
 

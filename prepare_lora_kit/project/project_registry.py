@@ -1,21 +1,7 @@
 """Create, find, rename, copy and delete projects on disk.
 
-Every project is a folder under ``~/.prepare_lora_kit/projects/`` — see
-:mod:`prepare_lora_kit.project.store` for its shape. This module is the only
-place that mutates the library, and it works exclusively from project *names*:
-each one goes through ``store.dir_name_for`` before it becomes a path, which is
-the first of the two guards standing between a name typed into the UI and
-``shutil.rmtree``.
-
-Two properties are worth preserving deliberately, because both are easy to
-"simplify" away:
-
-* **Renames move the directory; they never rewrite it.** Only ``index.yaml`` is
-  touched. A user's ``<step>.yaml`` files — including any comments they added —
-  come through byte-for-byte.
-* **``load`` raises ``ValueError`` for an unknown project.** ``cli/run.py``
-  catches exactly that to offer creating the project, and ``cli/step`` turns it
-  into a ``BadParameter``.
+Renames move the directory and rewrite only ``index.yaml``, and :func:`load` raises
+``ValueError`` for an unknown project — which ``cli/run.py`` and ``cli/step`` catch.
 """
 import shutil
 from pathlib import Path

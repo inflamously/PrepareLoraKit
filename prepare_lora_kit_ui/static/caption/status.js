@@ -1,11 +1,5 @@
-// One line any model-backed step can show about its runtime, plus the two
-// things a long load needs on top of it: how long it has been going, and how
-// far it has got. A 9B FLUX.2 klein takes minutes to load and reports nothing
-// on its own — without an elapsed count and a bar, "loading" and "hung" are the
-// same screen.
-//
-// Every field past `phase` and `message` is optional, so a step that only
-// publishes those two renders exactly as it did before.
+// One line any model-backed step can show about its runtime, plus elapsed time and
+// progress for a long load. Every field past `phase` and `message` is optional.
 export function renderCaptionStatus(element, status) {
   if (!element) return;
   if (!status || !status.phase) {

@@ -1,10 +1,5 @@
-"""Shared helpers for cleaning up JPEG compression artifacts during upscale.
-
-JPEG block/ringing artifacts are baked in at the file's original encoding
-resolution, so a plain resize (up or down) just rescales the artifacts along
-with the image content. These helpers either denoise in place (for the
-non-AI Lanczos path) or shrink the image enough to shed the artifacts before
-an AI upscaler regrows the resolution.
+"""Shed JPEG artifacts, which are baked in at the original encoding resolution and so
+survive a plain resize.
 """
 from __future__ import annotations
 

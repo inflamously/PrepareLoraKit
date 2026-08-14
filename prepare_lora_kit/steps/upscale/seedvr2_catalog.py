@@ -1,14 +1,4 @@
-"""SeedVR2 DiT model catalog owned by PrepareLoraKit.
-
-This module is the single source of truth for the SeedVR2 checkpoints PLK offers.
-The step-config dropdown, the Settings modal, the ``auto`` model pick and the
-worker's residency heuristic all read from here so they cannot drift apart.
-
-Kept deliberately import-light: stdlib only, no ``torch`` and no settings access,
-so importing the config schema stays cheap. VRAM detection lives in
-:mod:`prepare_lora_kit.embedding.vram`; the on-disk scan lives in
-:mod:`prepare_lora_kit.steps.upscale.seedvr2_adapter`.
-"""
+"""Single source of truth for the SeedVR2 checkpoints PLK offers."""
 from __future__ import annotations
 
 from collections.abc import Collection

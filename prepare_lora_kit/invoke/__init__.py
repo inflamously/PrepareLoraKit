@@ -1,12 +1,5 @@
-"""
-Per-step invoke adapters — bridge a PipelineStep's config to its step module's
-``run()`` entry point. ``STEP_INVOKE_MAP`` maps a step type to its adapter.
-
-Each adapter signature: (working_dir, output_dir, cfg, *, concept_token, original_dir)
-
-Each adapter (and its deterministic ``--mock`` runtime counterpart, if any) lives in its own
-module in this package; this file only wires them into ``STEP_INVOKE_MAP`` and re-exports them
-for backward compatibility with callers that still do ``from prepare_lora_kit import invoke``.
+"""Per-step invoke adapters; ``STEP_INVOKE_MAP`` maps a step type to the adapter that
+bridges its config to the step module's ``run()``.
 """
 from __future__ import annotations
 

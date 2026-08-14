@@ -1,15 +1,7 @@
-"""Copy configured global defaults into a *new* project's pipeline data.
+"""Copy configured global defaults into a *new* project's pipeline data, once.
 
-This runs exactly once per project, at creation time, from
-``project_registry.default_project_data``. It is not a fallback layer: once the
-YAML exists it is the only source of truth, so changing a global later never
-alters an existing project. That is the whole precedence contract, and keeping
-it in one small module is what makes it checkable.
-
-A settings field of ``None`` means "not configured", so it is skipped rather
-than written as a null — with nothing configured the output is identical to the
-raw ``_default_pipeline()``, which is asserted by
-``tests/settings/test_seeding.py``.
+Not a fallback layer: once the YAML exists it is the only source of truth, so changing
+a global later never alters an existing project.
 """
 from __future__ import annotations
 

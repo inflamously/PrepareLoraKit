@@ -1,9 +1,4 @@
-"""CaptionBboxStep ``--bbox`` region-context use-case for the ``step`` command.
-
-Parses ``--bbox`` region specs, resolves which dataset image they apply to, and
-builds the :class:`CliBboxRegionProvider` interaction that feeds those regions
-into CaptionBboxStep's annotate substep.
-"""
+"""Parse ``--bbox`` region specs and feed them into CaptionBboxStep's annotate substep."""
 from __future__ import annotations
 
 from pathlib import Path

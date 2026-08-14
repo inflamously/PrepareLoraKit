@@ -1,12 +1,7 @@
 """Read and write ``~/.prepare_lora_kit/settings.yaml``.
 
-The file lives outside the checkout so it survives a re-clone and is shared by
-every working copy; ``prepare_lora_kit.paths`` owns the location.
-
-Absent, empty and partial files all resolve to a fully defaulted
-:class:`AppSettings` — settings are strictly additive, and the app must behave
-exactly as it did before this feature existed until the user configures
-something. Only genuinely malformed YAML raises, and it names the file.
+Absent, empty and partial files all resolve to a fully defaulted :class:`AppSettings`;
+only malformed YAML raises.
 """
 from __future__ import annotations
 

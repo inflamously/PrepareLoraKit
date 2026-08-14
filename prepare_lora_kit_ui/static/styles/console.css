@@ -1,7 +1,16 @@
+/* The host is a <pre>, whose UA default `white-space: pre` never wraps — that
+   default is what made this pane scroll sideways forever. Wrapping is declared
+   here as well as on the line elements so the pane stays safe if it is ever
+   filled with plain text again. */
 .nf-console {
+    --log-indent: 2ch;
     flex: 1 1 auto;
     min-height: 0;
-    overflow: auto;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overflow-x: clip;
     margin: 0;
     padding: var(--space-5) var(--space-6);
     background: var(--night-990);
@@ -13,10 +22,16 @@
     color: var(--text-2);
 }
 
+/* One element per log line, so a wrapped continuation can be given a hanging
+   indent and not be misread as a new line. Logs are raw pipeline stdout with no
+   fixed prefix column, so the indent is a small constant — there is nothing to
+   align to. */
 .nf-console__line {
     display: block;
     white-space: pre-wrap;
-    word-break: break-word;
+    overflow-wrap: anywhere;
+    padding-left: var(--log-indent);
+    text-indent: calc(var(--log-indent) * -1);
 }
 
 .nf-console__line.is-head {

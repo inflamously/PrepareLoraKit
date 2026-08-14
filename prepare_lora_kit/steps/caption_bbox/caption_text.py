@@ -1,18 +1,4 @@
-"""Caption text inspection and cleanup.
-
-Everything that reads or cleans generated caption *text*, as opposed to building the
-prompts that produce it (:mod:`.prompts`): boilerplate stripping, token and length
-checks, and the coverage comparison below.
-
-Both caption stages that compare two pieces of caption text need the same notion of
-"does this already say that?": :mod:`.gap_fill` before appending a phrase, and
-:mod:`.grounded` before accepting a human's region labels in place of an observation
-pass.
-
-The comparison is deliberately loose — content words only, plurals folded. In both
-call sites a false "already covered" merely skips an addition, while a false "not
-covered" duplicates text and dilutes the caption for the text encoder.
-"""
+"""Caption text inspection and cleanup: boilerplate, length/token checks, and coverage."""
 from __future__ import annotations
 
 import re

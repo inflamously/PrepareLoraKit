@@ -1,15 +1,4 @@
-"""diffusers pipeline construction for CaptionVerifierStep.
-
-Every ``torch``/``diffusers``/``transformers`` import is function-local:
-``tests/steps/test_imports.py`` imports every module under ``steps/``, and the
-config schema imports this package's :mod:`.catalog`.
-
-Quantization goes through diffusers' :class:`PipelineQuantizationConfig`, which
-applies the right backend to each named component (diffusers' own
-``BitsAndBytesConfig`` for the denoiser, transformers' for the text encoder).
-That is what makes a 9B FLUX.2 klein plus its Qwen3 text encoder fit a 16 GB
-card, and it avoids hand-wiring two same-named config classes.
-"""
+"""diffusers pipeline construction for CaptionVerifierStep."""
 from __future__ import annotations
 
 from pathlib import Path

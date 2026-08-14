@@ -1,18 +1,4 @@
-"""
-UpscaleStep — Upscale (optional)
-
-Selectively upscales images below the target min-side.
-The project config selects the upscaler. Missing configured upscalers skip with
-a warning instead of silently falling back to another algorithm.
-Compares each result's low-frequency structure against its original (blurred
-grayscale SSIM) to reject hallucinated-texture outputs.
-
-JPEG sources are always converted to PNG when processed (never on a plain
-pass-through), since JPEG compression artifacts shouldn't survive into
-training data. Images at/above ``upscale_highlight_threshold`` that are still
-JPEG get an extra downscale-then-reupscale cleanup pass first, since their
-block artifacts are baked in at the original encoding resolution.
-"""
+"""UpscaleStep — upscale images below the target min-side, rejecting hallucinated texture."""
 from __future__ import annotations
 
 import shutil

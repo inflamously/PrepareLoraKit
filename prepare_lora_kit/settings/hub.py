@@ -1,13 +1,7 @@
 """Hugging Face Hub access: login status, repo reachability, readable failures.
 
-The app deliberately stores no token of its own. ``huggingface_hub.get_token()``
-already resolves the ``HF_TOKEN`` environment variable and the token file that
-``hf auth login`` writes, so reusing it means there is exactly one place a
-credential lives and we are not another one.
-
-Everything here imports ``huggingface_hub`` *inside* functions. This module is
-referenced from step packages, and ``tests/steps/test_imports.py`` walks every
-module under ``steps/`` asserting that importing one stays cheap.
+The app stores no token of its own; ``huggingface_hub.get_token()`` already resolves
+``HF_TOKEN`` and whatever ``hf auth login`` wrote.
 """
 from __future__ import annotations
 

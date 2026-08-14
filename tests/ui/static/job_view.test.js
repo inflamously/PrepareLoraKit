@@ -57,6 +57,90 @@ function completedJob(result) {
   };
 }
 
+function logRail() {
+  return document.getElementById("logOutput");
+}
+
+function logLines() {
+  return [...logRail().children].map((line) => line.textContent);
+}
+
+function runningJob(logs) {
+  return {
+    status: "running",
+    current_step: null,
+    logs,
+    caption_status: null,
+    cancel_requested: false,
+    result: null,
+  };
+}
+
+describe("run log rendering", () => {
+  it("gives every line its own element so it can wrap with a hanging indent", () => {
+    state.job = runningJob(["import: 12 images", "upscale: starting"]);
+
+    renderJob();
+
+    assert.deepEqual(logLines(), ["import: 12 images", "upscale: starting"]);
+    assert.deepEqual(
+      [...logRail().children].map((line) => line.className),
+      ["nf-console__line", "nf-console__line"],
+    );
+  });
+
+  it("does not rewrite the console when the buffer is unchanged", () => {
+    state.job = runningJob(["import: 12 images"]);
+    renderJob();
+    const untouched = logRail().firstElementChild;
+
+    renderJob();
+
+    assert.equal(logRail().firstElementChild, untouched);
+  });
+
+  it("rewrites the console when the buffer grows", () => {
+    state.job = runningJob(["import: 12 images"]);
+    renderJob();
+
+    state.job = runningJob(["import: 12 images", "upscale: starting"]);
+    renderJob();
+
+    assert.deepEqual(logLines(), ["import: 12 images", "upscale: starting"]);
+  });
+
+  it("leaves the console alone while a selection is anchored inside it", () => {
+    state.job = runningJob(["import: 12 images"]);
+    renderJob();
+    global.getSelection = () => ({
+      isCollapsed: false,
+      anchorNode: logRail(),
+      focusNode: logRail(),
+    });
+
+    state.job = runningJob(["import: 12 images", "upscale: starting"]);
+    renderJob();
+
+    assert.deepEqual(logLines(), ["import: 12 images"]);
+  });
+
+  it("clears the console and its render cache when the job goes away", () => {
+    state.job = runningJob(["import: 12 images"]);
+    renderJob();
+
+    state.job = null;
+    renderJob();
+    assert.deepEqual(logLines(), []);
+    assert.equal(logRail().textContent, "");
+
+    // Same buffer as before the clear: a cache that survived would render nothing.
+    state.job = runningJob(["import: 12 images"]);
+    renderJob();
+
+    assert.deepEqual(logLines(), ["import: 12 images"]);
+  });
+});
+
 describe("open output button availability", () => {
   it("enables with no job when the output folder already exists on disk", () => {
     state.outputDir = "/outputs/sample";

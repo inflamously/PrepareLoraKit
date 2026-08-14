@@ -1,9 +1,4 @@
-"""
-CurateStep — Curation
-
-1. Perceptual-hash dedupe (phash, configurable Hamming distance).
-2. Coverage embedding (CLIP/DINOv2/Qwen, VRAM-auto): UMAP (N > 30) or PCA (N ≤ 30) scatter.
-"""
+"""CurateStep — perceptual-hash dedupe plus a coverage-embedding scatter."""
 from __future__ import annotations
 
 from pathlib import Path

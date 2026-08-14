@@ -1,9 +1,4 @@
-"""Deterministic mock implementation of CaptionBboxStep (``--mock``).
-
-Shares the whole orchestration with the real step via :class:`CaptionStep`; it only
-swaps the VLM for deterministic text and skips model load and caption validation, so
-the ``--mock`` fixture can never drift from the real flow.
-"""
+"""Deterministic mock CaptionBboxStep (``--mock``): the real flow with fixed caption text."""
 from __future__ import annotations
 
 from pathlib import Path

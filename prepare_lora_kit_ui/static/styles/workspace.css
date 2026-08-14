@@ -10,7 +10,10 @@
 
 .nf-col {
     min-height: 0;
+    min-width: 0;
     overflow-y: auto;
+    overflow-x: hidden;
+    overflow-x: clip;
     display: flex;
     flex-direction: column;
     gap: var(--space-5);
@@ -27,6 +30,8 @@
     .nf-workspace {
         grid-template-columns: 1fr;
         overflow-y: auto;
+        overflow-x: hidden;
+        overflow-x: clip;
     }
 
     .nf-col,

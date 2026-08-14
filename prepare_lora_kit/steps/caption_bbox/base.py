@@ -1,10 +1,5 @@
-"""Shared orchestration for CaptionBboxStep.
-
-``CaptionStep`` owns the whole per-image pipeline — output prep, resume, the batch
-annotation interaction, the caption loop, validation, and reporting — and defers
-only the parts that differ between a real VLM run and the deterministic ``--mock``
-runtime to a handful of hooks. ``RealCaptionStep`` (``real.py``) and
-``MockCaptionStep`` (``mock.py``) subclass it; nothing else re-implements the flow.
+"""Shared orchestration for CaptionBboxStep; the real and ``--mock`` runtimes differ only
+in a handful of hooks.
 """
 from __future__ import annotations
 

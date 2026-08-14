@@ -1,8 +1,5 @@
-"""Coerce and apply UI overrides back onto step config dataclasses.
-
-Submitted overrides are coerced to their Python types and applied via
-:func:`dataclasses.replace`, which re-runs the dataclass ``__post_init__``
-validation (raising ``ValueError`` on invalid input).
+"""Coerce UI overrides onto step config dataclasses, re-running ``__post_init__``
+validation.
 """
 from __future__ import annotations
 

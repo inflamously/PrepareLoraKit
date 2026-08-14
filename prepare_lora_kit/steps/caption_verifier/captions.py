@@ -1,11 +1,7 @@
 """Caption discovery and write-back for CaptionVerifierStep.
 
-Captions live as plain UTF-8 ``<stem>.txt`` sidecars beside their image inside
-the working dataset (written by ``caption_bbox/workflow._write_caption``). This
-module is the only place the verifier writes into that dataset, so it carries
-the containment and atomicity rules.
-
-No ML imports — this is pure filesystem work.
+The only place the verifier writes into the working dataset, so the containment and
+atomicity rules live here.
 """
 from __future__ import annotations
 

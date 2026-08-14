@@ -1,8 +1,5 @@
-"""Compatibility re-export of the pipeline step/substep definitions.
-
-The canonical definitions now live in the :mod:`prepare_lora_kit.project.pipeline`
-package (``pipeline/steps.py`` and ``pipeline/substeps.py``). This module is kept
-as a thin shim so existing ``from .steps import ...`` import paths stay stable.
+"""Compatibility re-export of the step/substep definitions now in
+:mod:`prepare_lora_kit.project.pipeline`.
 """
 from __future__ import annotations
 

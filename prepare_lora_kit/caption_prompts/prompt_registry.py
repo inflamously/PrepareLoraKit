@@ -1,19 +1,7 @@
-"""Global caption prompt library: list/load/save/delete named prompts.
+"""Global caption prompt library — list/load/save/delete named full-image and region prompts.
 
-Prompts are stored as one YAML file per entry under ``configs/caption_prompts/``,
-mirroring the project registry (see :mod:`..project.project_registry`). The
-library is *global* — shared across every project — so a prompt saved once can be
-reused for any run.
-
-Two kinds exist:
-
-* ``full_image`` — the per-image caption instruction (the full-image template).
-* ``region``     — the bbox crop caption instruction.
-
-A prompt's ``text`` is a template that may contain ``{bbox_annotations}`` and
-``{concept_token}`` placeholders; these are filled in at caption time by
-:func:`...steps.caption_bbox.prompts.apply_prompt_placeholders`. Filenames are
-namespaced by kind (``<kind>__<slug>.yaml``) so the same name can exist for both kinds.
+Filenames are namespaced by kind (``<kind>__<slug>.yaml``) so the same name can exist
+for both.
 """
 from __future__ import annotations
 

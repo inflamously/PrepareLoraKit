@@ -12,6 +12,8 @@ opencv-python>=4.8
 torch>=2.1
 torchvision>=0.16
 transformers>=4.57          # Qwen3-VL / InternVL3 native Auto-class support
+# The Qwen3.8-27B caption option needs transformers>=5.8. The floor stays at 4.57 so
+# the rest of the stack is not forced onto 5.x — upgrade only if you select that model.
 accelerate>=0.27            # required at runtime by transformers device_map
 diffusers>=0.30
 huggingface_hub>=0.27       # auth_check + get_token; used directly by settings/hub.py

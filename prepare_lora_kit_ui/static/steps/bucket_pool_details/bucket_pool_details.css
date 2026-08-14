@@ -39,7 +39,9 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   min-height: 0;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overflow-x: clip;
   padding: 10px;
 }
 
@@ -104,7 +106,9 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 9px;
   min-height: 0;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overflow-x: clip;
   padding: 10px;
 }
 
@@ -162,7 +166,9 @@
 .bucket-pool-detail {
   min-width: 0;
   min-height: 0;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overflow-x: clip;
   background: rgba(5, 7, 15, 0.7);
 }
 
@@ -348,6 +354,9 @@
 @media (max-width: 940px) {
   .bucket-pool-workspace {
     grid-template-columns: 210px 230px minmax(360px, 1fr);
-    overflow: auto;
+    /* Both axes on purpose: the three tracks have a fixed floor wider than this
+       breakpoint, so scrolling is the only alternative to clipping them. */
+    overflow-y: auto;
+    overflow-x: auto;
   }
 }

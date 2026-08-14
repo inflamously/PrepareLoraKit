@@ -1,12 +1,4 @@
-"""
-AuditStep — Pairing & Integrity Audit
-
-Checks:
-  1. Every image has exactly one .txt sidecar (no orphans either direction).
-  2. PIL verify() — no truncated/corrupt files.
-  3. No empty captions, no extreme caption-length outliers.
-  4. No images with min_side < largest bucket resolution.
-"""
+"""AuditStep — pairing and integrity audit: sidecars, corrupt files, caption sanity, size."""
 from __future__ import annotations
 
 from pathlib import Path

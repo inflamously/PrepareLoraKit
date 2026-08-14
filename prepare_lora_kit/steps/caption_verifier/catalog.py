@@ -1,16 +1,7 @@
-"""Text-to-image model catalog owned by the Caption Verifier step.
+"""Single source of truth for the text-to-image models CaptionVerifierStep offers.
 
-Single source of truth for the models offered in ``CaptionVerifierStep``. Both
-the UI config schema (dropdown options) and the runtime loader read from here,
-so the two can never drift apart.
-
-Kept deliberately import-light: no ``torch``/``diffusers``/``transformers`` at
-module load, so importing the config schema stays cheap. Mirrors the shape of
-:mod:`prepare_lora_kit.embedding.catalog`.
-
-The ``params_b``/``text_encoder_b`` figures are **rough sizing estimates** used
-only by :mod:`.plan` to pick a quantization tier. They do not need to be exact;
-they need to be in the right order of magnitude.
+``params_b``/``text_encoder_b`` are rough sizing estimates, used only by :mod:`.plan`
+to pick a quantization tier.
 """
 from __future__ import annotations
 

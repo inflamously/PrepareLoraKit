@@ -1,10 +1,7 @@
 """Build the Settings modal's payload: current values, choices, and placeholders.
 
-Strictly cheap. Everything here is disk reads and torch-free catalogs, because
-the modal has to open instantly — probing VRAM would drag ``torch`` into the UI
-process and freeze it for seconds, and asking the Hub anything needs the
-network. Both live behind their own buttons instead
-(``bridge.detect_hardware`` / ``bridge.hf_status`` / ``bridge.check_model_access``).
+Strictly cheap — no VRAM probe and no Hub call, both of which sit behind their own
+buttons so the modal opens instantly.
 """
 from __future__ import annotations
 
@@ -27,7 +24,7 @@ def _pairs(choices: list[tuple[str, str]]) -> list[dict[str, str]]:
     return [{"value": value, "label": label} for value, label in choices]
 
 
-def choices() -> dict[str, list[dict[str, str]]]:
+def _choices() -> dict[str, list[dict[str, str]]]:
     """Select options for every field the modal renders."""
     from prepare_lora_kit.embedding import catalog as embedding_catalog
     from prepare_lora_kit.steps.caption_verifier import catalog as t2i_catalog
@@ -120,7 +117,7 @@ def settings_payload(settings: AppSettings) -> dict[str, Any]:
 
     return {
         "settings": settings.to_dict(),
-        "choices": choices(),
+        "choices": _choices(),
         "placeholders": placeholders(),
         "vram_tiers": list(VRAM_TIERS),
         "settings_path": str(settings_path()),

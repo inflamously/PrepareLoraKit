@@ -1,15 +1,7 @@
 """The app-wide settings document: dataclasses plus tolerant dict conversion.
 
-Every field is optional and defaults to ``None``, which always means *"not
-configured — use the app default"*. That single convention is what keeps the
-whole feature a no-op until the user actually sets something: seeding skips
-``None`` fields entirely, so a default settings file produces byte-identical
-project YAML to the one the app wrote before settings existed.
-
-Conversion is deliberately forgiving in one direction only: unknown keys and
-blank strings are dropped on the way in (a settings file written by a newer
-build must not break an older one), but a *known* key holding an invalid value
-raises, so a typo surfaces in the Settings modal instead of silently reverting.
+Every field defaults to ``None``, which always means "not configured — use the app
+default"; a known key holding an invalid value raises rather than reverting.
 """
 from __future__ import annotations
 

@@ -1,16 +1,7 @@
 """What a finished step's own report says about whether it did any work.
 
-The engine marked a step ``done`` whenever its invoker returned without raising,
-so a step that wrote a ``skipped: true`` report — or wrote no report at all —
-still showed a green "done" badge next to a ``reports/`` folder that said
-otherwise. A step's return value *is* the report it saved, so it is the one
-honest source for that distinction.
-
-The persisted step **status** stays ``done`` either way. That field is what
-``validate_pipeline_selection`` reads for prerequisites and what the skip policy
-reads for resume: a step that legitimately had nothing to do must not block the
-rest of the pipeline, and must not be re-run forever. The distinction is recorded
-beside it as ``outcome``, which is what the UI badge reads.
+The persisted status stays ``done`` either way — prerequisites and resume read that —
+so the distinction is recorded beside it as ``outcome``, which the UI badge reads.
 """
 from __future__ import annotations
 

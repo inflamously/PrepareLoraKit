@@ -15,7 +15,9 @@
   min-width: 0;
   min-height: 0;
   place-items: center;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overflow-x: clip;
   background: rgba(5, 7, 15, 0.82);
   padding: 16px;
 }
@@ -100,7 +102,9 @@
   flex-direction: column;
   gap: 14px;
   min-width: 0;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overflow-x: clip;
   border-left: 1px solid var(--hairline);
   background: rgba(7, 10, 24, 0.72);
   padding: 16px;

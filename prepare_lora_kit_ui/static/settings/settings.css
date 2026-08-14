@@ -16,6 +16,8 @@
   gap: 22px;
   min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
+  overflow-x: clip;
   padding: 18px 4px 18px 0;
 }
 
@@ -112,8 +114,13 @@
   border-left-color: var(--danger-500, #f87171);
 }
 
+/* Holds an arbitrary-length HF repo id, so it must be allowed to shrink.
+   `flex-shrink: 0` would pin it at max-content and push it past the modal edge
+   no matter what `min-width` says — shrink is what `min-width` cannot override. */
 .settings-access__id {
-  flex: 0 0 auto;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
   font-family: var(--font-mono, monospace);
   color: var(--text);
 }

@@ -1,8 +1,5 @@
-"""Lightweight dataset prechecks that drive soft step-list recommendations.
-
-These run on project load (via ``project_payload``) so the UI can softly
-highlight a step the dataset would benefit from — currently the UpscaleStep,
-when the dataset has images that are too small or carry JPEG artifacts.
+"""Dataset prechecks, run on project load, that softly highlight a step it would benefit
+from.
 """
 from __future__ import annotations
 

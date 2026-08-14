@@ -1,7 +1,7 @@
 """Report construction for CaptionVerifierStep.
 
-Every branch — success, partial, skipped — emits the **same top-level key set**
-so the UI report renderer never needs ``.get()`` guards. A test enforces it.
+Every branch — success, partial, skipped — emits the same top-level key set so the UI
+renderer never needs ``.get()`` guards. A test enforces it.
 """
 from __future__ import annotations
 

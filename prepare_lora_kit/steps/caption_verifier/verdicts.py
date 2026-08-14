@@ -1,10 +1,4 @@
-"""Verifier-side glue between the review's answers and the verdict ledger.
-
-Kept out of :mod:`prepare_lora_kit.utils.verdict_ledger` so the ledger stays a
-plain document with no opinion about either step, and out of ``step.py`` so the
-"what does a verdict mean once the captions have been written" rules sit in one
-readable place.
-"""
+"""What a verdict means once the captions have been written: review answers to ledger."""
 from __future__ import annotations
 
 from pathlib import Path

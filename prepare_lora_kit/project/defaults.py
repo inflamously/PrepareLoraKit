@@ -1,11 +1,4 @@
-"""The canonical default pipeline for a new project.
-
-One place, as plain data: every step in workflow order with the settings a fresh
-project starts from. ``settings.seeding`` merges configured globals into this
-list at creation time, and ``project.store`` splits the result into files — so
-this stays a flat ``list[dict]`` keyed by CamelCase step type, exactly as the
-single-file YAML used to hold it.
-"""
+"""The canonical default pipeline for a new project, as one flat CamelCase-keyed list."""
 from __future__ import annotations
 
 from typing import Any

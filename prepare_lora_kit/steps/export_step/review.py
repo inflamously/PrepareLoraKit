@@ -1,8 +1,4 @@
-"""CLI (terminal) fallback for the ExportStep diff pre-step.
-
-Mirrors the terminal-prompt style of ``steps/vae_gate/review.py``: print the
-categorized diff, then ask the user to confirm before anything is written.
-"""
+"""CLI fallback for the ExportStep diff pre-step: print the diff, then ask to confirm."""
 from __future__ import annotations
 
 from typing import Any

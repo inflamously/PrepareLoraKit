@@ -1,20 +1,8 @@
 """One-shot relocation of pipeline entries written under an older canonical order.
 
-:meth:`ProjectConfig._validate_pipeline` rejects a ``pipeline:`` list whose
-canonical orders are not strictly increasing, and that rejection is deliberate:
-it is what stops ``index.yaml`` from lying about what will run. It is also what
-breaks every project already on disk the moment *we* move a step.
-
-The rule here is narrow on purpose. A list is repaired only when it is a valid
-list under a previous canonical order this app actually shipped. A hand-shuffled
-list, or one that is valid under no layout we ever published, is left exactly as
-written and still raises. So this can only ever undo our own change, never a
-user's — which is why it is a lookup table of past layouts rather than a sort.
-
-Sorting unconditionally would be tempting (a valid list is always the canonical
-order restricted to its members, so the stored order carries no information),
-but it would also silently "fix" someone who moved ``curate`` above
-``quality_gate`` expecting that to run, and turn a clear error into a surprise.
+A list is repaired only when it is valid under a layout this app actually shipped —
+hence a lookup table of past layouts rather than a sort, which would also silently
+"fix" a hand-shuffled list instead of raising.
 """
 from __future__ import annotations
 

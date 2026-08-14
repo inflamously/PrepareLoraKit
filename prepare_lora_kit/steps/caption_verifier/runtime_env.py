@@ -1,11 +1,4 @@
-"""Everything CaptionVerifierStep's runtime says to torch.
-
-Split out of :mod:`.t2i` so that module is about the pipeline's *contract* —
-locking, caching, seeds, truncation — and this one is about the machine it runs
-on. All of it is best effort and every torch import is function-local: the step
-must import cleanly on a box with no GPU and no torch at all, and
-``tests/steps/test_imports.py`` imports every module under ``steps/``.
-"""
+"""Everything CaptionVerifierStep's runtime says to torch, all of it best effort."""
 from __future__ import annotations
 
 import contextlib

@@ -1,8 +1,4 @@
-"""Step-type and project resolution for the ``step`` command.
-
-Maps a user-supplied step name to a canonical step type and loads the
-named project config, raising click errors with actionable hints on failure.
-"""
+"""Step-type and project resolution for the ``step`` command, with actionable click errors."""
 from __future__ import annotations
 
 import click

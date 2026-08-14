@@ -12,6 +12,7 @@ from prepare_lora_kit.project.config_schema.fields import (
 STEP_TYPE = "CaptionBboxStep"
 
 _CAPTION_MODELS = [
+    ("Qwen/Qwen3.8-27B", "Qwen3.8 27B (24 GB+)"),
     ("Qwen/Qwen3-VL-2B-Instruct", "Qwen3-VL 2B"),
     ("Qwen/Qwen3-VL-4B-Instruct", "Qwen3-VL 4B"),
     ("Qwen/Qwen3-VL-8B-Instruct", "Qwen3-VL 8B"),

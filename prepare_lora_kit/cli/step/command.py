@@ -1,9 +1,5 @@
-"""`step` command — run a single pipeline step manually, driven by project config.
-
-Where `run` executes the whole project pipeline, `step` runs exactly one step by
-name (or alias) using that step's config from the project. It reuses the same
-``STEP_INVOKE_MAP`` adapters and working-dir convention as :func:`run_all`, so a
-manually-run step operates on the same ``<output>/dataset`` working tree.
+"""``step`` — run exactly one pipeline step by name or alias, from that step's project
+config.
 """
 
 from __future__ import annotations

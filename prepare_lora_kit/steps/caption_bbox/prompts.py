@@ -1,9 +1,4 @@
-"""Caption prompt templates and prompt assembly.
-
-Single source of truth for the built-in full-image / region prompts, shared by the VLM
-runtime and the UI's virtual "Default" prompt-library entry. Caption *text* utilities
-(boilerplate stripping, coverage, length/token checks) live in :mod:`.caption_text`.
-"""
+"""Single source of truth for the built-in full-image and region caption prompts."""
 from __future__ import annotations
 
 _FULL_IMAGE_PROMPT_CONCEPT = """\

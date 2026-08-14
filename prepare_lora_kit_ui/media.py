@@ -1,14 +1,5 @@
-"""On-the-fly downscaled image variants for the UI media server.
-
-The desktop UI never needs full-resolution pixels just to *display* an image: grids and
-thumbnail strips show tiny previews, and detail/canvas panes are viewport-bounded. Serving the
-original 3042x4096 bytes for those forces the browser to download and decode megabytes per image,
-which is what makes the caption workspace sluggish.
-
-`render_variant` returns a small WEBP encoding of an image, downscaled so its longest side is at
-most ``width``. Results are memoized in a bounded, thread-safe LRU keyed by the file's
-modification time, so a re-run that overwrites an image invalidates its cached variants
-automatically. The media server is threaded, hence the lock.
+"""On-the-fly downscaled WEBP variants for the UI media server, memoized in a bounded,
+thread-safe LRU keyed by the file's mtime.
 """
 from __future__ import annotations
 

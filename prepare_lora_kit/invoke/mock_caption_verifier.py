@@ -1,12 +1,5 @@
-"""Deterministic mock runtime for CaptionVerifierStep (--mock).
-
-Renders a synthetic "generated image" from the caption text with PIL instead of
-a diffusion model, so `python main.py ui --mock CaptionVerifierStep` exercises
-the whole modal — gallery, on-demand generation, re-roll, caption editing and
-write-back — on a machine with no GPU.
-
-Everything except the render itself is the real code path: the same
-``captions.apply_caption_edits`` and ``reports.build_report`` run here.
+"""Deterministic mock runtime for CaptionVerifierStep (``--mock``): a PIL render stands in
+for the diffusion model, everything else is the real code path.
 """
 from __future__ import annotations
 

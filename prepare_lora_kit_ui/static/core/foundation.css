@@ -5,6 +5,28 @@
  * `styles/tokens.css` and must be loaded before this file. See `styles.css`.
  */
 
+/*
+ * Scrolling convention, enforced by tests/ui/static/css_overflow.test.js.
+ *
+ * A box that scrolls on one axis must state the other axis too. Leaving it out
+ * is not "no scrolling": when one axis is not `visible` the other computes from
+ * `visible` to `auto`, so every `overflow-y: auto` pane silently offered a
+ * horizontal scrollbar, and every `overflow-x: auto` strip a vertical one.
+ *
+ * The idle axis is clipped, never hidden, and always written as the pair
+ *
+ *     overflow-x: hidden;
+ *     overflow-x: clip;    <- engines below Chromium 90 / WebKitGTK 2.38 drop this
+ *
+ * because `hidden` still makes the box a scroll container: it only takes the
+ * scrollbar away, while the browser goes on scrolling the box on focus and on
+ * `scrollIntoView` — leaving a pane offset with no way for anyone to scroll it
+ * back. `clip` is not a scroll container and cannot be scrolled at all.
+ *
+ * Content is made to fit before an axis is clamped; clamping first only trades
+ * a visible scrollbar for invisible clipping.
+ */
+
 *,
 *::before,
 *::after {
@@ -23,6 +45,12 @@ html {
 
 body {
   min-width: 0;
+  /* Inherited safety net: no unbroken glyph run (a deep path, a model repo id, a
+     hash) may escape its box and force a horizontal scrollbar. `break-word`
+     rather than `anywhere` — they render identically once a word cannot fit, and
+     differ only in min-content contribution, which is wanted in a handful of
+     places (they declare `anywhere` themselves) but not app-wide. */
+  overflow-wrap: break-word;
   background: var(--bg-app);
   color: var(--text);
   font-family: var(--font-sans);

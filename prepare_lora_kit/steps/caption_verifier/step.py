@@ -1,17 +1,7 @@
 """CaptionVerifierStep — probe what a text encoder makes of each caption.
 
-The step renders every caption with a text-to-image model on demand, lets the
-user compare that render against the real source image, and records a verdict:
-
-* **correct** — the encoder knows the term; keep it in captions.
-* **generic** — weak embedding; replace it with a plain geometric description.
-* **wrong**   — the term is bound to a different concept; actively harmful.
-
-Edited captions are written back to ``<stem>.txt`` in the working dataset.
-
-``run()`` never raises except :class:`CancelledRun`: a probe that cannot load a
-model must not take the pipeline down, so every other failure becomes a report
-with a reason (the VaeGateStep contract).
+``run()`` never raises except :class:`CancelledRun`; every other failure becomes a
+report with a reason (the VaeGateStep contract).
 """
 from __future__ import annotations
 
