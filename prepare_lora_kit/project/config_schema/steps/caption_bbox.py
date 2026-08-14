@@ -20,9 +20,14 @@ _CAPTION_MODELS = [
     ("Qwen/Qwen2.5-VL-7B-Instruct", "Qwen2.5-VL 7B"),
     ("Qwen/Qwen2-VL-7B-Instruct", "Qwen2-VL 7B"),
     ("fancyfeast/llama-joycaption-beta-one-hf-llava", "JoyCaption Beta One"),
-    ("OpenGVLab/InternVL3-8B", "InternVL3 8B"),
-    ("openbmb/MiniCPM-V-4_5", "MiniCPM-V 4.5"),
 ]
+# Every id above resolves to a native transformers architecture. InternVL3-8B and
+# MiniCPM-V-4_5 were dropped: both declare a model_type transformers 5.x does not
+# register (`internvl_chat`, `minicpmv` — the in-tree ones are `internvl`, i.e. the
+# converted `-hf` checkpoints, and `minicpmv4_6`), so both fall back to Hub-authored
+# code written against the 4.x API. The field still accepts a custom id, so anyone
+# who wants them can type one — and will be told to opt in via
+# `huggingface.allow_remote_code` rather than having it granted silently.
 
 FIELDS: list[FieldSpec] = [
     _select("caption_model_id", "Caption model", _CAPTION_MODELS, allow_custom=True, nullable=True,

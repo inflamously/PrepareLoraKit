@@ -11,7 +11,7 @@ opencv-python>=4.8
 # --index-url (https://pytorch.org) if the default wheel doesn't match your GPU.
 torch>=2.1
 torchvision>=0.16
-transformers>=5.8           # Qwen3.8-27B caption option; Qwen3-VL / InternVL3 Auto-classes
+transformers>=5.8           # Qwen3.8-27B caption option; Qwen2/2.5/3-VL + LLaVA Auto-classes
 accelerate>=0.27            # required at runtime by transformers device_map
 diffusers>=0.30
 huggingface_hub>=0.27       # auth_check + get_token; used directly by settings/hub.py
