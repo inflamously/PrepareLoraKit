@@ -4,6 +4,8 @@ import { state } from "../../+state/index.js";
 import { closeModal, modalCancelButton, showModal } from "../../components/modal.js";
 
 const CUSTOM = "__custom__";
+// The blank entry a nullable select opens on when the config holds no value.
+const UNSET = "Not set";
 
 // Render the mid-run, pre-step config modal. The run thread is paused waiting on
 // `pending`; submitting resolves it with the edited overrides and continues.
@@ -215,6 +217,15 @@ function selectField(spec, value, wrap) {
   const select = document.createElement("select");
   select.className = "nf-select";
   const knownValues = spec.options.map((option) => option.value);
+  // A nullable field has to be able to say "no value". Without a blank entry the
+  // dropdown opens on the first catalog item and Continue submits it as an
+  // override — a config the project never asked for, silently picked by list
+  // order. A required field has no "unset" to offer, so it keeps falling back to
+  // its first option.
+  const blank = spec.nullable || knownValues.includes("");
+  if (spec.nullable && !knownValues.includes("")) {
+    select.append(new Option(UNSET, ""));
+  }
   for (const option of spec.options) {
     select.append(new Option(option.label, option.value));
   }
@@ -235,7 +246,7 @@ function selectField(spec, value, wrap) {
     select.value = CUSTOM;
     custom.value = current;
   } else {
-    select.value = knownValues.includes("") ? "" : select.options[0]?.value || "";
+    select.value = blank ? "" : select.options[0]?.value || "";
   }
 
   const syncCustom = () => {

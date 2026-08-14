@@ -12,6 +12,8 @@ export function setupInteractionDom() {
   global.window = dom.window;
   global.document = dom.window.document;
   global.Element = dom.window.Element;
+  // Built-in DOM constructors the modules use unqualified, as a browser would.
+  global.Option = dom.window.Option;
   global.addEventListener = dom.window.addEventListener.bind(dom.window);
   global.removeEventListener = dom.window.removeEventListener.bind(dom.window);
   global.dispatchEvent = dom.window.dispatchEvent.bind(dom.window);
