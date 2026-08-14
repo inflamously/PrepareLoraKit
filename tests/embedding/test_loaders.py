@@ -82,13 +82,42 @@ def test_embed_qwen_uses_sentence_transformers(tmp_path, fake_torch, fake_senten
     [st] = _FakeSentenceTransformer.instances
     assert st.repo == "Qwen/Qwen3-VL-Embedding-2B"
     assert st.device == "cpu"
-    assert st.trust_remote_code is True
+    # Default-deny: _resolve() builds a spec from any unrecognised id containing
+    # "qwen", so this repo is user-supplied and does not get to run its own code.
+    assert st.trust_remote_code is False
 
     # One batch (batch_size 8 > 3 images); encoded as PIL images, L2-normalized.
     assert len(st.encode_calls) == 1
     call = st.encode_calls[0]
     assert all(isinstance(im, Image.Image) for im in call["chunk"])
     assert call["normalize_embeddings"] is True
+
+
+def test_embed_qwen_honours_the_remote_code_opt_in(
+        tmp_path, fake_torch, fake_sentence_transformers):
+    from prepare_lora_kit import settings
+
+    settings.save_settings_dict({"huggingface": {"allow_remote_code": True}})
+    settings.invalidate()
+
+    loaders._embed_qwen(_qwen_spec(), _make_images(tmp_path, 1), None)
+
+    [st] = _FakeSentenceTransformer.instances
+    assert st.trust_remote_code is True
+
+
+def test_embed_qwen_explains_a_remote_code_refusal(
+        tmp_path, fake_torch, fake_sentence_transformers, monkeypatch):
+    def _refuse(*_a, **_kw):
+        raise ValueError(
+            "The repository contains custom code which must be executed to correctly "
+            "load the model. Please pass the argument `trust_remote_code=True`."
+        )
+
+    monkeypatch.setattr(fake_sentence_transformers, "SentenceTransformer", _refuse)
+
+    with pytest.raises(RuntimeError, match="allow_remote_code"):
+        loaders._embed_qwen(_qwen_spec(), _make_images(tmp_path, 1), None)
 
 
 def test_embed_qwen_batches_large_inputs(tmp_path, fake_torch, fake_sentence_transformers):

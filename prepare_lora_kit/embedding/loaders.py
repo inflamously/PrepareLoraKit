@@ -116,10 +116,26 @@ def _embed_qwen(spec, paths: list[Path], cancel_check):
             "pip install 'sentence-transformers[image]'"
         ) from exc
 
-    from prepare_lora_kit.settings.hub import hub_error_context
+    from prepare_lora_kit.settings.hub import (
+        hub_error_context,
+        is_remote_code_error,
+        remote_code_allowed,
+        remote_code_hint,
+    )
 
+    # ``_resolve`` will happily build a spec from any unrecognised id containing
+    # "qwen", so the repo reaching this line is whatever was typed or configured.
+    # It does not get to run its own Python unless this machine has said so.
     with hub_error_context(spec.hf_repo):
-        model = SentenceTransformer(spec.hf_repo, device=_device(torch), trust_remote_code=True)
+        try:
+            model = SentenceTransformer(
+                spec.hf_repo, device=_device(torch),
+                trust_remote_code=remote_code_allowed(),
+            )
+        except Exception as exc:
+            if is_remote_code_error(exc):
+                raise RuntimeError(remote_code_hint(spec.hf_repo)) from exc
+            raise
     rows = []
     batch_size = 8
     for start in range(0, len(paths), batch_size):

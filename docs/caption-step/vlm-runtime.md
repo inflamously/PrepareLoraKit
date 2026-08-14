@@ -18,6 +18,13 @@ Characteristics worth knowing:
 
 - **No batching.** Strictly one image per `generate()` call, greedy
   (`do_sample=False`).
+- **Remote code is denied by default.** Every `from_pretrained` here — the model
+  classes *and* `_load_processor`, since a custom image processor is code too —
+  passes `trust_remote_code=_trust_remote_code()`, which is
+  `hub.remote_code_allowed()`. See [settings](../settings.md#allow_remote_code).
+  A refusal becomes `RemoteCodeNotAllowed`, and `_fatal_load_error` stops the
+  adapter walk on it (as it already did for gated repos) rather than burying it
+  in the joined "could not load with supported adapters" message.
 - **Reasoning models.** `_build_chat_text` renders the prompt with
   `enable_thinking=False`, retrying without the kwarg for processors that validate
   their signature. Because a template may ignore it, `_finalize_caption` also runs

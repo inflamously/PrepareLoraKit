@@ -44,6 +44,60 @@ def repo_url(repo_id: str) -> str:
     return f"{HUB_URL}/{repo_id}"
 
 
+class RemoteCodeNotAllowed(RuntimeError):
+    """Raised instead of executing un-opted-in model code from the Hub.
+
+    A distinct type because it must survive adapter fallback loops untouched:
+    trying a different model class against the same repo asks the same question
+    and gets the same answer, so it is a stop, not a candidate failure.
+    """
+
+
+def remote_code_allowed() -> bool:
+    """Whether a model repo may execute its own Python on this machine.
+
+    ``trust_remote_code=True`` does not merely change a default — it deletes
+    transformers' own gate. Left to itself the library either prompts
+    (``Do you wish to run the custom code? [y/N]``) or, on any platform without
+    ``SIGALRM`` such as Windows, refuses outright and names the repo. Passing
+    ``True`` unconditionally answers "yes" in advance for every model id the app
+    will ever be handed, including ones typed into the caption model box or read
+    from a project YAML that arrived from somewhere else.
+
+    So: denied unless this machine's own settings file says otherwise.
+    """
+    from prepare_lora_kit.settings import load_settings
+
+    return load_settings().huggingface.allow_remote_code is True
+
+
+def remote_code_hint(repo_id: str | None) -> str:
+    """How to allow ``repo_id`` to run its own code, if that is really wanted."""
+    from prepare_lora_kit.settings import settings_path
+
+    name = repo_id or "this model"
+    return (
+        f"'{name}' ships custom code that must be executed to load it, and this "
+        f"machine does not allow that.\n"
+        f"  1. Read the code first: {repo_url(name)} (it runs with your privileges)\n"
+        f"  2. If you trust it, add to {settings_path()}:\n"
+        f"       huggingface:\n"
+        f"         allow_remote_code: true\n"
+        f"  3. Re-run this step.\n"
+        f"Prefer a repo with native transformers support where one exists — it "
+        f"needs no such permission."
+    )
+
+
+def is_remote_code_error(exc: BaseException) -> bool:
+    """True when ``exc`` is transformers refusing to run un-opted-in remote code.
+
+    Matched on the message because the library raises a plain ``ValueError`` for
+    this; there is no dedicated type to catch.
+    """
+    return "trust_remote_code" in str(exc)
+
+
 def token_status() -> dict[str, Any]:
     """Whether a token is resolvable, and from where. Never touches the network."""
     try:

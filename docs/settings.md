@@ -37,6 +37,7 @@ meant "app default" before and still does — and a project that names a value s
 | `hardware.seedvr2_submodule_dir` | b | `seedvr2_adapter.default_seedvr2_submodule_dir()` |
 | `hardware.seedvr2_model_dir` | b | `seedvr2_adapter.DEFAULT_SEEDVR2_MODEL_DIR` |
 | `huggingface.home` | b | not a project field — `HF_HOME` |
+| `huggingface.allow_remote_code` | b | not a project field — `trust_remote_code` |
 
 `vram_tier` is one machine fact seeding two steps: a user with a 16 GB card should not have to say
 so twice.
@@ -63,6 +64,37 @@ Parsing is forgiving in one direction only. Unknown keys and blank strings are d
 raises, so a typo surfaces in the modal instead of silently reverting.
 
 ## Hugging Face
+
+### `allow_remote_code`
+
+Some model repos ship their own `modeling_*.py` that transformers must execute to load them.
+That code runs with your privileges. Default is **false**: `hub.remote_code_allowed()` returns
+true only when this machine's settings file says so, and every loader passes that value as
+`trust_remote_code` (`caption_bbox/vlm.py`, `embedding/loaders.py`).
+
+Two deliberate constraints:
+
+- **Not a project field, and never seeded into one.** A project folder is meant to be shared, so a
+  project YAML that could grant this would execute code chosen by whoever sent it, the moment its
+  new owner pressed Run. This is a fact about your machine, like `hardware.cuda_device`.
+- **Not in the Settings modal.** It is the one setting you should have to open a file to change —
+  a click in the same UI where a model id is pasted is too cheap for a decision this size.
+
+It must be a real YAML boolean. Quoted strings and `0`/`1` raise rather than being coerced,
+because `allow_remote_code: "false"` is a *truthy string* and a lenient parser would read a clear
+"no" as "yes":
+
+```yaml
+huggingface:
+  allow_remote_code: true
+```
+
+Refusing is not a dead end: when a repo needs code that is not allowed, the loader raises
+`RemoteCodeNotAllowed` carrying `hub.remote_code_hint()` — which links the repo so it can be read
+first, shows the exact YAML, and points out that a repo with native transformers support needs no
+permission at all. That error stops the adapter fallback loop instead of being collected into the
+"tried every adapter" summary, because every other model class refuses the same repo for the same
+reason.
 
 **No token is ever stored by this app.** `huggingface_hub.get_token()` already resolves the
 `HF_TOKEN` environment variable and the token file the CLI writes, so reusing it means there is

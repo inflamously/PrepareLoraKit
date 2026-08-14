@@ -118,8 +118,6 @@ def _load(
     if key in _CACHE:
         return _CACHE[key]
 
-    from transformers import AutoProcessor
-
     from prepare_lora_kit.settings.hub import hub_error_context
 
     model_kwargs = _model_kwargs(resolved_quantization, resolved_dtype)
@@ -130,7 +128,7 @@ def _load(
     with hub_error_context(model_id):
         if task in {"auto", "image-text-to-text"}:
             try:
-                processor = AutoProcessor.from_pretrained(model_id, trust_remote_code=True)
+                processor = _load_processor(model_id)
                 if not hasattr(processor, "apply_chat_template"):
                     raise RuntimeError("processor has no chat template")
                 model = _load_prompted_model(model_id, model_kwargs)
@@ -148,14 +146,14 @@ def _load(
                 _CACHE[key] = loaded
                 return loaded
             except Exception as exc:
-                if _is_hub_access_error(exc, model_id):
+                if _fatal_load_error(exc, model_id):
                     raise
                 errors.append(f"image-text-to-text: {exc}")
                 _clear_cuda(torch)
 
         if task in {"auto", "image-to-text"}:
             try:
-                processor = AutoProcessor.from_pretrained(model_id, trust_remote_code=True)
+                processor = _load_processor(model_id)
                 model = _load_image_to_text_model(model_id, model_kwargs)
                 loaded = LoadedCaptionModel(
                     model=model,
@@ -171,7 +169,7 @@ def _load(
                 _CACHE[key] = loaded
                 return loaded
             except Exception as exc:
-                if _is_hub_access_error(exc, model_id):
+                if _fatal_load_error(exc, model_id):
                     raise
                 errors.append(f"image-to-text: {exc}")
                 _clear_cuda(torch)
@@ -218,42 +216,89 @@ def _model_kwargs(quantization: str, torch_dtype) -> dict[str, Any]:
     return kwargs
 
 
-def _load_prompted_model(model_id: str, model_kwargs: dict[str, Any]):
+def _trust_remote_code() -> bool:
+    """Whether this machine permits a model repo to run its own Python. Default: no."""
+    from prepare_lora_kit.settings.hub import remote_code_allowed
+
+    return remote_code_allowed()
+
+
+def _as_remote_code_refusal(exc: Exception, model_id: str) -> Exception:
+    """Translate transformers' bare ``ValueError`` into an actionable, typed error."""
+    from prepare_lora_kit.settings.hub import (
+        RemoteCodeNotAllowed,
+        is_remote_code_error,
+        remote_code_hint,
+    )
+
+    if isinstance(exc, RemoteCodeNotAllowed):
+        return exc
+    if is_remote_code_error(exc):
+        return RemoteCodeNotAllowed(remote_code_hint(model_id))
+    return exc
+
+
+def _fatal_load_error(exc: Exception, model_id: str) -> bool:
+    """Failures that repeat identically on the next adapter, so the walk must stop.
+
+    A gated repo will not ungate itself for a different model class, and a repo
+    whose code this machine declines to run gets declined just as firmly by every
+    other class. Collecting either into the "tried everything" summary buries the
+    one sentence the user needs.
+    """
+    from prepare_lora_kit.settings.hub import RemoteCodeNotAllowed
+
+    return isinstance(exc, RemoteCodeNotAllowed) or _is_hub_access_error(exc, model_id)
+
+
+def _load_processor(model_id: str):
+    """Load the processor under the machine's remote-code policy.
+
+    A custom image processor or tokenizer is code too, so this is gated exactly
+    like the model itself.
+    """
+    from transformers import AutoProcessor
+
+    try:
+        return AutoProcessor.from_pretrained(
+            model_id, trust_remote_code=_trust_remote_code())
+    except Exception as exc:
+        raise _as_remote_code_refusal(exc, model_id) from exc
+
+
+def _try_model_classes(model_id: str, class_names: tuple[str, ...],
+                       model_kwargs: dict[str, Any]):
+    """First of ``class_names`` that loads ``model_id``, else a joined failure."""
     errors = []
-    for class_name in (
-            "AutoModelForImageTextToText",
-            "Qwen2VLForConditionalGeneration",
-    ):
+    for class_name in class_names:
         try:
             import transformers
 
             cls = getattr(transformers, class_name)
-            return cls.from_pretrained(model_id, trust_remote_code=True, **model_kwargs)
+            return cls.from_pretrained(
+                model_id, trust_remote_code=_trust_remote_code(), **model_kwargs)
         except Exception as exc:
-            if _is_hub_access_error(exc, model_id):
-                raise
+            refusal = _as_remote_code_refusal(exc, model_id)
+            if _fatal_load_error(refusal, model_id):
+                raise refusal from exc
             errors.append(f"{class_name}: {exc}")
     raise RuntimeError("; ".join(errors))
+
+
+def _load_prompted_model(model_id: str, model_kwargs: dict[str, Any]):
+    return _try_model_classes(model_id, (
+        "AutoModelForImageTextToText",
+        "Qwen2VLForConditionalGeneration",
+    ), model_kwargs)
 
 
 def _load_image_to_text_model(model_id: str, model_kwargs: dict[str, Any]):
-    errors = []
-    for class_name in (
-            "AutoModelForImageTextToText",
-            "BlipForConditionalGeneration",
-            "VisionEncoderDecoderModel",
-            "AutoModelForCausalLM",
-    ):
-        try:
-            import transformers
-
-            cls = getattr(transformers, class_name)
-            return cls.from_pretrained(model_id, trust_remote_code=True, **model_kwargs)
-        except Exception as exc:
-            if _is_hub_access_error(exc, model_id):
-                raise
-            errors.append(f"{class_name}: {exc}")
-    raise RuntimeError("; ".join(errors))
+    return _try_model_classes(model_id, (
+        "AutoModelForImageTextToText",
+        "BlipForConditionalGeneration",
+        "VisionEncoderDecoderModel",
+        "AutoModelForCausalLM",
+    ), model_kwargs)
 
 
 def _downscale(img, max_pixels: int):

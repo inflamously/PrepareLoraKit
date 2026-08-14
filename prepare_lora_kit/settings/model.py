@@ -33,6 +33,25 @@ def _one_of(value: str | None, allowed: tuple[str, ...], label: str) -> str | No
     return value
 
 
+def _strict_bool(value: Any, label: str) -> bool | None:
+    """A YAML boolean or nothing — deliberately without string coercion.
+
+    Every other field here is tolerant, and this one must not be: it guards code
+    execution. ``allow_remote_code: "false"`` is a *truthy string*, so a lenient
+    parser would read a clear "no" as "yes". Anything that is not a real boolean
+    is a mistake worth stopping on.
+    """
+    if value is None:
+        return None
+    if not isinstance(value, bool):
+        raise ValueError(
+            f"{label} must be a YAML boolean (true/false), got {value!r}. "
+            "Quoted strings and 0/1 are rejected on purpose — this setting allows "
+            "code execution, so it is never inferred."
+        )
+    return value
+
+
 @dataclass(frozen=True)
 class HuggingFaceSettings:
     """Hub-related machine settings.
@@ -42,11 +61,21 @@ class HuggingFaceSettings:
     """
 
     home: str | None = None      # HF_HOME; None -> huggingface's own default
+    # None -> denied. Whether a model repo may run its own Python on this machine
+    # (``trust_remote_code``). Machine-local by design and never a project field:
+    # a project YAML is a shareable artifact, so letting one grant this would let
+    # a downloaded config execute code the moment its owner pressed Run.
+    allow_remote_code: bool | None = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any] | None) -> HuggingFaceSettings:
         data = data or {}
-        return cls(home=_clean(data.get("home")))
+        return cls(
+            home=_clean(data.get("home")),
+            allow_remote_code=_strict_bool(
+                data.get("allow_remote_code"), "huggingface.allow_remote_code"
+            ),
+        )
 
 
 @dataclass(frozen=True)
