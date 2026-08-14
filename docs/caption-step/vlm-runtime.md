@@ -7,9 +7,9 @@ Part of the [Caption Step reference](README.md).
 adapters in order:
 
 - `image-text-to-text` — requires `processor.apply_chat_template`. Model class
-  tried in order: `AutoModelForImageTextToText` → `AutoModelForVision2Seq` →
+  tried in order: `AutoModelForImageTextToText` →
   `Qwen2VLForConditionalGeneration`. Sets `supports_prompt=True`.
-- `image-to-text` — `AutoModelForVision2Seq` → `BlipForConditionalGeneration` →
+- `image-to-text` — `AutoModelForImageTextToText` → `BlipForConditionalGeneration` →
   `VisionEncoderDecoderModel` → `AutoModelForCausalLM`. `supports_prompt=False`,
   so the caption is composed post-hoc (labels and the token are appended). Florence
   gets the special `<MORE_DETAILED_CAPTION>` task prompt.

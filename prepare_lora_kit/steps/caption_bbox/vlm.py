@@ -222,7 +222,6 @@ def _load_prompted_model(model_id: str, model_kwargs: dict[str, Any]):
     errors = []
     for class_name in (
             "AutoModelForImageTextToText",
-            "AutoModelForVision2Seq",
             "Qwen2VLForConditionalGeneration",
     ):
         try:
@@ -240,7 +239,7 @@ def _load_prompted_model(model_id: str, model_kwargs: dict[str, Any]):
 def _load_image_to_text_model(model_id: str, model_kwargs: dict[str, Any]):
     errors = []
     for class_name in (
-            "AutoModelForVision2Seq",
+            "AutoModelForImageTextToText",
             "BlipForConditionalGeneration",
             "VisionEncoderDecoderModel",
             "AutoModelForCausalLM",
