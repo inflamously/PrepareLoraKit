@@ -4,7 +4,9 @@ from __future__ import annotations
 from pathlib import Path
 
 from prepare_lora_kit.cancellation import CancelCheck, CancelledRun, check_cancel
+from prepare_lora_kit.pipeline.configs import CurateConfig
 from prepare_lora_kit.report import reporter, step_report_path
+from prepare_lora_kit.steps.context import StepRunContext
 from prepare_lora_kit.steps.curate.coverage import _coverage_embeddings, _save_pca, _save_umap
 from prepare_lora_kit.steps.curate.dedupe import (
     _compute_hashes,
@@ -26,31 +28,30 @@ def _resolve_coverage_model(coverage_embedding_model: str | None) -> str:
 
 def run(
     dataset_dir: Path,
-    output_dir: Path | None = None,
-    auto_dedupe: bool = True,
-    skip_clip: bool = False,
-    report_path: Path | None = None,
-    enabled_substeps: list[str] | None = None,
-    cancel_check: CancelCheck | None = None,
-    coverage_embedding_model: str | None = None,
-    dedup_hamming_distance: int = 3,
-    pca_umap_switch_threshold: int = 30,
+    config: CurateConfig,
+    *,
+    context: StepRunContext | None = None,
 ) -> dict:
+    context = context or StepRunContext()
     reporter.step_header("Curation — Dedupe + Coverage")
-    enabled = set(enabled_substeps or ["duplicate_check", "clip_scan", "drop_images"])
+    enabled = set(
+        context.enabled_substeps or ["duplicate_check", "clip_scan", "drop_images"]
+    )
 
-    output_dir = output_dir or dataset_dir
+    output_dir = context.output_dir or dataset_dir
     output_dir.mkdir(parents=True, exist_ok=True)
     # Reports + coverage plot land beside the report (the flat run dir under the
     # pipeline), never inside the working image dir.
-    report_path = report_path or step_report_path(output_dir, "CurateStep")
+    report_path = context.report_path or step_report_path(output_dir, "CurateStep")
     artifact_dir = report_path.parent
     artifact_dir.mkdir(parents=True, exist_ok=True)
 
     images = img_utils.iter_images(dataset_dir)
     if not images:
         reporter.warn(f"No images in {dataset_dir}")
-        report_data = _build_skipped_report("no images", enabled, skip_clip=skip_clip)
+        report_data = _build_skipped_report(
+            "no images", enabled, skip_clip=config.skip_clip
+        )
         reporter.save_report(report_data, report_path)
         return report_data
 
@@ -59,9 +60,9 @@ def run(
     if "duplicate_check" in enabled:
         pairs, to_drop = _find_duplicate_drops(
             images,
-            auto_dedupe=auto_dedupe,
-            dedup_hamming_distance=dedup_hamming_distance,
-            cancel_check=cancel_check,
+            auto_dedupe=True,
+            dedup_hamming_distance=config.dedup_hamming_distance,
+            cancel_check=context.cancel_check,
         )
     else:
         reporter.warn("Skipping duplicate check substep.")
@@ -74,21 +75,21 @@ def run(
         reporter.info(f"Drop-images substep disabled; retaining all {len(images)} image(s).")
 
     # Resolve embedding model selection once for the clipscan substep.
-    coverage_model = _resolve_coverage_model(coverage_embedding_model)
+    coverage_model = _resolve_coverage_model(config.coverage_embedding_model)
 
     # Coverage
     coverage_path: Path | None = None
     coverage_metadata: dict | None = None
-    if not skip_clip and "clip_scan" in enabled:
+    if not config.skip_clip and "clip_scan" in enabled:
         coverage_path, coverage_metadata = _build_coverage(
             kept_images,
             artifact_dir,
             coverage_model,
-            pca_umap_switch_threshold=pca_umap_switch_threshold,
-            cancel_check=cancel_check,
+            pca_umap_switch_threshold=config.pca_umap_switch_threshold,
+            cancel_check=context.cancel_check,
         )
 
-    check_cancel(cancel_check)
+    check_cancel(context.cancel_check)
     img_utils.materialize(kept_images, dataset_dir, output_dir)
 
     report_data = {
@@ -100,11 +101,13 @@ def run(
         "coverage": coverage_metadata,
         "substeps": {
             "duplicate_check": {"enabled": "duplicate_check" in enabled},
-            "clip_scan": {"enabled": (not skip_clip) and "clip_scan" in enabled},
+            "clip_scan": {
+                "enabled": (not config.skip_clip) and "clip_scan" in enabled
+            },
             "drop_images": {"enabled": apply_drops},
         },
     }
-    check_cancel(cancel_check)
+    check_cancel(context.cancel_check)
     reporter.save_report(report_data, report_path)
     return report_data
 

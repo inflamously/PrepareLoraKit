@@ -6,8 +6,11 @@ import numpy as np
 import pytest
 from PIL import Image
 
+from prepare_lora_kit.cancellation import CancelledRun
 from prepare_lora_kit.invoke.vae_gate_step import invoke_vae_gate_step
 from prepare_lora_kit.pipeline.configs import VaeGateConfig
+from prepare_lora_kit.steps.context import StepRunContext
+from prepare_lora_kit.steps.vae_gate import reconstruction as vae_reconstruction
 from prepare_lora_kit.steps.vae_gate import step as vae_step
 from prepare_lora_kit.steps.vae_gate.hf_loss import _hf_loss
 from prepare_lora_kit.steps.vae_gate.vae import _encode_decode
@@ -44,10 +47,18 @@ def _patch_lightweight_runtime(monkeypatch, scores, *, fail_name=None):
             "views": {name: str(path) for name in ("original", "vae", "diff", "hard")},
         }
 
-    monkeypatch.setattr(vae_step, "_encode_decode", fake_encode)
-    monkeypatch.setattr(vae_step, "_to_lab_l", lambda image: image[:, :, 0].astype(np.float32))
-    monkeypatch.setattr(vae_step, "_hf_loss", lambda *_args, **_kwargs: next(score_iter))
-    monkeypatch.setattr(vae_step, "_save_review_artifacts", fake_artifacts)
+    monkeypatch.setattr(vae_reconstruction, "_encode_decode", fake_encode)
+    monkeypatch.setattr(
+        vae_reconstruction,
+        "_to_lab_l",
+        lambda image: image[:, :, 0].astype(np.float32),
+    )
+    monkeypatch.setattr(
+        vae_reconstruction,
+        "_hf_loss",
+        lambda *_args, **_kwargs: next(score_iter),
+    )
+    monkeypatch.setattr(vae_reconstruction, "_save_review_artifacts", fake_artifacts)
     return encode_calls, artifact_calls
 
 
@@ -59,7 +70,7 @@ def test_run_uses_effective_seed_cutoff_and_strict_threshold(tmp_path, monkeypat
     encode_calls, artifact_calls = _patch_lightweight_runtime(monkeypatch, [0.25, 0.25])
     cutoffs = []
     monkeypatch.setattr(
-        vae_step,
+        vae_reconstruction,
         "_hf_loss",
         lambda *_args, cutoff_fraction: cutoffs.append(cutoff_fraction) or 0.25,
     )
@@ -71,14 +82,16 @@ def test_run_uses_effective_seed_cutoff_and_strict_threshold(tmp_path, monkeypat
 
     report = vae_step.run(
         tmp_path,
-        "fake-vae",
-        interaction=Interaction(),
-        max_side=None,
-        seed=99,
-        hf_cutoff_fraction=0.33,
-        output_previews=False,
-        output_silhouettes=False,
-        output_hard_silhouettes=False,
+        VaeGateConfig(
+            vae_model_id="fake-vae",
+            max_side=None,
+            seed=99,
+            hf_cutoff_fraction=0.33,
+            output_previews=False,
+            output_silhouettes=False,
+            output_hard_silhouettes=False,
+        ),
+        context=StepRunContext(interaction=Interaction()),
     )
 
     assert encode_calls == [("first.png", None, 99), ("second.png", None, 99)]
@@ -106,9 +119,8 @@ def test_failed_images_are_kept_and_explicit_drop_removes_caption(tmp_path, monk
 
     report = vae_step.run(
         tmp_path,
-        "fake-vae",
-        interaction=Interaction(),
-        outlier_sigma=0.0,
+        VaeGateConfig(vae_model_id="fake-vae", outlier_sigma=0.0),
+        context=StepRunContext(interaction=Interaction()),
     )
 
     assert paths[0].exists()  # invalid legacy decision is normalized to Keep
@@ -138,13 +150,71 @@ def test_vae_load_failure_replaces_stale_previews_and_writes_report(tmp_path, mo
         vae_step, "_load_vae",
         lambda *_args: (_ for _ in ()).throw(RuntimeError("bad model")))
 
-    report = vae_step.run(dataset, "bad-vae", report_path=report_path)
+    report = vae_step.run(
+        dataset,
+        VaeGateConfig(vae_model_id="bad-vae"),
+        context=StepRunContext(report_path=report_path),
+    )
 
     assert not preview_root.exists()
     assert (dataset / "image.png").exists()
     assert report["skipped"] is True
     assert report["statistics"]["failed"] == 1
     assert json.loads(report_path.read_text(encoding="utf-8"))["failures"][0]["stage"] == "load"
+
+
+def test_run_releases_vae_before_interactive_review(tmp_path, monkeypatch):
+    _image(tmp_path / "image.png", "red")
+    _patch_lightweight_runtime(monkeypatch, [0.25])
+    events = []
+    monkeypatch.setattr(
+        vae_step,
+        "release_accelerator_memory",
+        lambda: events.append("release"),
+    )
+
+    class Interaction:
+        def vae_review(self, _items):
+            events.append("review")
+            return {}
+
+    vae_step.run(
+        tmp_path,
+        VaeGateConfig(vae_model_id="fake-vae"),
+        context=StepRunContext(interaction=Interaction()),
+    )
+
+    assert events == ["release", "review"]
+
+
+@pytest.mark.parametrize("error_type", [RuntimeError, CancelledRun])
+def test_run_releases_vae_when_reconstruction_exits_early(
+    tmp_path,
+    monkeypatch,
+    error_type,
+):
+    _image(tmp_path / "image.png", "red")
+    monkeypatch.setattr(vae_step, "_load_vae", lambda *_args: (object(), "cpu", "float32"))
+
+    def stop_reconstruction(*_args, **_kwargs):
+        raise error_type("stop")
+
+    monkeypatch.setattr(
+        vae_step,
+        "_reconstruct_all",
+        stop_reconstruction,
+    )
+    releases = []
+    monkeypatch.setattr(
+        vae_step,
+        "release_accelerator_memory",
+        lambda: releases.append(True),
+    )
+
+    with pytest.raises(error_type, match="stop"):
+        vae_step.run(tmp_path, VaeGateConfig(vae_model_id="fake-vae"))
+
+    assert releases == [True]
 
 
 def test_invoker_forwards_cutoff_and_seed(tmp_path, monkeypatch):
@@ -167,8 +237,9 @@ def test_invoker_forwards_cutoff_and_seed(tmp_path, monkeypatch):
     )
 
     assert result == {"ok": True}
-    assert calls["kwargs"]["hf_cutoff_fraction"] == 0.31
-    assert calls["kwargs"]["seed"] == 123
+    assert calls["args"][1].hf_cutoff_fraction == 0.31
+    assert calls["args"][1].seed == 123
+    assert calls["kwargs"]["context"].output_dir == working
 
 
 def test_hf_cutoff_changes_the_measured_frequency_band():

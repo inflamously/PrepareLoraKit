@@ -18,8 +18,8 @@ def _mock_vae_gate(
     from PIL import Image, ImageFilter
 
     from prepare_lora_kit.report import reporter, reports_dir_for, step_report_path
+    from prepare_lora_kit.steps.vae_gate.artifacts import _materialize_with_captions
     from prepare_lora_kit.steps.vae_gate.review import _save_review_artifacts
-    from prepare_lora_kit.steps.vae_gate.step import _materialize_with_captions
     from prepare_lora_kit.utils import image as img_utils
 
     reporter.step_header("VAE Reconstruction Gate")

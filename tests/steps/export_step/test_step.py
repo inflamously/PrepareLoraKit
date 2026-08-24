@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from prepare_lora_kit.pipeline.configs import ExportConfig
+from prepare_lora_kit.steps.context import StepRunContext
 from prepare_lora_kit.steps.export_step import run
 
 
@@ -41,13 +43,34 @@ def _dataset_snapshot(ds: Path) -> dict[str, bytes]:
     return {str(p.relative_to(ds)): p.read_bytes() for p in ds.rglob("*") if p.is_file()}
 
 
+def _run_export(
+    dataset_dir: Path,
+    *,
+    original_dir: Path | None = None,
+    target_dir: str | None = None,
+    output_dir: Path | None = None,
+    interaction=None,
+    enabled_substeps=None,
+):
+    return run(
+        dataset_dir,
+        ExportConfig(target_dir=target_dir),
+        original_dir=original_dir,
+        context=StepRunContext(
+            output_dir=output_dir,
+            interaction=interaction,
+            enabled_substeps=enabled_substeps,
+        ),
+    )
+
+
 def test_export_copies_pairs_preserving_subfolders(tmp_path):
     ds = _dataset(tmp_path)
     target = tmp_path / "export"
     before = _dataset_snapshot(ds)
     provider = FakeProvider(confirmed=True)
 
-    report = run(
+    report = _run_export(
         ds,
         original_dir=tmp_path / "input",
         target_dir=str(target),
@@ -73,7 +96,7 @@ def test_default_target_is_sibling_of_input(tmp_path):
     ds = _dataset(tmp_path)
     provider = FakeProvider(confirmed=True)
 
-    report = run(
+    report = _run_export(
         ds,
         original_dir=tmp_path / "input",
         target_dir=None,
@@ -91,7 +114,7 @@ def test_cancel_writes_nothing(tmp_path):
     target = tmp_path / "export"
     provider = FakeProvider(confirmed=False)
 
-    report = run(
+    report = _run_export(
         ds,
         original_dir=tmp_path / "input",
         target_dir=str(target),
@@ -109,7 +132,7 @@ def test_excluded_entries_are_skipped(tmp_path):
     target = tmp_path / "export"
     provider = FakeProvider(confirmed=True, excluded=["image_02.png"])
 
-    run(
+    _run_export(
         ds,
         original_dir=tmp_path / "input",
         target_dir=str(target),
@@ -128,7 +151,7 @@ def test_orphaned_left_in_place_and_reported(tmp_path):
     _write(target / "old_reject.png", b"STALE")
     provider = FakeProvider(confirmed=True)
 
-    report = run(
+    report = _run_export(
         ds,
         original_dir=tmp_path / "input",
         target_dir=str(target),
@@ -146,7 +169,7 @@ def test_report_written_to_reports_dir(tmp_path):
     ds = _dataset(tmp_path)
     provider = FakeProvider(confirmed=True)
 
-    run(
+    _run_export(
         ds,
         original_dir=tmp_path / "input",
         target_dir=str(tmp_path / "export"),
@@ -162,7 +185,7 @@ def test_diff_substep_disabled_exports_without_review(tmp_path):
     target = tmp_path / "export"
 
     # No interaction provider and preview_export_diff disabled: exports unconditionally.
-    report = run(
+    report = _run_export(
         ds,
         original_dir=tmp_path / "input",
         target_dir=str(target),

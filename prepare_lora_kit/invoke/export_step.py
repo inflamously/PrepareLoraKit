@@ -6,6 +6,7 @@ from pathlib import Path
 from prepare_lora_kit.invoke.working_dataset import _require_working_dataset
 from prepare_lora_kit.pipeline.configs import ExportConfig
 from prepare_lora_kit.report import step_report_path
+from prepare_lora_kit.steps.context import StepRunContext
 
 
 def invoke_export_step(working_dir: Path, output_dir: Path, cfg: ExportConfig,
@@ -14,11 +15,13 @@ def invoke_export_step(working_dir: Path, output_dir: Path, cfg: ExportConfig,
     from prepare_lora_kit.steps import export_step
     return export_step.run(
         working_dir,
+        cfg,
         original_dir=original_dir,
-        target_dir=cfg.target_dir,
-        output_dir=output_dir,
-        interaction=_kw.get("interaction"),
-        report_path=step_report_path(output_dir, "ExportStep"),
-        enabled_substeps=_kw.get("enabled_substeps"),
-        cancel_check=_kw.get("cancel_check"),
+        context=StepRunContext(
+            output_dir=output_dir,
+            interaction=_kw.get("interaction"),
+            report_path=step_report_path(output_dir, "ExportStep"),
+            enabled_substeps=_kw.get("enabled_substeps"),
+            cancel_check=_kw.get("cancel_check"),
+        ),
     )

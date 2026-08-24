@@ -28,6 +28,28 @@ currently use pytest-style functions.
   (`ruff`, `pytest`) on top of the runtime deps.
 - `ruff check .`: lints the repo. `ruff check --fix .` applies the safe fixes.
 
+On Linux, keep an existing Windows `.venv` intact and create a separate local
+environment. This workspace may be mounted without symlink support, so use an
+uv-managed Python with copied venv files:
+
+```bash
+uv python install 3.12
+mkdir -p .venv-linux/lib64
+"$(uv python find 3.12)" -m venv --copies .venv-linux
+uv pip install --python .venv-linux/bin/python --link-mode copy -r requirements/dev.txt
+```
+
+In a headless Linux environment without `libxcb.so.1`, replace the GUI OpenCV
+wheel after installation:
+
+```bash
+uv pip uninstall --python .venv-linux/bin/python opencv-python
+uv pip install --python .venv-linux/bin/python --link-mode copy opencv-python-headless
+```
+
+Run checks through `.venv-linux/bin/pytest` and `.venv-linux/bin/ruff`. The
+`.venv-linux/` directory is machine-local and ignored by Git.
+
 ## Coding Style & Naming Conventions
 
 Use idiomatic Python with 4-space indentation, clear function names, and small
@@ -116,4 +138,6 @@ override any of them. Document any required environment variables, such as
 `SEEDVR_PATH`, when adding optional runtime integrations.
 - Never store a Hugging Face token in this repo or in app settings. The app
 reuses the token `hf auth login` writes, via `huggingface_hub.get_token()`.
-- Avoid installation of runtime in sandboxes, if .venv present keep it intact.
+- Avoid global runtime installation in sandboxes. Keep an existing `.venv`
+  intact; when it is platform-incompatible, use the separate `.venv-linux`
+  workflow documented above.

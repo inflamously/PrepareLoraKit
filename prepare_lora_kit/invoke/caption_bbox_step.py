@@ -1,11 +1,14 @@
 """Invoke adapter for CaptionBboxStep."""
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 from prepare_lora_kit.invoke.working_dataset import _require_working_dataset
 from prepare_lora_kit.pipeline.configs import CaptionBboxConfig
 from prepare_lora_kit.report import step_report_path
+from prepare_lora_kit.steps.caption_bbox.options import CaptionBboxRunOptions
+from prepare_lora_kit.steps.context import StepRunContext
 
 
 def invoke_caption_bbox_step(working_dir: Path, output_dir: Path, cfg: CaptionBboxConfig,
@@ -30,24 +33,25 @@ def invoke_caption_bbox_step(working_dir: Path, output_dir: Path, cfg: CaptionBb
     caption_model_id = runtime.get("model_id") or cfg.caption_model_id
     caption_model_task = runtime.get("task") or cfg.caption_model_task
     quantization = runtime.get("vram_mode") or cfg.quantization
-    caption_bbox.run(
-        working_dir,
-        concept_token=concept_token,
-        output_dir=working_dir,
+    effective_config = replace(
+        cfg,
         caption_model_id=caption_model_id,
         caption_model_task=caption_model_task,
-        caption_strategy=cfg.caption_strategy,
-        quantization=quantization,
-        dtype=cfg.dtype,
-        max_new_tokens=cfg.max_new_tokens,
-        spot_check_pct=cfg.spot_check_pct,
-        overwrite=bool(_kw.get("force", False)),
-        report_path=step_report_path(output_dir, "CaptionBboxStep"),
-        interaction=_kw.get("interaction"),
-        enabled_substeps=_kw.get("enabled_substeps"),
-        cancel_check=_kw.get("cancel_check"),
-        caption_status_callback=_kw.get("caption_status_callback"),
-        caption_prompt=cfg.caption_prompt,
-        region_prompt=cfg.region_prompt,
-        domain_brief=cfg.domain_brief,
+    )
+    caption_bbox.run(
+        working_dir,
+        effective_config,
+        context=StepRunContext(
+            output_dir=working_dir,
+            report_path=step_report_path(output_dir, "CaptionBboxStep"),
+            interaction=_kw.get("interaction"),
+            enabled_substeps=_kw.get("enabled_substeps"),
+            cancel_check=_kw.get("cancel_check"),
+        ),
+        options=CaptionBboxRunOptions(
+            concept_token=concept_token,
+            overwrite=bool(_kw.get("force", False)),
+            quantization=quantization,
+            status_callback=_kw.get("caption_status_callback"),
+        ),
     )

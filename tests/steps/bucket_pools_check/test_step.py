@@ -5,6 +5,7 @@ from PIL import Image
 from prepare_lora_kit.invoke.bucket_pools_check_step import invoke_bucket_pools_check_step
 from prepare_lora_kit.pipeline.configs import BucketPoolsCheckConfig
 from prepare_lora_kit.steps.bucket_pools_check import run
+from prepare_lora_kit.steps.context import StepRunContext
 
 
 def _save_image(path, size):
@@ -22,17 +23,21 @@ def test_bucket_pools_check_assigns_buckets_reports_thin_and_writes_cache(tmp_pa
 
     report = run(
         dataset_dir,
-        [(512, 512), (768, 512)],
+        BucketPoolsCheckConfig(
+            resolution_buckets=[(512, 512), (768, 512)],
+            cache_mode=True,
+            thin_threshold=1,
+        ),
         display_name="test buckets",
-        output_dir=output_dir,
-        cache_mode=True,
-        thin_threshold=1,
-        report_path=report_path,
-        enabled_substeps=[
-            "assign_bucket_pools",
-            "report_thin_buckets",
-            "write_cache_info",
-        ],
+        context=StepRunContext(
+            output_dir=output_dir,
+            report_path=report_path,
+            enabled_substeps=[
+                "assign_bucket_pools",
+                "report_thin_buckets",
+                "write_cache_info",
+            ],
+        ),
     )
 
     assert report["buckets"]["512x512"]["count"] == 2
@@ -65,11 +70,14 @@ def test_bucket_pools_check_disabled_assignment_writes_skipped_report(tmp_path):
 
     report = run(
         dataset_dir,
-        [(512, 512)],
-        output_dir=output_dir,
-        cache_mode=True,
-        report_path=report_path,
-        enabled_substeps=["report_thin_buckets", "write_cache_info"],
+        BucketPoolsCheckConfig(
+            resolution_buckets=[(512, 512)], cache_mode=True
+        ),
+        context=StepRunContext(
+            output_dir=output_dir,
+            report_path=report_path,
+            enabled_substeps=["report_thin_buckets", "write_cache_info"],
+        ),
     )
 
     assert report == {
@@ -97,10 +105,12 @@ def test_bucket_pools_check_empty_dataset_writes_skipped_report(tmp_path):
 
     report = run(
         dataset_dir,
-        [(512, 512)],
-        output_dir=output_dir,
-        report_path=report_path,
-        enabled_substeps=["assign_bucket_pools", "report_thin_buckets"],
+        BucketPoolsCheckConfig(resolution_buckets=[(512, 512)]),
+        context=StepRunContext(
+            output_dir=output_dir,
+            report_path=report_path,
+            enabled_substeps=["assign_bucket_pools", "report_thin_buckets"],
+        ),
     )
 
     assert report["skipped"] is True

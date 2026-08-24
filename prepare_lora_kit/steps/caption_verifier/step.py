@@ -10,14 +10,15 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from prepare_lora_kit.cancellation import CancelCheck, CancelledRun, check_cancel
+from prepare_lora_kit.cancellation import CancelledRun, check_cancel
+from prepare_lora_kit.pipeline.configs import CaptionVerifierConfig
 from prepare_lora_kit.project.pipeline.substeps import substep_ids_for
-from prepare_lora_kit.providers.interaction import InteractionProvider
 from prepare_lora_kit.report import reporter
 from prepare_lora_kit.steps.caption_verifier import captions as caption_io
 from prepare_lora_kit.steps.caption_verifier import reports, verdicts
 from prepare_lora_kit.steps.caption_verifier.generation import make_caption_generator
 from prepare_lora_kit.steps.caption_verifier.t2i import T2IRuntime
+from prepare_lora_kit.steps.context import StepRunContext
 from prepare_lora_kit.utils.verdict_ledger import VerdictLedger
 
 STEP_TYPE = "CaptionVerifierStep"
@@ -27,43 +28,33 @@ BACKUP_DIR_NAME = "captions_before"
 
 def run(
     dataset_dir: Path,
+    config: CaptionVerifierConfig,
     *,
-    output_dir: Path | None = None,
-    t2i_model_id: str = "auto",
-    quantization: str = "auto",
-    dtype: str = "bfloat16",
-    offload: str = "auto",
-    width: int | None = None,
-    height: int | None = None,
-    num_inference_steps: int | None = None,
-    guidance_scale: float | None = None,
-    seed: int = 42,
-    negative_prompt: str | None = None,
-    max_images: int | None = None,
-    keep_previews: bool = True,
-    report_path: Path | None = None,
-    interaction: InteractionProvider | None = None,
-    enabled_substeps: list[str] | None = None,
-    cancel_check: CancelCheck | None = None,
+    context: StepRunContext | None = None,
     status_callback: Callable[[dict[str, Any]], None] | None = None,
 ) -> dict:
+    context = context or StepRunContext()
     reporter.step_header("Caption Verifier — Text-Encoder Probe")
 
     dataset_dir = Path(dataset_dir)
-    output_dir = Path(output_dir) if output_dir else dataset_dir
-    enabled = set(enabled_substeps or substep_ids_for(STEP_TYPE))
-    target_report = Path(report_path) if report_path else reports.report_path_for(output_dir)
+    output_dir = Path(context.output_dir) if context.output_dir else dataset_dir
+    enabled = set(context.enabled_substeps or substep_ids_for(STEP_TYPE))
+    target_report = (
+        Path(context.report_path)
+        if context.report_path
+        else reports.report_path_for(output_dir)
+    )
     preview_root = target_report.parent / PREVIEW_DIR_NAME
 
     defaults = {
-        "width": width,
-        "height": height,
-        "steps": num_inference_steps,
-        "guidance": guidance_scale,
-        "seed": seed,
-        "negative_prompt": negative_prompt,
-        "max_images": max_images,
-        "keep_previews": keep_previews,
+        "width": config.width,
+        "height": config.height,
+        "steps": config.num_inference_steps,
+        "guidance": config.guidance_scale,
+        "seed": config.seed,
+        "negative_prompt": config.negative_prompt,
+        "max_images": config.max_images,
+        "keep_previews": config.keep_previews,
     }
 
     def _skip(reason: str, *, items=None, failures=None, model=None) -> dict:
@@ -78,7 +69,9 @@ def run(
     if "verify_captions" not in enabled:
         return _skip("verify_captions substep disabled")
 
-    items = caption_io.collect_verifiable_images(dataset_dir, max_images=max_images)
+    items = caption_io.collect_verifiable_images(
+        dataset_dir, max_images=config.max_images
+    )
     if not items:
         return _skip("no captioned images")
 
@@ -91,23 +84,27 @@ def run(
     # re-run never shows a render of a caption that has since been edited.
     shutil.rmtree(preview_root, ignore_errors=True)
 
-    verify = getattr(interaction, "caption_verify", None) if interaction else None
+    verify = (
+        getattr(context.interaction, "caption_verify", None)
+        if context.interaction
+        else None
+    )
     if verify is None:
         # The normal CLI path: pipeline.run passes no interaction provider.
         return _skip("no interactive caption verification provider", items=items)
 
-    check_cancel(cancel_check)
+    check_cancel(context.cancel_check)
 
     runtime = T2IRuntime(
-        model_id=t2i_model_id,
-        quantization=quantization,
-        dtype=dtype,
-        offload=offload,
-        width=width,
-        height=height,
-        steps=num_inference_steps,
-        guidance=guidance_scale,
-        negative_prompt=negative_prompt,
+        model_id=config.t2i_model_id,
+        quantization=config.quantization,
+        dtype=config.dtype,
+        offload=config.offload,
+        width=config.width,
+        height=config.height,
+        steps=config.num_inference_steps,
+        guidance=config.guidance_scale,
+        negative_prompt=config.negative_prompt,
         status_callback=status_callback,
     )
 
@@ -118,18 +115,18 @@ def run(
         preview_root=preview_root,
         generations=generations,
         failures=failures,
-        base_seed=seed,
-        cancel_check=cancel_check,
+        base_seed=config.seed,
+        cancel_check=context.cancel_check,
     )
 
     settings = {
-        "model_id": t2i_model_id,
-        "width": width,
-        "height": height,
-        "steps": num_inference_steps,
-        "guidance": guidance_scale,
-        "seed": seed,
-        "negative_prompt": negative_prompt,
+        "model_id": config.t2i_model_id,
+        "width": config.width,
+        "height": config.height,
+        "steps": config.num_inference_steps,
+        "guidance": config.guidance_scale,
+        "seed": config.seed,
+        "negative_prompt": config.negative_prompt,
         "verdicts": list(reports.VERDICTS),
     }
 
@@ -158,7 +155,7 @@ def run(
         )
         ledger.save()
 
-    if not keep_previews:
+    if not config.keep_previews:
         _discard_previews(preview_root, generations)
 
     report = reports.build_report(

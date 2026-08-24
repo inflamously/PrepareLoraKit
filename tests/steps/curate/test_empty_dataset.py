@@ -1,6 +1,8 @@
 """CurateStep on a dataset with nothing in it still has to leave a report."""
 import json
 
+from prepare_lora_kit.pipeline.configs import CurateConfig
+from prepare_lora_kit.steps.context import StepRunContext
 from prepare_lora_kit.steps.curate import run
 
 
@@ -11,8 +13,11 @@ def test_empty_dataset_writes_a_skipped_report(tmp_path):
 
     report = run(
         dataset_dir,
-        output_dir=tmp_path / "output",
-        report_path=report_path,
+        CurateConfig(),
+        context=StepRunContext(
+            output_dir=tmp_path / "output",
+            report_path=report_path,
+        ),
     )
 
     assert report["skipped"] is True
@@ -27,8 +32,14 @@ def test_skipped_report_keeps_the_key_set_of_a_successful_one(tmp_path):
     dataset_dir = tmp_path / "dataset"
     dataset_dir.mkdir()
 
-    report = run(dataset_dir, output_dir=tmp_path / "out",
-                 report_path=tmp_path / "reports" / "CurateStep_report.json")
+    report = run(
+        dataset_dir,
+        CurateConfig(),
+        context=StepRunContext(
+            output_dir=tmp_path / "out",
+            report_path=tmp_path / "reports" / "CurateStep_report.json",
+        ),
+    )
 
     assert set(report) >= {
         "duplicate_pairs",

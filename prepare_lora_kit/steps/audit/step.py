@@ -3,7 +3,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from prepare_lora_kit.cancellation import CancelCheck, check_cancel
+from prepare_lora_kit.cancellation import check_cancel
+from prepare_lora_kit.pipeline.configs import AuditConfig
 from prepare_lora_kit.report import reporter, step_report_path
 from prepare_lora_kit.steps.audit.checks import (
     check_captions,
@@ -12,29 +13,29 @@ from prepare_lora_kit.steps.audit.checks import (
     check_resolution,
     collect_stems,
 )
+from prepare_lora_kit.steps.context import StepRunContext
 
 
 def run(
     dataset_dir: Path,
-    min_resolution_side: int | None = 1536,
-    caption_model_type: str = "auto",
-    report_path: Path | None = None,
-    enabled_substeps: list[str] | None = None,
-    cancel_check: CancelCheck | None = None,
+    config: AuditConfig,
+    *,
+    context: StepRunContext | None = None,
 ) -> dict:
+    context = context or StepRunContext()
     reporter.step_header("Pairing & Integrity Audit")
-    enabled = set(enabled_substeps or [
+    enabled = set(context.enabled_substeps or [
         "check_pairing",
         "check_corrupt_files",
         "check_caption_quality",
         "check_resolution",
     ])
 
-    check_cancel(cancel_check)
+    check_cancel(context.cancel_check)
     image_stems, txt_stems = collect_stems(dataset_dir)
 
     # ── 1. Pairing check ──────────────────────────────────────────────────────
-    check_cancel(cancel_check)
+    check_cancel(context.cancel_check)
     if "check_pairing" in enabled:
         orphan_images, orphan_txts, paired_stems = check_pairing(image_stems, txt_stems)
     else:
@@ -42,20 +43,22 @@ def run(
         paired_stems = sorted(set(image_stems) & set(txt_stems))
 
     # ── 2. PIL verify (corrupt / truncated) ──────────────────────────────────
-    check_cancel(cancel_check)
+    check_cancel(context.cancel_check)
     corrupt = check_corrupt(paired_stems, image_stems) if "check_corrupt_files" in enabled else []
 
     # ── 3. Caption quality ────────────────────────────────────────────────────
-    check_cancel(cancel_check)
+    check_cancel(context.cancel_check)
     if "check_caption_quality" in enabled:
         empty_captions, short_captions, long_captions = check_captions(paired_stems, txt_stems)
     else:
         empty_captions, short_captions, long_captions = [], [], []
 
     # ── 4. Resolution gate ────────────────────────────────────────────────────
-    check_cancel(cancel_check)
+    check_cancel(context.cancel_check)
     undersized = (
-        check_resolution(paired_stems, image_stems, corrupt, min_resolution_side)
+        check_resolution(
+            paired_stems, image_stems, corrupt, config.min_resolution_side
+        )
         if "check_resolution" in enabled
         else []
     )
@@ -78,8 +81,8 @@ def run(
         "short_captions": short_captions,
         "long_captions": long_captions,
         "undersized": undersized,
-        "caption_model_type": caption_model_type,
-        "min_resolution_side": min_resolution_side,
+        "caption_model_type": config.caption_model_type,
+        "min_resolution_side": config.min_resolution_side,
         "pass": issues == 0,
         "substeps": {
             "check_pairing": {"enabled": "check_pairing" in enabled},
@@ -88,6 +91,9 @@ def run(
             "check_resolution": {"enabled": "check_resolution" in enabled},
         },
     }
-    check_cancel(cancel_check)
-    reporter.save_report(report_data, report_path or step_report_path(dataset_dir, "AuditStep"))
+    check_cancel(context.cancel_check)
+    reporter.save_report(
+        report_data,
+        context.report_path or step_report_path(dataset_dir, "AuditStep"),
+    )
     return report_data

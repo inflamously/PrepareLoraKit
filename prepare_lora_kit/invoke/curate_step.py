@@ -6,6 +6,7 @@ from pathlib import Path
 from prepare_lora_kit.invoke.working_dataset import _require_working_dataset
 from prepare_lora_kit.pipeline.configs import CurateConfig
 from prepare_lora_kit.report import step_report_path
+from prepare_lora_kit.steps.context import StepRunContext
 
 
 def invoke_curate_step(working_dir: Path, output_dir: Path, cfg: CurateConfig,
@@ -25,13 +26,11 @@ def invoke_curate_step(working_dir: Path, output_dir: Path, cfg: CurateConfig,
     from prepare_lora_kit.steps import curate
     return curate.run(
         working_dir,
-        output_dir=working_dir,
-        auto_dedupe=True,
-        skip_clip=cfg.skip_clip,
-        report_path=step_report_path(output_dir, "CurateStep"),
-        enabled_substeps=_kw.get("enabled_substeps"),
-        cancel_check=_kw.get("cancel_check"),
-        coverage_embedding_model=cfg.coverage_embedding_model,
-        dedup_hamming_distance=cfg.dedup_hamming_distance,
-        pca_umap_switch_threshold=cfg.pca_umap_switch_threshold,
+        cfg,
+        context=StepRunContext(
+            output_dir=working_dir,
+            report_path=step_report_path(output_dir, "CurateStep"),
+            enabled_substeps=_kw.get("enabled_substeps"),
+            cancel_check=_kw.get("cancel_check"),
+        ),
     )

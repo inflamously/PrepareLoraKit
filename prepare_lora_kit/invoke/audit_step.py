@@ -6,6 +6,7 @@ from pathlib import Path
 from prepare_lora_kit.invoke.working_dataset import _require_working_dataset
 from prepare_lora_kit.pipeline.configs import AuditConfig
 from prepare_lora_kit.report import step_report_path
+from prepare_lora_kit.steps.context import StepRunContext
 
 
 def invoke_audit_step(working_dir: Path, output_dir: Path, cfg: AuditConfig,
@@ -14,9 +15,10 @@ def invoke_audit_step(working_dir: Path, output_dir: Path, cfg: AuditConfig,
     from prepare_lora_kit.steps import audit
     return audit.run(
         working_dir,
-        min_resolution_side=cfg.min_resolution_side,
-        caption_model_type=cfg.caption_model_type,
-        report_path=step_report_path(output_dir, "AuditStep"),
-        enabled_substeps=_kw.get("enabled_substeps"),
-        cancel_check=_kw.get("cancel_check"),
+        cfg,
+        context=StepRunContext(
+            report_path=step_report_path(output_dir, "AuditStep"),
+            enabled_substeps=_kw.get("enabled_substeps"),
+            cancel_check=_kw.get("cancel_check"),
+        ),
     )

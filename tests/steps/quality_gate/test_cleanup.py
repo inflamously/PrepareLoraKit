@@ -5,6 +5,8 @@ from unittest.mock import Mock
 import pytest
 
 from prepare_lora_kit.cancellation import CancelledRun
+from prepare_lora_kit.pipeline.configs import QualityGateConfig
+from prepare_lora_kit.steps.context import StepRunContext
 from prepare_lora_kit.steps.quality_gate import step
 from prepare_lora_kit.utils import image as image_utils
 
@@ -43,7 +45,11 @@ def test_quality_gate_releases_watermark_model_after_scoring(tmp_path, monkeypat
         },
     )
 
-    step.run(tmp_path, tmp_path, auto_only=True)
+    step.run(
+        tmp_path,
+        QualityGateConfig(auto_only=True),
+        context=StepRunContext(output_dir=tmp_path),
+    )
 
     cleanup.assert_called_once_with()
 
@@ -58,6 +64,10 @@ def test_quality_gate_releases_watermark_model_when_cancelled(tmp_path, monkeypa
         raise CancelledRun("stop")
 
     with pytest.raises(CancelledRun, match="stop"):
-        step.run(tmp_path, tmp_path, auto_only=True, cancel_check=cancel)
+        step.run(
+            tmp_path,
+            QualityGateConfig(auto_only=True),
+            context=StepRunContext(output_dir=tmp_path, cancel_check=cancel),
+        )
 
     cleanup.assert_called_once_with()

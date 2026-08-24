@@ -4,6 +4,8 @@ import pytest
 from PIL import Image
 
 from prepare_lora_kit.cancellation import CancelledRun
+from prepare_lora_kit.pipeline.configs import UpscaleConfig
+from prepare_lora_kit.steps.context import StepRunContext
 from prepare_lora_kit.steps.upscale import step as upscale_step
 
 
@@ -20,10 +22,35 @@ def _write_upscaled(size: tuple[int, int] = (72, 64)):
     return upscaler
 
 
+def _run(
+    dataset_dir: Path,
+    *,
+    output_dir: Path | None = None,
+    report_path: Path | None = None,
+    interaction=None,
+    enabled_substeps=None,
+    cancel_check=None,
+    upscaler=None,
+    **config_kwargs,
+):
+    return upscale_step.run(
+        dataset_dir,
+        UpscaleConfig(**config_kwargs),
+        context=StepRunContext(
+            output_dir=output_dir,
+            report_path=report_path,
+            interaction=interaction,
+            enabled_substeps=enabled_substeps,
+            cancel_check=cancel_check,
+        ),
+        upscaler=upscaler,
+    )
+
+
 def test_seedvr2_missing_submodule_skips_without_lanczos(tmp_path):
     image = _image(tmp_path / "small.png", (32, 24))
 
-    result = upscale_step.run(
+    result = _run(
         tmp_path,
         output_dir=tmp_path,
         upscale_target=64,
@@ -59,7 +86,7 @@ def test_seedvr2_step_batches_candidates_once(tmp_path, monkeypatch):
     monkeypatch.setattr(upscale_step, "SeedVR2Upscaler", FakeSeedVR2Upscaler)
     monkeypatch.setattr(upscale_step, "_hallucination_check", lambda *_args: 1.0)
 
-    result = upscale_step.run(
+    result = _run(
         tmp_path,
         output_dir=tmp_path,
         upscale_target=64,
@@ -97,7 +124,7 @@ def test_seedvr2_step_cancellation_removes_all_temp_files(tmp_path, monkeypatch)
     monkeypatch.setattr(upscale_step, "SeedVR2Upscaler", FakeSeedVR2Upscaler)
 
     with pytest.raises(CancelledRun):
-        upscale_step.run(
+        _run(
             tmp_path,
             output_dir=tmp_path,
             upscale_target=64,
@@ -117,7 +144,7 @@ def test_seedvr_alias_warns_and_uses_injected_upscaler(tmp_path, monkeypatch):
     monkeypatch.setattr(upscale_step, "_hallucination_check", lambda *_args: 1.0)
 
     with pytest.warns(DeprecationWarning, match="upscale_model=seedvr"):
-        result = upscale_step.run(
+        result = _run(
             tmp_path,
             output_dir=tmp_path,
             upscale_target=64,
@@ -134,7 +161,7 @@ def test_pass_through_copies_large_images_to_separate_output(tmp_path):
     image = _image(tmp_path / "large.png", (80, 96))
     output_dir = tmp_path / "out"
 
-    result = upscale_step.run(
+    result = _run(
         tmp_path,
         output_dir=output_dir,
         upscale_target=64,
@@ -162,7 +189,7 @@ def test_in_place_upscale_uses_temp_file_before_accepting(tmp_path, monkeypatch)
 
     monkeypatch.setattr(upscale_step, "_hallucination_check", lambda *_args: 1.0)
 
-    result = upscale_step.run(
+    result = _run(
         tmp_path,
         output_dir=tmp_path,
         upscale_target=64,
@@ -192,7 +219,7 @@ def test_cancelled_upscale_removes_temp_file(tmp_path):
             raise CancelledRun("Run cancelled")
 
     with pytest.raises(CancelledRun):
-        upscale_step.run(
+        _run(
             tmp_path,
             output_dir=tmp_path,
             upscale_target=64,
@@ -210,7 +237,7 @@ def test_rejected_upscale_keeps_original_and_removes_temp(tmp_path, monkeypatch)
     image = _image(tmp_path / "small.png", (32, 24))
     monkeypatch.setattr(upscale_step, "_hallucination_check", lambda *_args: 0.1)
 
-    result = upscale_step.run(
+    result = _run(
         tmp_path,
         output_dir=tmp_path,
         upscale_target=64,
@@ -238,7 +265,7 @@ def test_custom_upscaler_runs_when_injected(tmp_path, monkeypatch):
 
     monkeypatch.setattr(upscale_step, "_hallucination_check", lambda *_args: 1.0)
 
-    result = upscale_step.run(
+    result = _run(
         tmp_path,
         output_dir=output_dir,
         upscale_target=64,
@@ -259,7 +286,7 @@ def test_blank_upscaler_exception_records_non_empty_skip_reason(tmp_path):
     def upscaler(_path: Path, _output_path: Path) -> Path:
         raise RuntimeError()
 
-    result = upscale_step.run(
+    result = _run(
         tmp_path,
         output_dir=tmp_path,
         upscale_target=64,
@@ -278,7 +305,7 @@ def test_lanczos_only_runs_when_explicit(tmp_path, monkeypatch):
     _image(tmp_path / "small.png", (32, 24))
     monkeypatch.setattr(upscale_step, "_hallucination_check", lambda *_args: 1.0)
 
-    result = upscale_step.run(
+    result = _run(
         tmp_path,
         output_dir=tmp_path,
         upscale_target=64,
@@ -349,7 +376,7 @@ def test_lanczos_jpeg_source_converts_to_png_and_removes_original(tmp_path, monk
     image_path = _image(tmp_path / "small.jpg", (32, 24))
     monkeypatch.setattr(upscale_step, "_hallucination_check", lambda *_args: 1.0)
 
-    result = upscale_step.run(
+    result = _run(
         tmp_path,
         output_dir=tmp_path,
         upscale_target=64,
@@ -384,7 +411,7 @@ def test_pre_downscale_wrapper_used_for_jpeg_candidates_under_seedvr2(tmp_path, 
         Image.new("RGB", (200, 200), "blue").save(output_path)
         return output_path
 
-    result = upscale_step.run(
+    result = _run(
         tmp_path,
         output_dir=tmp_path,
         upscale_target=200,
@@ -410,7 +437,7 @@ def test_lanczos_does_not_pre_downscale_jpeg_candidates(tmp_path, monkeypatch):
 
     monkeypatch.setattr(upscale_step, "_write_downscaled_copy", boom)
 
-    result = upscale_step.run(
+    result = _run(
         tmp_path,
         output_dir=tmp_path,
         upscale_target=200,
@@ -425,7 +452,7 @@ def test_lanczos_does_not_pre_downscale_jpeg_candidates(tmp_path, monkeypatch):
 def test_lanczos_leaves_large_jpeg_untouched(tmp_path):
     image_path = _image(tmp_path / "large.jpg", (200, 200))
 
-    result = upscale_step.run(
+    result = _run(
         tmp_path,
         output_dir=tmp_path,
         upscale_target=64,
@@ -460,7 +487,7 @@ def test_jpeg_cleanup_runs_under_seedvr2(tmp_path, monkeypatch):
 
     monkeypatch.setattr(upscale_step, "SeedVR2Upscaler", FakeSeedVR2Upscaler)
 
-    result = upscale_step.run(
+    result = _run(
         tmp_path,
         output_dir=tmp_path,
         upscale_target=64,
@@ -478,7 +505,7 @@ def test_jpeg_cleanup_runs_under_seedvr2(tmp_path, monkeypatch):
 def test_jpeg_cleanup_leaves_original_untouched_when_seedvr2_unavailable(tmp_path):
     image_path = _image(tmp_path / "large.jpg", (200, 200))
 
-    result = upscale_step.run(
+    result = _run(
         tmp_path,
         output_dir=tmp_path,
         upscale_target=64,
@@ -499,7 +526,7 @@ def test_dest_collision_keeps_jpeg_untouched(tmp_path, monkeypatch):
     png = _image(tmp_path / "foo.png", (40, 40))
     monkeypatch.setattr(upscale_step, "_hallucination_check", lambda *_args: 1.0)
 
-    result = upscale_step.run(
+    result = _run(
         tmp_path,
         output_dir=tmp_path,
         upscale_target=64,
@@ -526,7 +553,7 @@ def test_upscale_review_called_only_when_flagged_and_skip_forces_pass_through(
             calls.append(items)
             return {str(flagged_image): "skip"}
 
-    result = upscale_step.run(
+    result = _run(
         tmp_path,
         output_dir=tmp_path,
         upscale_target=64,
@@ -549,7 +576,7 @@ def test_upscale_review_not_called_when_nothing_flagged(tmp_path):
         def upscale_review(self, items):
             raise AssertionError("upscale_review should not be called when nothing is flagged")
 
-    result = upscale_step.run(
+    result = _run(
         tmp_path,
         output_dir=tmp_path,
         upscale_target=64,

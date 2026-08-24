@@ -15,7 +15,9 @@ import pytest
 from PIL import Image
 
 from prepare_lora_kit.cancellation import CancelledRun
+from prepare_lora_kit.pipeline.configs import CaptionVerifierConfig
 from prepare_lora_kit.steps.caption_verifier import step as verifier_step
+from prepare_lora_kit.steps.context import StepRunContext
 from prepare_lora_kit.utils import image as img_utils
 from prepare_lora_kit.utils.verdict_ledger import VerdictLedger
 
@@ -94,12 +96,16 @@ class Provider:
 
 def _run(dataset, tmp_path, provider, **kwargs):
     reports_dir = tmp_path / "reports"
+    enabled_substeps = kwargs.pop("enabled_substeps", None)
     return verifier_step.run(
         dataset,
-        output_dir=dataset,
-        report_path=reports_dir / "CaptionVerifierStep_report.json",
-        interaction=provider,
-        **kwargs,
+        CaptionVerifierConfig(**kwargs),
+        context=StepRunContext(
+            output_dir=dataset,
+            report_path=reports_dir / "CaptionVerifierStep_report.json",
+            interaction=provider,
+            enabled_substeps=enabled_substeps,
+        ),
     )
 
 

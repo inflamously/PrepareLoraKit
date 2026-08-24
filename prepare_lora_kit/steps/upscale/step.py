@@ -3,27 +3,18 @@ from __future__ import annotations
 
 import shutil
 import tempfile
-import warnings
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
 from prepare_lora_kit.cancellation import CancelCheck, CancelledRun, check_cancel
-from prepare_lora_kit.providers.interaction import InteractionProvider
+from prepare_lora_kit.pipeline.configs import UpscaleConfig
 from prepare_lora_kit.report import reporter, step_report_path
-from prepare_lora_kit.steps.upscale.hallucination import (
-    HALLUCINATION_SSIM_THRESHOLD,
-    _hallucination_check,
-)
+from prepare_lora_kit.steps.context import StepRunContext
+from prepare_lora_kit.steps.upscale.hallucination import _hallucination_check
 from prepare_lora_kit.steps.upscale.jpeg_cleanup import _is_jpeg, _write_downscaled_copy
-from prepare_lora_kit.steps.upscale.seedvr2_adapter import (
-    DEFAULT_SEEDVR2_DIT_MODEL,
-    SeedVR2Unavailable,
-    SeedVR2Upscaler,
-)
+from prepare_lora_kit.steps.upscale.seedvr2_adapter import SeedVR2Unavailable, SeedVR2Upscaler
 from prepare_lora_kit.steps.upscale.upscalers import (
-    UPSCALE_HIGHLIGHT_THRESHOLD,
-    UPSCALE_TARGET,
     _lanczos_upscale,
 )
 from prepare_lora_kit.utils import image as img_utils
@@ -59,60 +50,46 @@ class ImagePartitions:
 
 def run(
     dataset_dir: Path,
-    output_dir: Path | None = None,
-    upscale_target: int = UPSCALE_TARGET,
-    upscale_highlight_threshold: int = UPSCALE_HIGHLIGHT_THRESHOLD,
+    config: UpscaleConfig,
+    *,
+    context: StepRunContext | None = None,
     upscaler: Upscaler | None = None,
-    upscale_model: str = "seedvr2",
-    hallucination_ssim_threshold: float = HALLUCINATION_SSIM_THRESHOLD,
-    use_seedvr: bool | None = None,
-    report_path: Path | None = None,
-    seedvr2_submodule_dir: str | None = None,
-    seedvr2_model_dir: str | None = None,
-    seedvr2_dit_model: str = DEFAULT_SEEDVR2_DIT_MODEL,
-    seedvr2_cuda_device: str | None = None,
-    seedvr2_batch_size: int = 1,
-    seedvr2_vae_tiled: bool = True,
-    seedvr2_cache_models: bool = True,
-    seedvr2_model_residency: str = "auto",
-    seedvr2_debug: bool = False,
-    interaction: InteractionProvider | None = None,
-    enabled_substeps: list[str] | None = None,
-    cancel_check: CancelCheck | None = None,
 ) -> dict:
+    run_context = context or StepRunContext()
     reporter.step_header("Upscale (optional)")
-    check_cancel(cancel_check)
-    enabled = set(enabled_substeps or [
+    check_cancel(run_context.cancel_check)
+    enabled = set(run_context.enabled_substeps or [
         "select_upscale_candidates",
         "upscale_images",
         "hallucination_check",
     ])
-    upscale_model = _normalize_upscale_model(upscale_model, use_seedvr)
-    context = _prepare_output_context(dataset_dir, output_dir, report_path)
+    output_context = _prepare_output_context(
+        dataset_dir, run_context.output_dir, run_context.report_path
+    )
     seedvr2_kwargs = {
-        "submodule_dir": seedvr2_submodule_dir,
-        "model_dir": seedvr2_model_dir,
-        "dit_model": seedvr2_dit_model,
-        "cuda_device": seedvr2_cuda_device,
-        "batch_size": seedvr2_batch_size,
-        "vae_tiled": seedvr2_vae_tiled,
-        "cache_models": seedvr2_cache_models,
-        "model_residency": seedvr2_model_residency,
-        "debug": seedvr2_debug,
+        "submodule_dir": config.seedvr2_submodule_dir,
+        "model_dir": config.seedvr2_model_dir,
+        "dit_model": config.seedvr2_dit_model,
+        "cuda_device": config.seedvr2_cuda_device,
+        "batch_size": config.seedvr2_batch_size,
+        "vae_tiled": config.seedvr2_vae_tiled,
+        "cache_models": config.seedvr2_cache_models,
+        "model_residency": config.seedvr2_model_residency,
+        "debug": config.seedvr2_debug,
     }
 
     # The shrink-then-regrow cleanup only makes sense with a generative upscaler
     # (SeedVR2) that can restore detail. Doing it with Lanczos just blurs the
     # image (downscale + interpolated upscale = detail loss), so it is gated off
     # for non-SeedVR2 models — those JPEGs get a plain upscale or pass through.
-    enable_seedvr2_cleanup = upscale_model == "seedvr2"
+    enable_seedvr2_cleanup = config.upscale_model == "seedvr2"
 
     partitions = _resolve_partitions(
         dataset_dir,
-        context,
+        output_context,
         select_enabled="select_upscale_candidates" in enabled,
-        upscale_target=upscale_target,
-        upscale_highlight_threshold=upscale_highlight_threshold,
+        upscale_target=config.upscale_target,
+        upscale_highlight_threshold=config.upscale_highlight_threshold,
         enable_seedvr2_cleanup=enable_seedvr2_cleanup,
     )
 
@@ -126,22 +103,28 @@ def run(
     flagged = [info for info in partitions.images if info.flagged]
     if flagged:
         reporter.warn(
-            f"{len(flagged)} images flagged (<= {upscale_highlight_threshold}px min-side, "
+            f"{len(flagged)} images flagged "
+            f"(<= {config.upscale_highlight_threshold}px min-side, "
             "or a JPEG due for artifact cleanup)."
         )
 
-    if "select_upscale_candidates" in enabled and interaction is not None and flagged:
-        check_cancel(cancel_check)
-        decisions = interaction.upscale_review(
-            _build_review_items(flagged, upscale_highlight_threshold))
+    if (
+        "select_upscale_candidates" in enabled
+        and run_context.interaction is not None
+        and flagged
+    ):
+        check_cancel(run_context.cancel_check)
+        decisions = run_context.interaction.upscale_review(
+            _build_review_items(flagged, config.upscale_highlight_threshold)
+        )
         _apply_review_decisions(partitions, decisions)
-        check_cancel(cancel_check)
+        check_cancel(run_context.cancel_check)
 
     results["images"] = [_image_info_report(info) for info in partitions.images]
 
     for info in partitions.with_action("pass_through"):
-        check_cancel(cancel_check)
-        _pass_through(context, info.path)
+        check_cancel(run_context.cancel_check)
+        _pass_through(output_context, info.path)
 
     if "upscale_images" not in enabled:
         reporter.info("Upscale substep disabled; passing through originals.")
@@ -150,17 +133,19 @@ def run(
             {"path": str(info.path), "reason": "upscale_images disabled"} for info in actionable
         ]
         for info in actionable:
-            check_cancel(cancel_check)
-            _pass_through(context, info.path)
-        return _save_report(results, context)
+            check_cancel(run_context.cancel_check)
+            _pass_through(output_context, info.path)
+        return _save_report(results, output_context)
 
     candidates = partitions.with_action("upscale")
     cleanup_candidates = partitions.with_action("jpeg_cleanup")
 
     if not candidates and not cleanup_candidates:
-        reporter.ok(f"All images already >= {upscale_target}px - skipping upscale.")
+        reporter.ok(
+            f"All images already >= {config.upscale_target}px - skipping upscale."
+        )
         results["skipped"] = [str(info.path) for info in partitions.images]
-        return _save_report(results, context)
+        return _save_report(results, output_context)
 
     with tempfile.TemporaryDirectory(prefix="plk_upscale_scratch_") as scratch_dir_str:
 
@@ -168,33 +153,33 @@ def run(
         if candidates:
             _upscale_candidates(
                 candidates,
-                context,
+                output_context,
                 scratch_dir,
                 results,
-                upscale_model=upscale_model,
+                upscale_model=config.upscale_model,
                 upscaler=upscaler,
-                upscale_target=upscale_target,
+                upscale_target=config.upscale_target,
                 seedvr2_kwargs=seedvr2_kwargs,
-                hallucination_ssim_threshold=hallucination_ssim_threshold,
+                hallucination_ssim_threshold=config.hallucination_ssim_threshold,
                 hallucination_check_enabled="hallucination_check" in enabled,
-                cancel_check=cancel_check,
+                cancel_check=run_context.cancel_check,
             )
         if cleanup_candidates:
-            check_cancel(cancel_check)
+            check_cancel(run_context.cancel_check)
             _process_jpeg_cleanup_candidates(
                 infos=cleanup_candidates,
-                context=context,
-                upscale_target=upscale_target,
-                hallucination_ssim_threshold=hallucination_ssim_threshold,
+                context=output_context,
+                upscale_target=config.upscale_target,
+                hallucination_ssim_threshold=config.hallucination_ssim_threshold,
                 hallucination_check_enabled="hallucination_check" in enabled,
                 results=results,
                 seedvr2_kwargs=seedvr2_kwargs,
                 scratch_dir=scratch_dir,
-                cancel_check=cancel_check,
+                cancel_check=run_context.cancel_check,
             )
 
-    check_cancel(cancel_check)
-    return _save_report(results, context)
+    check_cancel(run_context.cancel_check)
+    return _save_report(results, output_context)
 
 
 def _resolve_partitions(
@@ -298,24 +283,6 @@ def _upscale_candidates(
             results=results,
             cancel_check=cancel_check,
         )
-
-
-def _normalize_upscale_model(upscale_model: str, use_seedvr: bool | None) -> str:
-    if use_seedvr is not None:
-        upscale_model = "seedvr2" if use_seedvr else "lanczos"
-        _warn_deprecated(
-            "UpscaleStep.run(use_seedvr=...) is deprecated; use upscale_model instead.")
-    if upscale_model == "seedvr":
-        _warn_deprecated("upscale_model=seedvr is deprecated; use upscale_model=seedvr2 instead.")
-        return "seedvr2"
-    if upscale_model not in ("seedvr2", "lanczos", "custom"):
-        raise ValueError(f"Unknown upscale_model: {upscale_model}")
-    return upscale_model
-
-
-def _warn_deprecated(message: str) -> None:
-    warnings.warn(message, DeprecationWarning, stacklevel=3)
-    reporter.warn(message)
 
 
 def _prepare_output_context(

@@ -4,13 +4,39 @@ import pytest
 from PIL import Image
 
 from prepare_lora_kit.cancellation import CancelledRun
+from prepare_lora_kit.pipeline.configs import CaptionBboxConfig
 from prepare_lora_kit.steps.caption_bbox import step as caption_bbox_step
+from prepare_lora_kit.steps.caption_bbox.options import CaptionBboxRunOptions
+from prepare_lora_kit.steps.context import StepRunContext
 from prepare_lora_kit.utils.verdict_ledger import VerdictLedger
 
 
 def _write_image(path: Path, size: tuple[int, int] = (16, 12), color: str = "blue") -> Path:
     Image.new("RGB", size, color).save(path)
     return path
+
+
+def _run_caption_bbox(dataset_dir: Path, **kwargs):
+    context = StepRunContext(
+        output_dir=kwargs.pop("output_dir", None),
+        report_path=kwargs.pop("report_path", None),
+        interaction=kwargs.pop("interaction", None),
+        enabled_substeps=kwargs.pop("enabled_substeps", None),
+        cancel_check=kwargs.pop("cancel_check", None),
+    )
+    options = CaptionBboxRunOptions(
+        concept_token=kwargs.pop("concept_token", None),
+        overwrite=kwargs.pop("overwrite", False),
+        max_pixels=kwargs.pop("max_pixels", 1024 * 1024),
+        quantization=kwargs.pop("quantization", None),
+        status_callback=kwargs.pop("caption_status_callback", None),
+    )
+    return caption_bbox_step.run(
+        dataset_dir,
+        CaptionBboxConfig(**kwargs),
+        context=context,
+        options=options,
+    )
 
 
 class _AnnotatingProvider:
@@ -161,7 +187,7 @@ def test_caption_bbox_step_reuses_runtime_for_region_and_original_caption(tmp_pa
     events = []
     monkeypatch.setattr(caption_bbox_step.vlm, "CaptionRuntime", _fake_runtime_class(events))
 
-    report = caption_bbox_step.run(
+    report = _run_caption_bbox(
         tmp_path,
         concept_token="tok",
         output_dir=tmp_path,
@@ -194,7 +220,7 @@ def test_caption_bbox_step_persists_edited_region_caption_to_sidecar(tmp_path, m
     events = []
     monkeypatch.setattr(caption_bbox_step.vlm, "CaptionRuntime", _fake_runtime_class(events))
 
-    caption_bbox_step.run(
+    _run_caption_bbox(
         tmp_path,
         concept_token="tok",
         output_dir=tmp_path,
@@ -216,7 +242,7 @@ def test_caption_bbox_step_resume_skips_done_and_prompts_only_pending(tmp_path, 
     box = {"x1": 0.1, "y1": 0.2, "x2": 0.5, "y2": 0.6, "label": "a red car",
            "crop_name": "plk_bbox__done__01.png"}
     first = _BatchProvider(lambda d: {"annotations": [dict(box)], "skipped": False})
-    caption_bbox_step.run(
+    _run_caption_bbox(
         tmp_path, concept_token="tok", output_dir=tmp_path,
         caption_model_id="fake/model", interaction=first, spot_check_pct=0,
     )
@@ -228,7 +254,7 @@ def test_caption_bbox_step_resume_skips_done_and_prompts_only_pending(tmp_path, 
     events2 = []
     monkeypatch.setattr(caption_bbox_step.vlm, "CaptionRuntime", _fake_runtime_class(events2))
     second = _BatchProvider(lambda d: {"annotations": [], "skipped": False})
-    report = caption_bbox_step.run(
+    report = _run_caption_bbox(
         tmp_path, concept_token="tok", output_dir=tmp_path,
         caption_model_id="fake/model", interaction=second, spot_check_pct=0,
     )
@@ -254,7 +280,7 @@ def test_caption_bbox_step_force_prefills_boxes_and_never_deletes_them(tmp_path,
     box = {"x1": 0.1, "y1": 0.2, "x2": 0.5, "y2": 0.6, "label": "a red car",
            "crop_name": "plk_bbox__image__01.png"}
     first = _BatchProvider(lambda d: {"annotations": [dict(box)], "skipped": False})
-    caption_bbox_step.run(
+    _run_caption_bbox(
         tmp_path, concept_token="tok", output_dir=tmp_path,
         caption_model_id="fake/model", interaction=first, spot_check_pct=0,
     )
@@ -265,7 +291,7 @@ def test_caption_bbox_step_force_prefills_boxes_and_never_deletes_them(tmp_path,
     events2 = []
     monkeypatch.setattr(caption_bbox_step.vlm, "CaptionRuntime", _fake_runtime_class(events2))
     second = _BatchProvider(lambda d: {"annotations": d["annotations"], "skipped": False})
-    caption_bbox_step.run(
+    _run_caption_bbox(
         tmp_path, concept_token="tok", output_dir=tmp_path,
         caption_model_id="fake/model", interaction=second, spot_check_pct=0,
         overwrite=True,
@@ -282,7 +308,7 @@ def test_caption_bbox_step_resume_with_no_pending_skips_model_load(tmp_path, mon
     _write_image(tmp_path / "image.png")
     events = []
     monkeypatch.setattr(caption_bbox_step.vlm, "CaptionRuntime", _fake_runtime_class(events))
-    caption_bbox_step.run(
+    _run_caption_bbox(
         tmp_path, concept_token="tok", output_dir=tmp_path,
         caption_model_id="fake/model",
         interaction=_BatchProvider(lambda d: {"annotations": [], "skipped": False}),
@@ -297,7 +323,7 @@ def test_caption_bbox_step_resume_with_no_pending_skips_model_load(tmp_path, mon
     monkeypatch.setattr(caption_bbox_step.vlm, "CaptionRuntime", _fake_runtime_class(events2))
     provider = _BatchProvider(lambda d: {"annotations": [], "skipped": False})
     statuses = []
-    report = caption_bbox_step.run(
+    report = _run_caption_bbox(
         tmp_path, concept_token="tok", output_dir=tmp_path,
         caption_model_id="fake/model", interaction=provider, spot_check_pct=0,
         caption_status_callback=statuses.append,
@@ -322,7 +348,7 @@ def test_caption_bbox_step_skip_all_captions_current_image_only(tmp_path, monkey
 
     provider = _BatchProvider(decide)
     provider.skip_all = True
-    caption_bbox_step.run(
+    _run_caption_bbox(
         tmp_path, concept_token="tok", output_dir=tmp_path,
         caption_model_id="fake/model", interaction=provider, spot_check_pct=0,
     )
@@ -345,7 +371,7 @@ def _captioned(tmp_path, monkeypatch, name="image.png"):
     monkeypatch.setattr(
         caption_bbox_step.vlm, "CaptionRuntime", _fake_runtime_class([]),
     )
-    caption_bbox_step.run(
+    _run_caption_bbox(
         tmp_path, concept_token="tok", output_dir=tmp_path,
         caption_model_id="fake/model", spot_check_pct=0,
         interaction=_BatchProvider(lambda d: {"annotations": [], "skipped": False}),
@@ -358,7 +384,7 @@ def _rerun(tmp_path, monkeypatch, provider, **kwargs):
     monkeypatch.setattr(
         caption_bbox_step.vlm, "CaptionRuntime", _fake_runtime_class(events),
     )
-    report = caption_bbox_step.run(
+    report = _run_caption_bbox(
         tmp_path, concept_token="tok", output_dir=tmp_path,
         caption_model_id="fake/model", interaction=provider, spot_check_pct=0,
         **kwargs,
@@ -500,7 +526,7 @@ def test_caption_bbox_step_requires_model_when_captioning_enabled(tmp_path):
     _write_image(tmp_path / "image.png")
 
     with pytest.raises(RuntimeError, match="requires caption_model_id"):
-        caption_bbox_step.run(
+        _run_caption_bbox(
             tmp_path,
             concept_token="tok",
             output_dir=tmp_path,
@@ -521,7 +547,7 @@ def test_caption_bbox_step_full_image_failure_is_loud_and_does_not_write_sidecar
     monkeypatch.setattr(caption_bbox_step.vlm, "CaptionRuntime", runtime)
 
     with pytest.raises(RuntimeError, match=r"VL captioning failed for image\.png: model crashed"):
-        caption_bbox_step.run(
+        _run_caption_bbox(
             tmp_path,
             concept_token="tok",
             output_dir=tmp_path,
@@ -547,7 +573,7 @@ def test_caption_bbox_step_unloads_runtime_when_cancelled_during_caption(tmp_pat
     monkeypatch.setattr(caption_bbox_step.vlm, "CaptionRuntime", runtime)
 
     with pytest.raises(CancelledRun):
-        caption_bbox_step.run(
+        _run_caption_bbox(
             tmp_path,
             concept_token="tok",
             output_dir=tmp_path,

@@ -1,3 +1,4 @@
+import sys
 from types import SimpleNamespace
 
 import pytest
@@ -5,7 +6,13 @@ import pytest
 from prepare_lora_kit.steps.caption_bbox import vlm
 
 
-def _fake_loaded(*, supports_prompt: bool) -> SimpleNamespace:
+def _fake_loaded(
+    *,
+    supports_prompt: bool,
+    processor=None,
+    model_id: str = "fake/model",
+    model_type: str = "fake",
+) -> SimpleNamespace:
     return SimpleNamespace(
         supports_prompt=supports_prompt,
         adapter="fake",
@@ -13,8 +20,11 @@ def _fake_loaded(*, supports_prompt: bool) -> SimpleNamespace:
         quantization="none",
         dtype="bfloat16",
         max_pixels=vlm._DEFAULT_MAX_PIXELS,
-        model=SimpleNamespace(name_or_path="fake/model"),
-        processor=None,
+        model=SimpleNamespace(
+            name_or_path=model_id,
+            config=SimpleNamespace(model_type=model_type),
+        ),
+        processor=processor,
     )
 
 
@@ -201,6 +211,59 @@ def test_explicit_quantization_requires_bitsandbytes(monkeypatch):
         vlm._resolve_quantization("4bit", _Torch)
 
 
+def test_8bit_model_kwargs_allow_inferred_cpu_offload(monkeypatch):
+    class _BitsAndBytesConfig:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    monkeypatch.setitem(
+        sys.modules,
+        "transformers",
+        SimpleNamespace(BitsAndBytesConfig=_BitsAndBytesConfig),
+    )
+
+    kwargs = vlm._model_kwargs("8bit", "bfloat16")
+
+    assert kwargs["device_map"] == "auto"
+    assert kwargs["quantization_config"].kwargs == {
+        "load_in_8bit": True,
+        "llm_int8_enable_fp32_cpu_offload": True,
+    }
+
+    kwargs = vlm._model_kwargs("4bit", "bfloat16")
+    assert kwargs["quantization_config"].kwargs["load_in_4bit"] is True
+    assert kwargs["quantization_config"].kwargs["llm_int8_enable_fp32_cpu_offload"] is True
+
+
+def test_qwen3_prompted_loader_does_not_try_qwen2_class(monkeypatch):
+    captured = {}
+
+    def _capture(model_id, class_names, model_kwargs):
+        captured["class_names"] = class_names
+        return object()
+
+    monkeypatch.setattr(vlm, "_try_model_classes", _capture)
+    monkeypatch.setattr(vlm, "_require_qwen3_transformers", lambda: None)
+
+    vlm._load_prompted_model("Qwen/Qwen3.8-27B", {})
+
+    assert captured["class_names"] == ("AutoModelForImageTextToText",)
+
+
+def test_qwen3_rejects_transformers_with_broken_recurrent_cache(monkeypatch):
+    import importlib.metadata
+
+    real_version = importlib.metadata.version
+    monkeypatch.setattr(
+        importlib.metadata,
+        "version",
+        lambda package: "5.12.1" if package == "transformers" else real_version(package),
+    )
+
+    with pytest.raises(RuntimeError, match=r"requires transformers>=5\.15\.1"):
+        vlm._require_qwen3_transformers()
+
+
 def test_metadata_reports_the_generation_passes_that_ran():
     runtime = vlm.CaptionRuntime("fake/model")
 
@@ -239,12 +302,60 @@ class _RecordingProcessor:
 
     def apply_chat_template(self, messages, **kwargs):
         if "enable_thinking" in kwargs and not self._accepts_thinking:
-            raise TypeError("apply_chat_template() got an unexpected keyword argument")
+            raise TypeError(
+                "apply_chat_template() got an unexpected keyword argument 'enable_thinking'"
+            )
         self.kwargs = kwargs
         return "PROMPT"
 
 
 _MESSAGES = [{"role": "user", "content": [{"type": "text", "text": "describe"}]}]
+
+
+class _NativeProcessor:
+    def __init__(self, *, parsed=None, error=None):
+        self.tokenizer = SimpleNamespace(response_template=None)
+        self.parsed = parsed
+        self.error = error
+        self.messages = None
+        self.kwargs = None
+        self.parse_args = None
+
+    def apply_chat_template(self, messages, **kwargs):
+        if self.error is not None:
+            raise self.error
+        self.messages = messages
+        self.kwargs = kwargs
+        return {"input_ids": [[11, 12, 13]], "pixel_values": "PIXELS"}
+
+    def decode(self, generated_ids, **kwargs):
+        return "unparsed reasoning and answer"
+
+    def parse_response(self, generated_ids, schema, *, prefix):
+        self.parse_args = (generated_ids, schema, prefix)
+        return self.parsed
+
+
+class _LegacyProcessor(_RecordingProcessor):
+    def __init__(self):
+        super().__init__()
+        self.processor_kwargs = None
+
+    def __call__(self, **kwargs):
+        self.processor_kwargs = kwargs
+        return {"input_ids": [[1, 2, 3]], "pixel_values": "LEGACY_PIXELS"}
+
+
+class _PrefixlessQwenProcessor(_NativeProcessor):
+    """Transformers 5.12-style processor whose parser has no prefix keyword."""
+
+    def decode(self, token_ids, **kwargs):
+        if token_ids == [11, 12, 13]:
+            return "<|im_start|>assistant\n<think>\n"
+        return "I should inspect the image.</think>A clean caption.<|im_end|>"
+
+    def parse_response(self, generated_ids, schema):
+        pytest.fail("the prefix-less parser cannot safely identify the assistant boundary")
 
 
 def test_chat_text_asks_the_template_to_disable_thinking():
@@ -262,6 +373,123 @@ def test_chat_text_retries_without_the_kwarg_for_older_processors():
 
     assert vlm._build_chat_text(processor, _MESSAGES) == "PROMPT"
     assert "enable_thinking" not in processor.kwargs
+
+
+def test_native_prompted_inputs_keep_image_in_chat_and_disable_thinking():
+    processor = _NativeProcessor()
+    loaded = _fake_loaded(
+        supports_prompt=True,
+        processor=processor,
+        model_id="Qwen/Qwen3.8-27B",
+        model_type="qwen3_5",
+    )
+    image = object()
+    messages = [{
+        "role": "user",
+        "content": [{"type": "image", "image": image}, {"type": "text", "text": "caption"}],
+    }]
+
+    inputs = vlm._prepare_prompted_inputs(loaded, messages, image)
+
+    assert inputs["pixel_values"] == "PIXELS"
+    assert processor.messages[0]["content"][0]["image"] is image
+    assert processor.kwargs == {
+        "tokenize": True,
+        "add_generation_prompt": True,
+        "enable_thinking": False,
+        "return_dict": True,
+        "return_tensors": "pt",
+    }
+
+
+def test_non_qwen_model_keeps_legacy_two_stage_processing():
+    processor = _LegacyProcessor()
+    loaded = _fake_loaded(supports_prompt=True, processor=processor)
+    image = object()
+
+    inputs = vlm._prepare_prompted_inputs(loaded, _MESSAGES, image)
+
+    assert processor.kwargs["tokenize"] is False
+    assert processor.processor_kwargs == {
+        "text": ["PROMPT"],
+        "images": [image],
+        "return_tensors": "pt",
+    }
+    assert inputs["pixel_values"] == "LEGACY_PIXELS"
+
+
+def test_qwen_response_parser_returns_content_without_thinking():
+    processor = _NativeProcessor(parsed={
+        "role": "assistant",
+        "thinking": "First I should inspect the image.",
+        "content": "A brass telescope on a wooden tripod.",
+    })
+    loaded = _fake_loaded(
+        supports_prompt=True,
+        processor=processor,
+        model_id="Qwen/Qwen3.8-27B",
+        model_type="qwen3_5",
+    )
+
+    result = vlm._decode_prompted_response(loaded, [21, 22], [11, 12, 13])
+
+    assert result == "A brass telescope on a wooden tripod."
+    generated, schema, prefix = processor.parse_args
+    assert generated == [21, 22]
+    assert schema == vlm._QWEN_RESPONSE_TEMPLATE
+    assert prefix == [11, 12, 13]
+
+
+def test_qwen_without_structured_parser_uses_prefill_aware_compatibility_path():
+    processor = _PrefixlessQwenProcessor()
+    processor.parse_response = None
+    loaded = _fake_loaded(
+        supports_prompt=True,
+        processor=processor,
+        model_id="Qwen/Qwen3.8-27B",
+        model_type="qwen3_5",
+    )
+
+    result = vlm._decode_prompted_response(loaded, [21, 22], [11, 12, 13])
+
+    assert result == "A clean caption."
+
+
+def test_qwen_prefixless_transformers_parser_uses_compatibility_path():
+    processor = _PrefixlessQwenProcessor()
+    loaded = _fake_loaded(
+        supports_prompt=True,
+        processor=processor,
+        model_id="Qwen/Qwen3.8-27B",
+        model_type="qwen3_5",
+    )
+
+    result = vlm._decode_prompted_response(loaded, [21, 22], [11, 12, 13])
+
+    assert result == "A clean caption."
+
+
+def test_native_prompting_does_not_swallow_unrelated_type_error():
+    processor = _NativeProcessor(error=TypeError("image preprocessing failed"))
+    loaded = _fake_loaded(supports_prompt=True, processor=processor)
+
+    with pytest.raises(TypeError, match="image preprocessing failed"):
+        vlm._prepare_prompted_inputs(loaded, _MESSAGES, object())
+
+
+def test_qwen_fails_closed_if_processor_cannot_disable_thinking():
+    processor = _NativeProcessor(
+        error=TypeError("got an unexpected keyword argument 'enable_thinking'")
+    )
+    loaded = _fake_loaded(
+        supports_prompt=True,
+        processor=processor,
+        model_id="Qwen/Qwen3.8-27B",
+        model_type="qwen3_5",
+    )
+
+    with pytest.raises(RuntimeError, match="thinking disabled"):
+        vlm._prepare_prompted_inputs(loaded, _MESSAGES, object())
 
 
 def test_finalize_removes_reasoning_before_the_caption():

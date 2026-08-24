@@ -34,8 +34,13 @@ def isolated_projects(tmp_path, monkeypatch):
     projects = tmp_path / "projects"
     # Deliberately not created: on a fresh machine ~/.prepare_lora_kit/projects
     # does not exist either, so every test exercises that first-run path.
-    # Belt and braces: if a future test re-points PROJECTS_DIR at something real,
-    # fail here rather than in shutil.rmtree.
-    assert Path.home() not in projects.parents
+    # Belt and braces: reject the real project tree specifically. On Windows,
+    # pytest's safe temporary root normally lives below ``Path.home()`` via
+    # AppData/Local/Temp, so rejecting every path below home also rejects the
+    # intended ``tmp_path``.
+    real_projects = Path(paths.PROJECTS_DIR).resolve()
+    temporary_projects = projects.resolve()
+    assert temporary_projects != real_projects
+    assert real_projects not in temporary_projects.parents
     monkeypatch.setattr(paths, "PROJECTS_DIR", projects)
     return projects

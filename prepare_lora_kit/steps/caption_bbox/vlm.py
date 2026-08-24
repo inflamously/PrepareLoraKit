@@ -27,6 +27,30 @@ _DEFAULT_MAX_PIXELS = 1024 * 1024
 _REGION_PROMPT = cap_utils._REGION_PROMPT
 
 _TASKS = {"auto", "image-text-to-text", "image-to-text"}
+_QWEN3_MIN_TRANSFORMERS = "5.15.1"
+
+# Qwen's response parser needs the prompt prefix because its chat template may
+# prefill part (or all) of the thinking block before generation starts. Recent
+# tokenizers normally ship this schema themselves; keeping the caption-only
+# fallback here also covers Qwen releases whose tokenizer config predates
+# ``response_template``. Tool-call fields are intentionally absent: captioning
+# never supplies tools, so only thinking and visible assistant content matter.
+_QWEN_RESPONSE_TEMPLATE = {
+    "defaults": {"role": "assistant"},
+    "start_anchor": "<|im_start|>assistant\n",
+    "fields": {
+        "thinking": {
+            "open": "<think>",
+            "close": "</think>",
+            "content": "text",
+        },
+        "content": {
+            "close_pattern": r"\s*(?:<\|im_end\|>|<\|endoftext\|>|<\|eot_id\|>)",
+            "content": "text",
+        },
+    },
+}
+_QWEN_CONTROL_TOKENS = ("<|im_end|>", "<|endoftext|>", "<|eot_id|>")
 
 
 @dataclass
@@ -148,7 +172,7 @@ def _load(
             except Exception as exc:
                 if _fatal_load_error(exc, model_id):
                     raise
-                errors.append(f"image-text-to-text: {exc}")
+                errors.append(f"image-text-to-text [{type(exc).__name__}]: {exc}")
                 _clear_cuda(torch)
 
         if task in {"auto", "image-to-text"}:
@@ -171,7 +195,7 @@ def _load(
             except Exception as exc:
                 if _fatal_load_error(exc, model_id):
                     raise
-                errors.append(f"image-to-text: {exc}")
+                errors.append(f"image-to-text [{type(exc).__name__}]: {exc}")
                 _clear_cuda(torch)
 
     raise RuntimeError(
@@ -209,9 +233,13 @@ def _model_kwargs(quantization: str, torch_dtype) -> dict[str, Any]:
                 bnb_4bit_compute_dtype=torch_dtype,
                 bnb_4bit_quant_type="nf4",
                 bnb_4bit_use_double_quant=True,
+                llm_int8_enable_fp32_cpu_offload=True,
             )
         else:
-            kwargs["quantization_config"] = BitsAndBytesConfig(load_in_8bit=True)
+            kwargs["quantization_config"] = BitsAndBytesConfig(
+                load_in_8bit=True,
+                llm_int8_enable_fp32_cpu_offload=True,
+            )
         kwargs.pop("torch_dtype", None)
     return kwargs
 
@@ -281,15 +309,33 @@ def _try_model_classes(model_id: str, class_names: tuple[str, ...],
             refusal = _as_remote_code_refusal(exc, model_id)
             if _fatal_load_error(refusal, model_id):
                 raise refusal from exc
-            errors.append(f"{class_name}: {exc}")
+            errors.append(f"{class_name} [{type(exc).__name__}]: {exc}")
     raise RuntimeError("; ".join(errors))
 
 
 def _load_prompted_model(model_id: str, model_kwargs: dict[str, Any]):
-    return _try_model_classes(model_id, (
-        "AutoModelForImageTextToText",
-        "Qwen2VLForConditionalGeneration",
-    ), model_kwargs)
+    class_names = ("AutoModelForImageTextToText",)
+    if "qwen3" in model_id.lower():
+        _require_qwen3_transformers()
+    else:
+        class_names += ("Qwen2VLForConditionalGeneration",)
+    return _try_model_classes(model_id, class_names, model_kwargs)
+
+
+def _require_qwen3_transformers() -> None:
+    """Reject Qwen3 runtimes with the broken early recurrent-cache implementation."""
+    from importlib.metadata import version
+
+    from packaging.version import Version
+
+    installed = version("transformers")
+    if Version(installed) < Version(_QWEN3_MIN_TRANSFORMERS):
+        raise RuntimeError(
+            "Qwen3.8 captioning requires "
+            f"transformers>={_QWEN3_MIN_TRANSFORMERS}; installed {installed}. "
+            "Older Qwen3.5 recurrent-cache code can produce correct first tokens "
+            "followed by corrupted output. Upgrade transformers and retry."
+        )
 
 
 def _load_image_to_text_model(model_id: str, model_kwargs: dict[str, Any]):
@@ -357,8 +403,127 @@ def _build_chat_text(processor, messages: list[dict[str, Any]]) -> str:
     kwargs: dict[str, Any] = {"tokenize": False, "add_generation_prompt": True}
     try:
         return processor.apply_chat_template(messages, **kwargs, enable_thinking=False)
-    except TypeError:
+    except TypeError as exc:
+        if not _unexpected_keyword(exc, "enable_thinking"):
+            raise
         return processor.apply_chat_template(messages, **kwargs)
+
+
+def _unexpected_keyword(exc: TypeError, keyword: str) -> bool:
+    """Whether ``exc`` specifically rejects one chat-template keyword."""
+    message = str(exc).lower()
+    rejected = ("unexpected keyword", "unexpected argument", "is undefined")
+    return keyword.lower() in message and any(marker in message for marker in rejected)
+
+
+def _is_qwen3_model(loaded: LoadedCaptionModel) -> bool:
+    """Identify modern Qwen VLMs without coupling to one transient class name."""
+    model = loaded.model
+    identities = (
+        getattr(model, "name_or_path", ""),
+        getattr(getattr(model, "config", None), "model_type", ""),
+    )
+    return any("qwen3" in str(identity).lower().replace("_", "") for identity in identities)
+
+
+def _legacy_prompted_inputs(processor, messages: list[dict[str, Any]], image):
+    """Compatibility path for older, non-Qwen processors."""
+    text = _build_chat_text(processor, messages)
+    return processor(text=[text], images=[image], return_tensors="pt")
+
+
+def _prepare_prompted_inputs(loaded: LoadedCaptionModel, messages: list[dict[str, Any]], image):
+    """Let modern multimodal processors build their complete model input.
+
+    In particular, Qwen supplies image grids, multimodal token types, and its
+    no-thinking assistant prefill here. Reconstructing those inputs from a rendered
+    string is both redundant and architecture-sensitive.
+    """
+    processor = loaded.processor
+    if not _is_qwen3_model(loaded):
+        return _legacy_prompted_inputs(processor, messages, image)
+    try:
+        inputs = processor.apply_chat_template(
+            messages,
+            tokenize=True,
+            add_generation_prompt=True,
+            enable_thinking=False,
+            return_dict=True,
+            return_tensors="pt",
+        )
+    except TypeError as exc:
+        native_keywords = ("tokenize", "enable_thinking", "return_dict", "return_tensors")
+        if not any(_unexpected_keyword(exc, keyword) for keyword in native_keywords):
+            raise
+        raise RuntimeError(
+            "Qwen3 captioning requires native multimodal chat-template inputs "
+            "with thinking disabled; this processor does not support them."
+        ) from exc
+
+    if "input_ids" not in inputs:
+        raise RuntimeError("Caption processor chat template returned no input_ids.")
+    return inputs
+
+
+def _decode_prompted_response(
+    loaded: LoadedCaptionModel,
+    generated_ids,
+    prefix_ids,
+) -> str:
+    """Decode visible assistant content while excluding Qwen reasoning."""
+    processor = loaded.processor
+    if not _is_qwen3_model(loaded):
+        return processor.decode(generated_ids, skip_special_tokens=True)
+
+    parse_response = getattr(processor, "parse_response", None)
+    if not callable(parse_response):
+        return _decode_qwen_response_compat(processor, generated_ids, prefix_ids)
+    tokenizer = getattr(processor, "tokenizer", processor)
+    schema = getattr(tokenizer, "response_template", None) or _QWEN_RESPONSE_TEMPLATE
+    try:
+        parsed = parse_response(generated_ids, schema, prefix=prefix_ids)
+    except TypeError as exc:
+        if not _unexpected_keyword(exc, "prefix"):
+            raise
+        return _decode_qwen_response_compat(processor, generated_ids, prefix_ids)
+    if not isinstance(parsed, dict):
+        return _decode_qwen_response_compat(processor, generated_ids, prefix_ids)
+    content = parsed.get("content", "")
+    if not isinstance(content, str):
+        raise RuntimeError("Qwen caption processor returned non-text assistant content.")
+    if not content.strip() and parsed.get("thinking") and "budget" not in _REASONING_WARNED:
+        _REASONING_WARNED.add("budget")
+        reporter.warn(
+            "Qwen caption model returned reasoning but no visible answer; "
+            "the generation token budget was likely exhausted."
+        )
+    return content
+
+
+def _decode_qwen_response_compat(processor, generated_ids, prefix_ids) -> str:
+    """Parse Qwen thinking around a prompt prefill on older Transformers.
+
+    Transformers 5.12 exposes ``ProcessorMixin.parse_response`` but does not yet
+    accept the prompt ``prefix`` that makes reasoning parsing reliable. Rebuild
+    only the assistant turn from lossless decodes so the existing reasoning
+    cleanup sees the prefilled opener/closed block as well as generated tokens.
+    """
+    tokenizer = getattr(processor, "tokenizer", processor)
+    decode = getattr(tokenizer, "decode", None) or processor.decode
+    prefix = decode(prefix_ids, skip_special_tokens=False)
+    generated = decode(generated_ids, skip_special_tokens=False)
+    anchor = _QWEN_RESPONSE_TEMPLATE["start_anchor"]
+    prefill = prefix.rpartition(anchor)[2] if anchor in prefix else ""
+    content = cap_text.strip_reasoning(f"{prefill}{generated}")
+    for token in _QWEN_CONTROL_TOKENS:
+        content = content.replace(token, "")
+    if not content.strip() and generated.strip() and "budget" not in _REASONING_WARNED:
+        _REASONING_WARNED.add("budget")
+        reporter.warn(
+            "Qwen caption model returned reasoning but no visible answer; "
+            "the generation token budget was likely exhausted."
+        )
+    return content.strip()
 
 
 def _finalize_caption(generated: str) -> str:
@@ -382,7 +547,6 @@ def _finalize_caption(generated: str) -> str:
 def _run_prompted(loaded: LoadedCaptionModel, image, prompt_text: str, max_new_tokens: int) -> str:
     import torch
 
-    processor = loaded.processor
     messages = [
         {
             "role": "user",
@@ -392,8 +556,8 @@ def _run_prompted(loaded: LoadedCaptionModel, image, prompt_text: str, max_new_t
             ],
         }
     ]
-    text = _build_chat_text(processor, messages)
-    inputs = processor(text=[text], images=[image], return_tensors="pt")
+    inputs = _prepare_prompted_inputs(loaded, messages, image)
+    prefix_ids = inputs["input_ids"][0]
     device = _input_device(loaded.model)
     inputs = _to_device(inputs, device)
 
@@ -407,7 +571,7 @@ def _run_prompted(loaded: LoadedCaptionModel, image, prompt_text: str, max_new_t
                 top_p=None,
             )
         input_len = inputs["input_ids"].shape[1]
-        generated = processor.decode(out[0][input_len:], skip_special_tokens=True)
+        generated = _decode_prompted_response(loaded, out[0][input_len:], prefix_ids)
     finally:
         del inputs
         _clear_cuda(torch)

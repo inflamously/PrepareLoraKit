@@ -2,6 +2,7 @@
 .vscode
 vscode
 .venv
+.venv-linux
 __pycache__
 outputs
 node_modules

@@ -1,15 +1,15 @@
 """Real (Hugging Face VLM) implementation of CaptionBboxStep."""
 from __future__ import annotations
 
-from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from prepare_lora_kit.cancellation import CancelCheck
-from prepare_lora_kit.providers.interaction import InteractionProvider
+from prepare_lora_kit.pipeline.configs import CaptionBboxConfig
 from prepare_lora_kit.steps.caption_bbox import vlm, workflow
 from prepare_lora_kit.steps.caption_bbox.base import CaptionStep
+from prepare_lora_kit.steps.caption_bbox.options import CaptionBboxRunOptions
 from prepare_lora_kit.steps.caption_bbox.workflow import CaptionWorkflowResult
+from prepare_lora_kit.steps.context import StepRunContext
 
 
 class RealCaptionStep(CaptionStep):
@@ -18,56 +18,41 @@ class RealCaptionStep(CaptionStep):
     HEADER = "Caption — Bbox Annotation + HF Captioning"
 
     def __init__(
-            self,
-            dataset_dir: Path,
-            *,
-            concept_token: str | None = None,
-            output_dir: Path | None = None,
-            caption_model_id: str | None = None,
-            caption_model_task: str = "auto",
-            caption_strategy: str = "grounded",
-            spot_check_pct: float = 0.10,
-            overwrite: bool = False,
-            report_path: Path | None = None,
-            quantization: str = "none",
-            dtype: str = "bfloat16",
-            max_new_tokens: int = 200,
-            max_pixels: int = vlm._DEFAULT_MAX_PIXELS,
-            interaction: InteractionProvider | None = None,
-            enabled_substeps: list[str] | None = None,
-            cancel_check: CancelCheck | None = None,
-            caption_status_callback: Callable[[dict[str, Any]], None] | None = None,
-            qwen_model_id: str | None = None,
-            caption_prompt: str | None = None,
-            region_prompt: str | None = None,
-        domain_brief: str | None = None,
+        self,
+        dataset_dir: Path,
+        config: CaptionBboxConfig,
+        *,
+        context: StepRunContext | None = None,
+        options: CaptionBboxRunOptions | None = None,
     ) -> None:
+        context = context or StepRunContext()
+        options = options or CaptionBboxRunOptions()
         super().__init__(
             dataset_dir,
-            concept_token=concept_token,
-            output_dir=output_dir,
-            spot_check_pct=spot_check_pct,
-            overwrite=overwrite,
-            report_path=report_path,
-            max_new_tokens=max_new_tokens,
-            interaction=interaction,
-            enabled_substeps=enabled_substeps,
-            cancel_check=cancel_check,
+            concept_token=options.concept_token,
+            output_dir=context.output_dir,
+            spot_check_pct=config.spot_check_pct,
+            overwrite=options.overwrite,
+            report_path=context.report_path,
+            max_new_tokens=config.max_new_tokens,
+            interaction=context.interaction,
+            enabled_substeps=context.enabled_substeps,
+            cancel_check=context.cancel_check,
         )
-        self.model_id = str(caption_model_id or qwen_model_id or "").strip()
+        self.model_id = str(config.caption_model_id or "").strip()
         # Constructed up front (never loaded until there is captioning work) so the
         # region-caption callback and the full-image loop share one runtime instance.
         self.runtime = vlm.CaptionRuntime(
             self.model_id,
-            task=caption_model_task,
-            quantization=quantization,
-            dtype=dtype,
-            max_pixels=max_pixels,
-            status_callback=caption_status_callback,
-            caption_prompt=caption_prompt,
-            region_prompt=region_prompt,
-            caption_strategy=caption_strategy,
-            domain_brief=domain_brief,
+            task=config.caption_model_task,
+            quantization=options.quantization or config.quantization,
+            dtype=config.dtype,
+            max_pixels=options.max_pixels,
+            status_callback=options.status_callback,
+            caption_prompt=config.caption_prompt,
+            region_prompt=config.region_prompt,
+            caption_strategy=config.caption_strategy,
+            domain_brief=config.domain_brief,
         )
 
     def prepare_runtime(self, needs_captioning: bool) -> None:

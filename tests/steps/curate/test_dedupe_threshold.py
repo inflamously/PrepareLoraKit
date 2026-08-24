@@ -37,7 +37,8 @@ def test_invoke_curate_forwards_threshold_config(tmp_path, monkeypatch):
     captured = {}
 
     def _fake_run(*args, **kwargs):
-        captured.update(kwargs)
+        captured["args"] = args
+        captured["kwargs"] = kwargs
         return {}
 
     from prepare_lora_kit.steps import curate
@@ -52,8 +53,9 @@ def test_invoke_curate_forwards_threshold_config(tmp_path, monkeypatch):
 
     invoke.invoke_curate_step(working, tmp_path, cfg)
 
-    assert captured["dedup_hamming_distance"] == 7
-    assert captured["pca_umap_switch_threshold"] == 42
+    assert captured["args"][1].dedup_hamming_distance == 7
+    assert captured["args"][1].pca_umap_switch_threshold == 42
+    assert captured["kwargs"]["context"].output_dir == working
 
 
 def test_default_dedup_distance_is_conservative():

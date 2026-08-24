@@ -7,7 +7,10 @@ from PIL import Image
 
 from prepare_lora_kit.cli.step import _parse_bbox, _resolve_bbox_target
 from prepare_lora_kit.interaction import CliBboxRegionProvider
+from prepare_lora_kit.pipeline.configs import CaptionBboxConfig
 from prepare_lora_kit.steps.caption_bbox import step as caption_bbox_step
+from prepare_lora_kit.steps.caption_bbox.options import CaptionBboxRunOptions
+from prepare_lora_kit.steps.context import StepRunContext
 
 # ── _parse_bbox ────────────────────────────────────────────────────────────────
 
@@ -132,12 +135,13 @@ def test_bbox_annotations_reach_caption_image(tmp_path, monkeypatch):
     boxes = [{"x1": 0.1, "y1": 0.2, "x2": 0.5, "y2": 0.6, "label": "face"}]
     caption_bbox_step.run(
         tmp_path,
-        concept_token="tok",
-        output_dir=tmp_path,
-        caption_model_id="fake/model",
-        interaction=CliBboxRegionProvider(img, boxes),
-        enabled_substeps=["annotate_regions", "caption_images"],
-        spot_check_pct=0,
+        CaptionBboxConfig(caption_model_id="fake/model", spot_check_pct=0),
+        context=StepRunContext(
+            output_dir=tmp_path,
+            interaction=CliBboxRegionProvider(img, boxes),
+            enabled_substeps=["annotate_regions", "caption_images"],
+        ),
+        options=CaptionBboxRunOptions(concept_token="tok"),
     )
 
     assert len(captured) == 1

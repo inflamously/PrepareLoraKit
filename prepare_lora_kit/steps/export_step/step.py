@@ -6,10 +6,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from prepare_lora_kit.cancellation import CancelCheck, check_cancel
+from prepare_lora_kit.cancellation import check_cancel
 from prepare_lora_kit.interaction import CliInteractionProvider
 from prepare_lora_kit.paths import PROJECT_ROOT
+from prepare_lora_kit.pipeline.configs import ExportConfig
 from prepare_lora_kit.report import reporter, step_report_path
+from prepare_lora_kit.steps.context import StepRunContext
 from prepare_lora_kit.steps.export_step.diff import ExportDiff, compute_diff
 from prepare_lora_kit.steps.export_step.export import export_entries
 
@@ -57,22 +59,21 @@ def _normalize_decision(decision: Any) -> tuple[bool, list[str]]:
 
 def run(
     dataset_dir: Path,
+    config: ExportConfig,
     *,
     original_dir: Path | None = None,
-    target_dir: str | None = None,
-    output_dir: Path | None = None,
-    interaction=None,
-    report_path: Path | None = None,
-    enabled_substeps: list[str] | None = None,
-    cancel_check: CancelCheck | None = None,
+    context: StepRunContext | None = None,
 ) -> dict:
+    context = context or StepRunContext()
     reporter.step_header("Export finalized dataset")
-    enabled = set(enabled_substeps or ["preview_export_diff", "copy_export"])
+    enabled = set(
+        context.enabled_substeps or ["preview_export_diff", "copy_export"]
+    )
     dataset_dir = Path(dataset_dir)
-    output_dir = Path(output_dir) if output_dir else dataset_dir
+    output_dir = Path(context.output_dir) if context.output_dir else dataset_dir
 
-    resolved_target = _resolve_target(target_dir, original_dir, dataset_dir)
-    check_cancel(cancel_check)
+    resolved_target = _resolve_target(config.target_dir, original_dir, dataset_dir)
+    check_cancel(context.cancel_check)
     diff = compute_diff(dataset_dir, resolved_target)
     counts = diff.counts()
     reporter.info(f"Export target: {resolved_target}")
@@ -84,8 +85,8 @@ def run(
     confirmed = True
     excluded: list[str] = []
     if "preview_export_diff" in enabled:
-        check_cancel(cancel_check)
-        provider = interaction or CliInteractionProvider()
+        check_cancel(context.cancel_check)
+        provider = context.interaction or CliInteractionProvider()
         decision = provider.export_review(_review_payload(diff))
         confirmed, excluded = _normalize_decision(decision)
 
@@ -94,12 +95,12 @@ def run(
     if not confirmed:
         reporter.warn("Export cancelled — nothing written.")
     elif "copy_export" in enabled:
-        check_cancel(cancel_check)
+        check_cancel(context.cancel_check)
         copied = export_entries(
             diff.changed,
             resolved_target,
             excluded=excluded,
-            cancel_check=cancel_check,
+            cancel_check=context.cancel_check,
         )
         exported = True
         reporter.ok(f"Exported {len(copied)} file group(s) → {resolved_target}")
@@ -117,7 +118,9 @@ def run(
             "copy_export": {"enabled": "copy_export" in enabled},
         },
     }
-    check_cancel(cancel_check)
+    check_cancel(context.cancel_check)
     reporter.save_report(
-        report_data, report_path or step_report_path(output_dir, "ExportStep"))
+        report_data,
+        context.report_path or step_report_path(output_dir, "ExportStep"),
+    )
     return report_data

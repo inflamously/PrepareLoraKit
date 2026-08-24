@@ -1,48 +1,52 @@
 """QualityGateStep — automated quality scoring plus a manual pass/fail gallery review."""
 from __future__ import annotations
 
+import dataclasses
 import os
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from prepare_lora_kit.cancellation import CancelCheck, check_cancel
 from prepare_lora_kit.interaction import CliInteractionProvider
+from prepare_lora_kit.pipeline.configs import QualityGateConfig
 from prepare_lora_kit.providers.interaction import InteractionProvider
 from prepare_lora_kit.report import reporter, step_report_path
-from prepare_lora_kit.steps.quality_gate.scoring import DEFAULTS, SCORER_REGISTRY, _score_image
+from prepare_lora_kit.steps.context import StepRunContext
+from prepare_lora_kit.steps.quality_gate.scoring import DEFAULTS, _score_image
 from prepare_lora_kit.utils import image as img_utils
 
 
 def run(
     input_dir: Path,
-    output_dir: Path,
+    config: QualityGateConfig,
+    *,
+    context: StepRunContext | None = None,
     thresholds: dict | None = None,
-    auto_only: bool = False,
-    manual_all: bool = False,
-    scorers: list[dict] | None = None,
-    report_path: Path | None = None,
-    interaction: InteractionProvider | None = None,
-    enabled_substeps: list[str] | None = None,
-    cancel_check: CancelCheck | None = None,
 ) -> dict:
+    context = context or StepRunContext()
+    output_dir = context.output_dir or input_dir
     reporter.step_header("Source Image Quality Gates")
 
-    enabled = set(enabled_substeps or ["score_images", "review_decisions"])
+    enabled = set(context.enabled_substeps or ["score_images", "review_decisions"])
     thresholds = {**DEFAULTS, **(thresholds or {})}
-    scorers = scorers if scorers is not None else SCORER_REGISTRY
+    scorers = [dataclasses.asdict(scorer) for scorer in config.scorers]
     images = img_utils.iter_images(input_dir)
     if not images:
         reporter.warn(f"No images found in {input_dir}")
         # This report is a per-image map, so "nothing scored" is an empty one.
         # It is still written: a missing file would be indistinguishable from a
         # step that never ran, which is what the step badge reads as.
-        reporter.save_report({}, report_path or step_report_path(output_dir, "QualityGateStep"))
+        reporter.save_report(
+            {}, context.report_path or step_report_path(output_dir, "QualityGateStep")
+        )
         return {}
 
     # ── Phase A: score everything ───────────────────────────────────────────
     if "score_images" in enabled:
         reporter.info(f"Scoring {len(images)} images …")
-        scored, report_data = _score_all(images, thresholds, scorers, cancel_check)
+        scored, report_data = _score_all(
+            images, thresholds, scorers, context.cancel_check
+        )
     else:
         reporter.warn("Skipping source scoring substep; keeping images unless review changes them.")
         report_data = {}
@@ -56,23 +60,25 @@ def run(
     # ── Phase B: decide ─────────────────────────────────────────────────────
     decisions = _resolve_decisions(
         scored,
-        auto_only=auto_only,
+        auto_only=config.auto_only,
         review_enabled="review_decisions" in enabled,
-        interaction=interaction,
-        cancel_check=cancel_check,
+        interaction=context.interaction,
+        cancel_check=context.cancel_check,
     )
-    rows, kept, decided_rejects, flagged = _apply_decisions(scored, decisions, cancel_check)
+    rows, kept, decided_rejects, flagged = _apply_decisions(
+        scored, decisions, context.cancel_check
+    )
     report_data.update(rows)
     rejected += decided_rejects
 
     reporter.summary_counts(kept, rejected, flagged)
 
     survivors = [path_str for path_str, info in report_data.items() if info.get("kept")]
-    check_cancel(cancel_check)
+    check_cancel(context.cancel_check)
     img_utils.materialize(survivors, input_dir, output_dir)
 
-    report_path = report_path or step_report_path(output_dir, "QualityGateStep")
-    check_cancel(cancel_check)
+    report_path = context.report_path or step_report_path(output_dir, "QualityGateStep")
+    check_cancel(context.cancel_check)
     reporter.save_report(report_data, report_path)
     return report_data
 
