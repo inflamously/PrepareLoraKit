@@ -4,7 +4,7 @@ from __future__ import annotations
 import random
 from pathlib import Path
 
-from prepare_lora_kit.cancellation import CancelCheck, check_cancel
+from prepare_lora_kit.cancellation import CancelCheck, cancellable
 from prepare_lora_kit.report import reporter
 from prepare_lora_kit.steps.caption_bbox import caption_text as cap_text
 from prepare_lora_kit.steps.caption_bbox.gap_fill import merge_missing_phrases
@@ -100,15 +100,14 @@ def validate_captions(
     *,
     style_mode: bool,
     enabled: set[str],
-    cancel_check: CancelCheck | None,
+    cancel_check: CancelCheck,
 ) -> tuple[list[str], list[str], list[str]]:
     missing_token: list[str] = []
     if "validate_captions" in enabled and not style_mode and concept_token:
         missing_token = cap_text.verify_token_consistency(captions, concept_token)
         if missing_token:
             reporter.warn(f"Token '{concept_token}' missing in {len(missing_token)} captions:")
-        for p in missing_token:
-            check_cancel(cancel_check)
+        for p in cancellable(missing_token, cancel_check):
             reporter.warn(f"  {Path(p).name}")
 
     short = (
@@ -134,7 +133,7 @@ def render_spot_check(
     spot_check_pct: float,
     *,
     enabled: set[str],
-    cancel_check: CancelCheck | None,
+    cancel_check: CancelCheck,
 ) -> list[tuple[str, str]]:
     if "validate_captions" not in enabled or not captions:
         return []
@@ -148,8 +147,7 @@ def render_spot_check(
     t = Table(title=f"Spot-check ({n_check} / {len(captions)})", box=box.SIMPLE_HEAVY)
     t.add_column("File", style="cyan", max_width=35)
     t.add_column("Caption", style="white")
-    for p, c in sample:
-        check_cancel(cancel_check)
+    for p, c in cancellable(sample, cancel_check):
         t.add_row(Path(p).name, c[:120] + ("…" if len(c) > 120 else ""))
     reporter.console.print(t)
     return sample

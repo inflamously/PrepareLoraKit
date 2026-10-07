@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from prepare_lora_kit.cancellation import noop_cancel_check
 from prepare_lora_kit.invoke.working_dataset import _require_working_dataset
 from prepare_lora_kit.pipeline.configs import CurateConfig
 from prepare_lora_kit.report import step_report_path
@@ -20,7 +21,7 @@ def invoke_curate_step(working_dir: Path, output_dir: Path, cfg: CurateConfig,
                 cfg,
                 coverage_mode=str(_kw.get("mock_curate_coverage") or "auto"),
                 enabled_substeps=_kw.get("enabled_substeps"),
-                cancel_check=_kw.get("cancel_check"),
+                cancel_check=_kw.get("cancel_check", noop_cancel_check),
             )
 
     from prepare_lora_kit.steps import curate
@@ -31,6 +32,6 @@ def invoke_curate_step(working_dir: Path, output_dir: Path, cfg: CurateConfig,
             output_dir=working_dir,
             report_path=step_report_path(output_dir, "CurateStep"),
             enabled_substeps=_kw.get("enabled_substeps"),
-            cancel_check=_kw.get("cancel_check"),
+            cancel_check=_kw.get("cancel_check", noop_cancel_check),
         ),
     )

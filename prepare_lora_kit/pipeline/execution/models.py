@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from prepare_lora_kit.cancellation import CancelCheck
+from prepare_lora_kit.cancellation import CancelCheck, noop_cancel_check
 from prepare_lora_kit.paths import PROJECT_ROOT
 from prepare_lora_kit.project.base import PipelineStep, ProjectConfig
 
@@ -20,7 +20,7 @@ class RunConfig:
     concept_token: str | None = None
     output_dir: Path | None = None
     force: bool = False
-    cancel_check: CancelCheck | None = None
+    cancel_check: CancelCheck = noop_cancel_check
     selected_steps: list[str] | None = None
     requested_substeps: dict[str, list[str]] | None = None
     invoke_kwargs: dict[str, Any] = field(default_factory=dict)

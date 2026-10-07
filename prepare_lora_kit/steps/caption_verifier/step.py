@@ -10,7 +10,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from prepare_lora_kit.cancellation import CancelledRun, check_cancel
+from prepare_lora_kit.cancellation import CancelledRun
 from prepare_lora_kit.pipeline.configs import CaptionVerifierConfig
 from prepare_lora_kit.project.pipeline.substeps import substep_ids_for
 from prepare_lora_kit.report import reporter
@@ -93,7 +93,7 @@ def run(
         # The normal CLI path: pipeline.run passes no interaction provider.
         return _skip("no interactive caption verification provider", items=items)
 
-    check_cancel(context.cancel_check)
+    context.cancel_check()
 
     runtime = T2IRuntime(
         model_id=config.t2i_model_id,

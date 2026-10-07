@@ -13,6 +13,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
+from prepare_lora_kit.cancellation import CancelCheck, noop_cancel_check
 from prepare_lora_kit.report import reporter
 from prepare_lora_kit.steps.caption_verifier import (
     catalog,
@@ -161,7 +162,7 @@ class T2IRuntime:
         steps: int | None = None,
         guidance: float | None = None,
         negative_prompt: str | None = None,
-        cancel_check: Callable[[], None] | None = None,
+        cancel_check: CancelCheck = noop_cancel_check,
     ) -> GeneratedImage:
         """Render ``prompt``. The whole body holds the lock, load included."""
         text = str(prompt or "").strip()
@@ -199,12 +200,9 @@ class T2IRuntime:
             if plan.supports_negative_prompt and negative:
                 kwargs["negative_prompt"] = negative
             started = time.perf_counter()
-            if cancel_check is not None:
-                callback = _step_callback(
-                    cancel_check, self._set_status, call_steps, plan, started,
-                )
-                if callback is not None:
-                    kwargs["callback_on_step_end"] = callback
+            kwargs["callback_on_step_end"] = _step_callback(
+                cancel_check, self._set_status, call_steps, plan, started,
+            )
 
             self._set_status(
                 "generating", f"Rendering with {plan.model_id}…", plan=plan,

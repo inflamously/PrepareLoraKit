@@ -13,7 +13,7 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from prepare_lora_kit.cancellation import CancelledRun
+from prepare_lora_kit.cancellation import CancelledRun, noop_cancel_check
 from prepare_lora_kit.embedding import catalog, loaders
 
 
@@ -74,7 +74,7 @@ def _qwen_spec():
 def test_embed_qwen_uses_sentence_transformers(tmp_path, fake_torch, fake_sentence_transformers):
     paths = _make_images(tmp_path, 3)
 
-    emb = loaders._embed_qwen(_qwen_spec(), paths, None)
+    emb = loaders._embed_qwen(_qwen_spec(), paths, noop_cancel_check)
 
     assert isinstance(emb, np.ndarray)
     assert emb.shape == (3, 4)  # (N, D), stacked from the batch encode
@@ -100,7 +100,7 @@ def test_embed_qwen_honours_the_remote_code_opt_in(
     settings.save_settings_dict({"huggingface": {"allow_remote_code": True}})
     settings.invalidate()
 
-    loaders._embed_qwen(_qwen_spec(), _make_images(tmp_path, 1), None)
+    loaders._embed_qwen(_qwen_spec(), _make_images(tmp_path, 1), noop_cancel_check)
 
     [st] = _FakeSentenceTransformer.instances
     assert st.trust_remote_code is True
@@ -117,13 +117,13 @@ def test_embed_qwen_explains_a_remote_code_refusal(
     monkeypatch.setattr(fake_sentence_transformers, "SentenceTransformer", _refuse)
 
     with pytest.raises(RuntimeError, match="allow_remote_code"):
-        loaders._embed_qwen(_qwen_spec(), _make_images(tmp_path, 1), None)
+        loaders._embed_qwen(_qwen_spec(), _make_images(tmp_path, 1), noop_cancel_check)
 
 
 def test_embed_qwen_batches_large_inputs(tmp_path, fake_torch, fake_sentence_transformers):
     paths = _make_images(tmp_path, 10)
 
-    emb = loaders._embed_qwen(_qwen_spec(), paths, None)
+    emb = loaders._embed_qwen(_qwen_spec(), paths, noop_cancel_check)
 
     assert emb.shape == (10, 4)
     [st] = _FakeSentenceTransformer.instances
@@ -156,7 +156,7 @@ def test_embed_qwen_missing_dependency_raises_actionable_error(tmp_path, fake_to
     paths = _make_images(tmp_path, 1)
 
     with pytest.raises(RuntimeError, match="sentence-transformers"):
-        loaders._embed_qwen(_qwen_spec(), paths, None)
+        loaders._embed_qwen(_qwen_spec(), paths, noop_cancel_check)
 
 
 def test_embed_qwen_honors_cancellation(tmp_path, fake_torch, fake_sentence_transformers):

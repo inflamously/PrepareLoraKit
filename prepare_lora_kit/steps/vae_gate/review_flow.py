@@ -6,7 +6,7 @@ from pathlib import Path
 
 import numpy as np
 
-from prepare_lora_kit.cancellation import CancelCheck, check_cancel
+from prepare_lora_kit.cancellation import CancelCheck, cancellable
 from prepare_lora_kit.providers.interaction import InteractionProvider
 from prepare_lora_kit.report import reporter
 from prepare_lora_kit.steps.vae_gate.reconstruction import _ReconstructionPass
@@ -29,7 +29,7 @@ def _review_reconstructions(
     outlier_sigma: float,
     enabled: set[str],
     interaction: InteractionProvider | None,
-    cancel_check: CancelCheck | None,
+    cancel_check: CancelCheck,
 ) -> _ReviewResult:
     """Calculate outliers and collect keep/drop decisions through UI or CLI."""
     mean, std, threshold = _threshold_stats(recon.hf_scores, outlier_sigma)
@@ -66,12 +66,11 @@ def _build_review_items(
     recon: _ReconstructionPass,
     threshold: float | None,
     flagged_set: set[str],
-    cancel_check: CancelCheck | None,
+    cancel_check: CancelCheck,
 ) -> list[dict]:
     """Build one review row per image that produced review artifacts."""
     review_items: list[dict] = []
-    for path in images:
-        check_cancel(cancel_check)
+    for path in cancellable(images, cancel_check):
         path_str = str(path)
         artifact = recon.review_artifacts.get(path_str)
         if artifact is None:
@@ -97,7 +96,7 @@ def _collect_decisions(
     review_items: list[dict],
     flagged: list[str],
     recon: _ReconstructionPass,
-    cancel_check: CancelCheck | None,
+    cancel_check: CancelCheck,
 ) -> dict[str, str]:
     """Collect keep/drop verdicts through the UI gallery or CLI fallback."""
     decisions: dict[str, str] = {}
@@ -105,13 +104,12 @@ def _collect_decisions(
         return decisions
 
     if interaction is not None and review_items:
-        check_cancel(cancel_check)
+        cancel_check()
         decisions.update(interaction.vae_review(review_items))
-        check_cancel(cancel_check)
+        cancel_check()
         return decisions
 
-    for path_str in flagged:
-        check_cancel(cancel_check)
+    for path_str in cancellable(flagged, cancel_check):
         path = Path(path_str)
         reconstruction = recon.reconstructions.get(path_str)
         if reconstruction is not None:
@@ -137,11 +135,10 @@ def _select_survivors(
 def _reviewed_items(
     items: list[dict],
     decisions: dict[str, str],
-    cancel_check: CancelCheck | None,
+    cancel_check: CancelCheck,
 ) -> list[dict]:
     reviewed = []
-    for item in items:
-        check_cancel(cancel_check)
+    for item in cancellable(items, cancel_check):
         path = Path(str(item["path"]))
         decision = _decision_for(decisions, path)
         reviewed.append({**item, "decision": decision})

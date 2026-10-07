@@ -6,7 +6,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from prepare_lora_kit.cancellation import check_cancel
 from prepare_lora_kit.interaction import CliInteractionProvider
 from prepare_lora_kit.paths import PROJECT_ROOT
 from prepare_lora_kit.pipeline.configs import ExportConfig
@@ -73,7 +72,7 @@ def run(
     output_dir = Path(context.output_dir) if context.output_dir else dataset_dir
 
     resolved_target = _resolve_target(config.target_dir, original_dir, dataset_dir)
-    check_cancel(context.cancel_check)
+    context.cancel_check()
     diff = compute_diff(dataset_dir, resolved_target)
     counts = diff.counts()
     reporter.info(f"Export target: {resolved_target}")
@@ -85,7 +84,7 @@ def run(
     confirmed = True
     excluded: list[str] = []
     if "preview_export_diff" in enabled:
-        check_cancel(context.cancel_check)
+        context.cancel_check()
         provider = context.interaction or CliInteractionProvider()
         decision = provider.export_review(_review_payload(diff))
         confirmed, excluded = _normalize_decision(decision)
@@ -95,7 +94,7 @@ def run(
     if not confirmed:
         reporter.warn("Export cancelled — nothing written.")
     elif "copy_export" in enabled:
-        check_cancel(context.cancel_check)
+        context.cancel_check()
         copied = export_entries(
             diff.changed,
             resolved_target,
@@ -118,7 +117,7 @@ def run(
             "copy_export": {"enabled": "copy_export" in enabled},
         },
     }
-    check_cancel(context.cancel_check)
+    context.cancel_check()
     reporter.save_report(
         report_data,
         context.report_path or step_report_path(output_dir, "ExportStep"),

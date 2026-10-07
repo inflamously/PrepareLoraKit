@@ -4,7 +4,7 @@ from __future__ import annotations
 from rich import box
 from rich.table import Table
 
-from prepare_lora_kit.cancellation import CancelCheck, check_cancel
+from prepare_lora_kit.cancellation import CancelCheck, cancellable, noop_cancel_check
 from prepare_lora_kit.report import reporter
 
 
@@ -13,7 +13,7 @@ def print_bucket_table(
     *,
     display_name: str,
     thin_buckets: list[dict],
-    cancel_check: CancelCheck | None = None,
+    cancel_check: CancelCheck = noop_cancel_check,
 ) -> None:
     t = Table(title=f"Bucket Assignment — {display_name}", box=box.SIMPLE_HEAVY)
     t.add_column("Bucket", style="cyan", width=14)
@@ -26,8 +26,7 @@ def print_bucket_table(
         for thin_bucket in thin_buckets
     }
 
-    for bucket, paths in sorted(bucket_map.items()):
-        check_cancel(cancel_check)
+    for bucket, paths in cancellable(sorted(bucket_map.items()), cancel_check):
         n = len(paths)
         if n == 0:
             continue
@@ -48,12 +47,11 @@ def print_thin_bucket_summary(
     thin_buckets: list[dict],
     *,
     thin_threshold: int,
-    cancel_check: CancelCheck | None = None,
+    cancel_check: CancelCheck = noop_cancel_check,
 ) -> None:
     if thin_buckets:
         reporter.warn(f"{len(thin_buckets)} thin bucket(s) (≤ {thin_threshold} images):")
-        for thin_bucket in thin_buckets:
-            check_cancel(cancel_check)
+        for thin_bucket in cancellable(thin_buckets, cancel_check):
             bucket = thin_bucket["bucket"]
             reporter.warn(
                 f"  {bucket[0]}×{bucket[1]}: "

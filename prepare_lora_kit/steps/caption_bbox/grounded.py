@@ -4,7 +4,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from prepare_lora_kit.cancellation import CancelCheck, check_cancel
+from prepare_lora_kit.cancellation import CancelCheck, noop_cancel_check
 from prepare_lora_kit.steps.caption_bbox import caption_text, gap_fill
 from prepare_lora_kit.steps.caption_bbox import prompts as cap_utils
 
@@ -68,7 +68,7 @@ def generate_grounded_caption(
         *,
         style_mode: bool,
         max_new_tokens: int = 200,
-        cancel_check: CancelCheck | None = None,
+        cancel_check: CancelCheck = noop_cancel_check,
         emit: Callable[[str, str], None] | None = None,
 ) -> str:
     """Run the observe → compose → verify pipeline and return the final caption.
@@ -95,7 +95,7 @@ def generate_grounded_caption(
             max_new_tokens=max(max_new_tokens, _OBSERVE_MIN_TOKENS),
         )
         _note_pass(runtime, "observe")
-        check_cancel(cancel_check)
+        cancel_check()
 
     # B. COMPOSE — fluent caption from the observed or annotated facts.
     _emit("composing", "Composing caption")
@@ -124,7 +124,7 @@ def generate_grounded_caption(
             max_new_tokens=max_new_tokens,
         )
         _note_pass(runtime, "compose_fallback")
-    check_cancel(cancel_check)
+    cancel_check()
 
     # C. GAP-FILL — additive, and only when the draft looks thin. A good draft skips
     # the pass entirely, which is the whole saving: on a VLM the cost of a pass is

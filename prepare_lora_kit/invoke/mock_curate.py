@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from prepare_lora_kit.cancellation import check_cancel
+from prepare_lora_kit.cancellation import CancelCheck, noop_cancel_check
 from prepare_lora_kit.invoke.mock_embeddings import _mock_embeddings
 from prepare_lora_kit.pipeline.configs import CurateConfig
 
@@ -15,7 +15,7 @@ def _mock_curate(
         *,
         coverage_mode: str = "auto",
         enabled_substeps: list[str] | None = None,
-        cancel_check=None,
+        cancel_check: CancelCheck = noop_cancel_check,
 ) -> dict:
     from prepare_lora_kit.report import reporter, reports_dir_for, step_report_path
     from prepare_lora_kit.steps.curate.coverage import _save_pca, _save_umap
@@ -32,7 +32,7 @@ def _mock_curate(
         reporter.warn(f"No images in {working_dir}")
         return {}
 
-    check_cancel(cancel_check)
+    cancel_check()
     enabled = set(enabled_substeps or ["duplicate_check", "clip_scan", "drop_images"])
     pairs = []
     if "duplicate_check" in enabled:
@@ -40,7 +40,7 @@ def _mock_curate(
         pairs = _find_duplicates(hashes, cancel_check=cancel_check)
     to_drop: set[Path] = set()
     kept_images = list(images)
-    check_cancel(cancel_check)
+    cancel_check()
 
     coverage_path: Path | None = None
     coverage_metadata: dict | None = None
@@ -49,7 +49,7 @@ def _mock_curate(
         mode = "auto"
 
     if "clip_scan" in enabled and len(kept_images) >= 2:
-        check_cancel(cancel_check)
+        cancel_check()
         embeddings = _mock_embeddings(kept_images)
         use_umap = mode == "umap" or (
                 mode == "auto" and len(kept_images) > cfg.pca_umap_switch_threshold
@@ -75,6 +75,6 @@ def _mock_curate(
         ]},
     }
     reporter.info(f"Mock runtime: curated {len(kept_images)} image(s).")
-    check_cancel(cancel_check)
+    cancel_check()
     reporter.save_report(report_data, report_path)
     return report_data

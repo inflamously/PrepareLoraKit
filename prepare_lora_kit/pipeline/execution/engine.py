@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from prepare_lora_kit.cancellation import check_cancel
 from prepare_lora_kit.invoke import STEP_INVOKE_MAP
 from prepare_lora_kit.pipeline.configuration import is_resume_aware_step_type
 from prepare_lora_kit.pipeline.execution.invalidation import resolve_force_invalidated_steps
@@ -133,7 +132,7 @@ class PipelineExecutor:
             skip_policy: StepSkipPolicy,
             step: PipelineStep,
     ) -> None:
-        check_cancel(self._cfg.cancel_check)
+        self._cfg.cancel_check()
         substeps = context.selected_substeps[step.type]
         if self._hooks.step_start is not None:
             self._hooks.step_start(step, substeps)
@@ -172,10 +171,10 @@ class PipelineExecutor:
     ) -> None:
         # Cancellation/failure must be observed before persistence marks the
         # step complete.
-        check_cancel(self._cfg.cancel_check)
+        self._cfg.cancel_check()
         if self._hooks.post_step is not None:
             self._hooks.post_step(step, result, output_dir)
-        check_cancel(self._cfg.cancel_check)
+        self._cfg.cancel_check()
 
     def _record_skip(
             self,
@@ -188,7 +187,7 @@ class PipelineExecutor:
         result.skipped_substeps[step.type] = list(substeps)
         if self._hooks.step_skip is not None:
             self._hooks.step_skip(step, substeps, reason)
-        check_cancel(self._cfg.cancel_check)
+        self._cfg.cancel_check()
 
     def _record_completion(
             self,
@@ -237,7 +236,7 @@ class PipelineExecutor:
         }
 
     def _finish(self, result: ExecutionResult) -> None:
-        check_cancel(self._cfg.cancel_check)
+        self._cfg.cancel_check()
         if self._hooks.complete is not None:
             self._hooks.complete(result)
 

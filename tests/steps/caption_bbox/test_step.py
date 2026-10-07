@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from prepare_lora_kit.cancellation import CancelledRun
+from prepare_lora_kit.cancellation import CancelledRun, noop_cancel_check
 from prepare_lora_kit.pipeline.configs import CaptionBboxConfig
 from prepare_lora_kit.steps.caption_bbox import step as caption_bbox_step
 from prepare_lora_kit.steps.caption_bbox.options import CaptionBboxRunOptions
@@ -22,7 +22,7 @@ def _run_caption_bbox(dataset_dir: Path, **kwargs):
         report_path=kwargs.pop("report_path", None),
         interaction=kwargs.pop("interaction", None),
         enabled_substeps=kwargs.pop("enabled_substeps", None),
-        cancel_check=kwargs.pop("cancel_check", None),
+        cancel_check=kwargs.pop("cancel_check", noop_cancel_check),
     )
     options = CaptionBboxRunOptions(
         concept_token=kwargs.pop("concept_token", None),

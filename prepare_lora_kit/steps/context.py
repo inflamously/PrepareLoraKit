@@ -10,7 +10,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from prepare_lora_kit.cancellation import CancelCheck
+from prepare_lora_kit.cancellation import CancelCheck, noop_cancel_check
 from prepare_lora_kit.providers.interaction import InteractionProvider
 
 
@@ -22,4 +22,4 @@ class StepRunContext:
     report_path: Path | None = None
     interaction: InteractionProvider | None = None
     enabled_substeps: Sequence[str] | None = None
-    cancel_check: CancelCheck | None = None
+    cancel_check: CancelCheck = noop_cancel_check

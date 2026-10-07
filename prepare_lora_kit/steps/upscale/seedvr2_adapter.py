@@ -10,6 +10,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from prepare_lora_kit.cancellation import CancelCheck, noop_cancel_check
 from prepare_lora_kit.steps.upscale.seedvr2_catalog import (
     AUTO,
     DEFAULT_SEEDVR2_DIT_MODEL,
@@ -158,7 +159,7 @@ class SeedVR2Upscaler:
         outputs_by_source: Mapping[Path, Path],
         *,
         sources_by_path: Mapping[Path, Path] | None = None,
-        cancel_check=None,
+        cancel_check: CancelCheck = noop_cancel_check,
     ) -> dict[str, str]:
         self.prepare()
         if not outputs_by_source:
@@ -200,7 +201,12 @@ class SeedVR2Upscaler:
             ],
         }
 
-    def _run_worker(self, request: dict[str, Any], *, cancel_check=None) -> dict[str, Any]:
+    def _run_worker(
+        self,
+        request: dict[str, Any],
+        *,
+        cancel_check: CancelCheck = noop_cancel_check,
+    ) -> dict[str, Any]:
         with tempfile.TemporaryDirectory(prefix="plk_seedvr2_") as tmp:
             request_path = Path(tmp) / "request.json"
             response_path = Path(tmp) / "response.json"
@@ -232,8 +238,7 @@ class SeedVR2Upscaler:
             reader.start()
             try:
                 while process.poll() is None:
-                    if cancel_check is not None:
-                        cancel_check()
+                    cancel_check()
                     try:
                         process.wait(timeout=0.25)
                     except subprocess.TimeoutExpired:

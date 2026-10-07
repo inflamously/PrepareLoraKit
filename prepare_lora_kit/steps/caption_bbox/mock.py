@@ -4,6 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from prepare_lora_kit.cancellation import CancelCheck, noop_cancel_check
 from prepare_lora_kit.report import step_report_path
 from prepare_lora_kit.steps.caption_bbox.base import CaptionStep
 from prepare_lora_kit.steps.caption_bbox.workflow import CaptionWorkflowResult
@@ -47,7 +48,7 @@ def _mock_caption(
         concept_token: str | None,
         force: bool,
         enabled_substeps: list[str] | None = None,
-        cancel_check=None,
+        cancel_check: CancelCheck = noop_cancel_check,
         interaction=None,
 ) -> dict:
     """Backwards-compatible functional entry point for the mock runtime."""

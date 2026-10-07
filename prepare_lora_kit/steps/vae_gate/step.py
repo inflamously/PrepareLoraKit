@@ -4,7 +4,6 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-from prepare_lora_kit.cancellation import check_cancel
 from prepare_lora_kit.pipeline.configs import VaeGateConfig
 from prepare_lora_kit.report import reporter, step_report_path
 from prepare_lora_kit.steps.context import StepRunContext
@@ -111,7 +110,7 @@ def run(
         review.decisions,
         apply_decisions="apply_vae_decisions" in enabled,
     )
-    check_cancel(context.cancel_check)
+    context.cancel_check()
     _materialize_with_captions(images, survivors, dataset_dir, output_dir)
 
     reviewed = _reviewed_items(
@@ -120,7 +119,7 @@ def run(
     report_data = _build_success_report(
         recon, review, reviewed, config.outlier_sigma, enabled
     )
-    check_cancel(context.cancel_check)
+    context.cancel_check()
     reporter.save_report(report_data, target_report)
     return report_data
 
@@ -134,7 +133,7 @@ def _load_and_reconstruct(
     cancel_check,
 ) -> tuple[_ReconstructionPass | None, str | None]:
     reporter.info(f"Loading VAE from {config.vae_model_id} …")
-    check_cancel(cancel_check)
+    cancel_check()
     try:
         vae, device, dtype = _load_vae(config.vae_model_id, config.vae_config_id)
     except Exception as exc:

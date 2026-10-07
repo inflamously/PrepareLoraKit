@@ -5,7 +5,7 @@ from collections import Counter
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from prepare_lora_kit.cancellation import CancelCheck, check_cancel
+from prepare_lora_kit.cancellation import CancelCheck, noop_cancel_check
 from prepare_lora_kit.report import reporter
 
 if TYPE_CHECKING:
@@ -39,7 +39,7 @@ def _point_labels(paths: list[Path]) -> list[str]:
 def _coverage_embeddings(
     paths: list[Path],
     model_id: str,
-    cancel_check: CancelCheck | None = None,
+    cancel_check: CancelCheck = noop_cancel_check,
 ) -> np.ndarray:
     """Image embeddings for the coverage plot using the selected model family.
 
@@ -50,7 +50,7 @@ def _coverage_embeddings(
 
     from prepare_lora_kit.embedding.loaders import embed_images
     emb = embed_images(model_id, paths, cancel_check=cancel_check)
-    check_cancel(cancel_check)
+    cancel_check()
     return emb
 
 

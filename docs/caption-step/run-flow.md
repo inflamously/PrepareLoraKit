@@ -24,7 +24,7 @@ for the real step, or `MockCaptionStep` under `--mock`):
    `build_success_report` + `save_success_report`.
 7. `finally: runtime.unload()` — clears `_CACHE` and empties the CUDA cache.
 
-`check_cancel(cancel_check)` is called between phases and per image. On failure,
+`cancel_check()` is called between phases and per image. On failure,
 `_save_failure_report` writes a `{"status": "failed", ...}` payload before
 re-raising.
 

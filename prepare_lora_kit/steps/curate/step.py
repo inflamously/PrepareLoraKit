@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from prepare_lora_kit.cancellation import CancelCheck, CancelledRun, check_cancel
+from prepare_lora_kit.cancellation import CancelCheck, CancelledRun
 from prepare_lora_kit.pipeline.configs import CurateConfig
 from prepare_lora_kit.report import reporter, step_report_path
 from prepare_lora_kit.steps.context import StepRunContext
@@ -89,7 +89,7 @@ def run(
             cancel_check=context.cancel_check,
         )
 
-    check_cancel(context.cancel_check)
+    context.cancel_check()
     img_utils.materialize(kept_images, dataset_dir, output_dir)
 
     report_data = {
@@ -107,7 +107,7 @@ def run(
             "drop_images": {"enabled": apply_drops},
         },
     }
-    check_cancel(context.cancel_check)
+    context.cancel_check()
     reporter.save_report(report_data, report_path)
     return report_data
 
@@ -141,7 +141,7 @@ def _find_duplicate_drops(
     *,
     auto_dedupe: bool,
     dedup_hamming_distance: int,
-    cancel_check: CancelCheck | None,
+    cancel_check: CancelCheck,
 ) -> tuple[list, set[Path]]:
     """Near-duplicate pairs, and which side of each pair to drop."""
     reporter.info(f"Found {len(images)} images. Computing perceptual hashes …")
@@ -163,7 +163,7 @@ def _build_coverage(
     coverage_model: str,
     *,
     pca_umap_switch_threshold: int,
-    cancel_check: CancelCheck | None,
+    cancel_check: CancelCheck,
 ) -> tuple[Path | None, dict | None]:
     """Render the coverage scatter — UMAP for larger sets, PCA below the threshold.
 

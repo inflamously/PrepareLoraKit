@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from prepare_lora_kit.cancellation import CancelledRun
+from prepare_lora_kit.cancellation import CancelledRun, noop_cancel_check
 from prepare_lora_kit.pipeline.configs import UpscaleConfig
 from prepare_lora_kit.steps.context import StepRunContext
 from prepare_lora_kit.steps.upscale import step as upscale_step
@@ -29,7 +29,7 @@ def _run(
     report_path: Path | None = None,
     interaction=None,
     enabled_substeps=None,
-    cancel_check=None,
+    cancel_check=noop_cancel_check,
     upscaler=None,
     **config_kwargs,
 ):

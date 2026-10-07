@@ -5,7 +5,7 @@ import os
 import shutil
 from pathlib import Path
 
-from prepare_lora_kit.cancellation import CancelCheck, CancelledRun, check_cancel
+from prepare_lora_kit.cancellation import CancelCheck, CancelledRun, noop_cancel_check
 from prepare_lora_kit.report import reporter
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tiff", ".tif"}
@@ -20,7 +20,7 @@ def run(
         output_dir: Path,
         report_path: Path | None = None,
         enabled_substeps: list[str] | None = None,
-        cancel_check: CancelCheck | None = None,
+        cancel_check: CancelCheck = noop_cancel_check,
 ) -> dict:
     """Copy source images into the working dataset directory."""
 
@@ -30,18 +30,18 @@ def run(
         reporter.warn(f"No images found in {input_dir}")
 
     try:
-        check_cancel(cancel_check)
+        cancel_check()
         output_dir.mkdir(parents=True, exist_ok=True)
         imported: list[str] = []
         for i in range(len(image_paths)):
             source_image_path = image_paths[i]
             target_image_path = get_recursive_mirror_paths(input_dir, source_image_path)
-            check_cancel(cancel_check)
+            cancel_check()
             dst = output_dir / target_image_path
             dst.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source_image_path, dst)
             imported.append(str(dst))
-        check_cancel(cancel_check)
+        cancel_check()
     except CancelledRun:
         shutil.rmtree(output_dir, ignore_errors=True)
         raise
@@ -57,7 +57,7 @@ def run(
         },
     }
     reporter.info(f"Imported {len(imported)} image(s) into {output_dir}.")
-    check_cancel(cancel_check)
+    cancel_check()
     reporter.save_report(report_data, report_path or (output_dir / "ImportStep_report.json"))
     return report_data
 

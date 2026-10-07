@@ -1,7 +1,10 @@
 """Cooperative cancellation helpers for long-running pipeline work."""
 from __future__ import annotations
 
-from typing import Protocol
+from collections.abc import Iterable, Iterator
+from typing import Protocol, TypeVar
+
+T = TypeVar("T")
 
 
 class CancelledRun(RuntimeError):
@@ -19,8 +22,9 @@ def noop_cancel_check() -> None:
     """Default cancellation check for non-UI callers."""
 
 
-def check_cancel(cancel_check: CancelCheck | None) -> None:
-    """Run an optional cancellation check."""
+def cancellable(items: Iterable[T], cancel_check: CancelCheck) -> Iterator[T]:
+    """Yield ``items``, running ``cancel_check`` before handing out each one."""
 
-    if cancel_check is not None:
+    for item in items:
         cancel_check()
+        yield item

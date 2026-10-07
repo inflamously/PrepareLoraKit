@@ -7,7 +7,7 @@ import shutil
 from collections.abc import Iterable
 from pathlib import Path
 
-from prepare_lora_kit.cancellation import CancelCheck, check_cancel
+from prepare_lora_kit.cancellation import CancelCheck, noop_cancel_check
 from prepare_lora_kit.steps.export_step.diff import CAPTION_SUFFIX, DiffEntry
 
 
@@ -16,7 +16,7 @@ def export_entries(
     target_dir: Path,
     *,
     excluded: Iterable[str] | None = None,
-    cancel_check: CancelCheck | None = None,
+    cancel_check: CancelCheck = noop_cancel_check,
 ) -> list[dict]:
     """Copy each non-excluded entry's image (+ caption) into ``target_dir``.
 
@@ -29,7 +29,7 @@ def export_entries(
     for entry in entries:
         if entry.rel in excluded_set:
             continue
-        check_cancel(cancel_check)
+        cancel_check()
         dst_image = target_dir / entry.rel
         dst_image.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(entry.image_src, dst_image)

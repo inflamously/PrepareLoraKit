@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from prepare_lora_kit.cancellation import check_cancel
 from prepare_lora_kit.pipeline.configs import BucketPoolsCheckConfig
 from prepare_lora_kit.report import reporter, step_report_path
 from prepare_lora_kit.steps.bucket_pools_check.assignment import assign_bucket_pools
@@ -99,6 +98,6 @@ def run(
         cache_mode=config.cache_mode,
         enabled=enabled,
     )
-    check_cancel(context.cancel_check)
+    context.cancel_check()
     reporter.save_report(report_data, target_report)
     return report_data

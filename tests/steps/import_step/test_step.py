@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from prepare_lora_kit.cancellation import CancelledRun
+from prepare_lora_kit.cancellation import CancelledRun, noop_cancel_check
 from prepare_lora_kit.invoke.import_step import invoke_import_step
 from prepare_lora_kit.pipeline.configs import ImportConfig
 from prepare_lora_kit.steps.import_step import run
@@ -62,7 +62,7 @@ def test_invoke_import_step_uses_packaged_step_run(tmp_path, monkeypatch):
     assert captured["kwargs"] == {
         "report_path": output_dir / "reports" / "ImportStep_report.json",
         "enabled_substeps": ["import_images"],
-        "cancel_check": None,
+        "cancel_check": noop_cancel_check,
     }
     assert not (working_dir / "stale.txt").exists()
 

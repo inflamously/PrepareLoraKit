@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from prepare_lora_kit.cancellation import check_cancel
 from prepare_lora_kit.pipeline.configs import AuditConfig
 from prepare_lora_kit.report import reporter, step_report_path
 from prepare_lora_kit.steps.audit.checks import (
@@ -31,11 +30,11 @@ def run(
         "check_resolution",
     ])
 
-    check_cancel(context.cancel_check)
+    context.cancel_check()
     image_stems, txt_stems = collect_stems(dataset_dir)
 
     # ── 1. Pairing check ──────────────────────────────────────────────────────
-    check_cancel(context.cancel_check)
+    context.cancel_check()
     if "check_pairing" in enabled:
         orphan_images, orphan_txts, paired_stems = check_pairing(image_stems, txt_stems)
     else:
@@ -43,18 +42,18 @@ def run(
         paired_stems = sorted(set(image_stems) & set(txt_stems))
 
     # ── 2. PIL verify (corrupt / truncated) ──────────────────────────────────
-    check_cancel(context.cancel_check)
+    context.cancel_check()
     corrupt = check_corrupt(paired_stems, image_stems) if "check_corrupt_files" in enabled else []
 
     # ── 3. Caption quality ────────────────────────────────────────────────────
-    check_cancel(context.cancel_check)
+    context.cancel_check()
     if "check_caption_quality" in enabled:
         empty_captions, short_captions, long_captions = check_captions(paired_stems, txt_stems)
     else:
         empty_captions, short_captions, long_captions = [], [], []
 
     # ── 4. Resolution gate ────────────────────────────────────────────────────
-    check_cancel(context.cancel_check)
+    context.cancel_check()
     undersized = (
         check_resolution(
             paired_stems, image_stems, corrupt, config.min_resolution_side
@@ -91,7 +90,7 @@ def run(
             "check_resolution": {"enabled": "check_resolution" in enabled},
         },
     }
-    check_cancel(context.cancel_check)
+    context.cancel_check()
     reporter.save_report(
         report_data,
         context.report_path or step_report_path(dataset_dir, "AuditStep"),

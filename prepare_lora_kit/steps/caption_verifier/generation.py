@@ -11,7 +11,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from prepare_lora_kit.cancellation import CancelCheck, check_cancel
+from prepare_lora_kit.cancellation import CancelCheck, noop_cancel_check
 from prepare_lora_kit.steps.caption_verifier.loader import preview_dir_for
 from prepare_lora_kit.steps.caption_verifier.t2i import T2IRuntime
 
@@ -25,7 +25,7 @@ def make_caption_generator(
     generations: dict[str, list[dict]],
     failures: list[dict],
     base_seed: int = 42,
-    cancel_check: CancelCheck | None = None,
+    cancel_check: CancelCheck = noop_cancel_check,
 ) -> Callable[[str, dict], dict]:
     """Build the ``(prompt, options) -> dict`` callable handed to the provider.
 
@@ -36,7 +36,7 @@ def make_caption_generator(
 
     def generate(prompt: str, options: dict[str, Any] | None = None) -> dict:
         opts = dict(options or {})
-        check_cancel(cancel_check)
+        cancel_check()
 
         source = Path(str(opts.get("source_path") or ""))
         if not str(source):
@@ -54,7 +54,7 @@ def make_caption_generator(
                 height=_optional_int(opts.get("height")),
                 steps=_optional_int(opts.get("steps")),
                 guidance=_optional_float(opts.get("guidance")),
-                cancel_check=(lambda: check_cancel(cancel_check)) if cancel_check else None,
+                cancel_check=cancel_check,
             )
         except Exception as exc:
             # Recorded for the report, then re-raised so the provider turns it

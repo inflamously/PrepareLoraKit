@@ -5,7 +5,7 @@ from pathlib import Path
 
 from PIL import Image
 
-from prepare_lora_kit.cancellation import CancelCheck, check_cancel
+from prepare_lora_kit.cancellation import CancelCheck, cancellable, noop_cancel_check
 from prepare_lora_kit.report import reporter
 from prepare_lora_kit.steps.bucket_pools_check.bucketing import _find_bucket
 
@@ -14,13 +14,12 @@ def assign_bucket_pools(
     images: list[Path],
     resolution_buckets: list[tuple[int, int]],
     *,
-    cancel_check: CancelCheck | None = None,
+    cancel_check: CancelCheck = noop_cancel_check,
 ) -> dict[tuple[int, int], list[str]]:
     buckets = [tuple(bucket) for bucket in resolution_buckets]
     bucket_map: dict[tuple[int, int], list[str]] = {bucket: [] for bucket in buckets}
 
-    for path in images:
-        check_cancel(cancel_check)
+    for path in cancellable(images, cancel_check):
         try:
             with Image.open(path) as img:
                 iw, ih = img.size

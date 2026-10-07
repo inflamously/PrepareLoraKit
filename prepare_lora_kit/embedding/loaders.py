@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from prepare_lora_kit.cancellation import CancelCheck, check_cancel
+from prepare_lora_kit.cancellation import CancelCheck, cancellable, noop_cancel_check
 from prepare_lora_kit.embedding import catalog
 
 
@@ -55,8 +55,7 @@ def _embed_clip(spec, paths: list[Path], cancel_check):
     model, preprocess, _tokenizer, device = _load_open_clip(spec)
     rows = []
     with torch.no_grad():
-        for p in paths:
-            check_cancel(cancel_check)
+        for p in cancellable(paths, cancel_check):
             img = preprocess(Image.open(p).convert("RGB")).unsqueeze(0).to(device)
             feat = model.encode_image(img)
             feat = feat / feat.norm(dim=-1, keepdim=True)
@@ -78,8 +77,7 @@ def _embed_dinov2(spec, paths: list[Path], cancel_check):
         model = AutoModel.from_pretrained(spec.hf_repo).eval().to(device)
     rows = []
     with torch.no_grad():
-        for p in paths:
-            check_cancel(cancel_check)
+        for p in cancellable(paths, cancel_check):
             image = Image.open(p).convert("RGB")
             inputs = processor(images=image, return_tensors="pt").to(device)
             outputs = model(**inputs)
@@ -138,15 +136,14 @@ def _embed_qwen(spec, paths: list[Path], cancel_check):
             raise
     rows = []
     batch_size = 8
-    for start in range(0, len(paths), batch_size):
-        check_cancel(cancel_check)
+    for start in cancellable(range(0, len(paths), batch_size), cancel_check):
         chunk = [Image.open(p).convert("RGB") for p in paths[start:start + batch_size]]
         emb = model.encode(chunk, normalize_embeddings=True, convert_to_numpy=True)
         rows.append(np.asarray(emb))
     return np.vstack(rows)
 
 
-def embed_images(model_id: str, paths: list[Path], cancel_check: CancelCheck | None = None):
+def embed_images(model_id: str, paths: list[Path], cancel_check: CancelCheck = noop_cancel_check):
     """Return an ``(N, D)`` array of L2-comparable image embeddings.
 
     Dispatches by catalog family; ``model_id`` may be an ``auto``-resolved id, a

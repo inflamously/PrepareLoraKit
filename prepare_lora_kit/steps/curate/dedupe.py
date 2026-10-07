@@ -3,20 +3,19 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from prepare_lora_kit.cancellation import CancelCheck, check_cancel
+from prepare_lora_kit.cancellation import CancelCheck, cancellable, noop_cancel_check
 from prepare_lora_kit.report import reporter
 
 HASH_DISTANCE = 8
 
 
 def _compute_hashes(
-    paths: list[Path], cancel_check: CancelCheck | None = None,
+    paths: list[Path], cancel_check: CancelCheck = noop_cancel_check,
 ) -> dict[Path, object]:
     import imagehash
     from PIL import Image
     hashes = {}
-    for p in paths:
-        check_cancel(cancel_check)
+    for p in cancellable(paths, cancel_check):
         try:
             hashes[p] = imagehash.phash(Image.open(p).convert("RGB"))
         except Exception as exc:
@@ -27,7 +26,7 @@ def _compute_hashes(
 def _find_duplicates(
     hashes: dict[Path, object],
     max_distance: int = HASH_DISTANCE,
-    cancel_check: CancelCheck | None = None,
+    cancel_check: CancelCheck = noop_cancel_check,
 ) -> list[tuple[Path, Path, int]]:
     """Return list of (path_a, path_b, hamming_distance) for near-duplicate pairs.
 
@@ -36,8 +35,7 @@ def _find_duplicates(
     """
     items = list(hashes.items())
     dupes = []
-    for i in range(len(items)):
-        check_cancel(cancel_check)
+    for i in cancellable(range(len(items)), cancel_check):
         for j in range(i + 1, len(items)):
             dist = items[i][1] - items[j][1]
             if dist <= max_distance:
@@ -48,13 +46,12 @@ def _find_duplicates(
 def _resolve_duplicates(
     pairs: list[tuple[Path, Path, int]],
     auto_drop: bool = True,
-    cancel_check: CancelCheck | None = None,
+    cancel_check: CancelCheck = noop_cancel_check,
 ) -> set[Path]:
     """Return set of paths to drop. Auto-drops the blurrier of each pair."""
     from prepare_lora_kit.utils.image import blur_score
     to_drop: set[Path] = set()
-    for a, b, dist in pairs:
-        check_cancel(cancel_check)
+    for a, b, dist in cancellable(pairs, cancel_check):
         if a in to_drop or b in to_drop:
             continue
         blur_a = blur_score(a)

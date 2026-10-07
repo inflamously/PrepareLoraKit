@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from prepare_lora_kit.cancellation import check_cancel
+from prepare_lora_kit.cancellation import CancelCheck, cancellable, noop_cancel_check
 
 
 def _mock_vae_gate(
@@ -12,7 +12,7 @@ def _mock_vae_gate(
         *,
         interaction=None,
         enabled_substeps: list[str] | None = None,
-        cancel_check=None,
+        cancel_check: CancelCheck = noop_cancel_check,
 ) -> dict:
     import numpy as np
     from PIL import Image, ImageFilter
@@ -29,8 +29,7 @@ def _mock_vae_gate(
     scores = {str(path): 0.0 for path in images}
     preview_root = reports_dir_for(output_dir) / "VaeGateStep_previews"
     review_items = []
-    for index, path in enumerate(images):
-        check_cancel(cancel_check)
+    for index, path in cancellable(enumerate(images), cancel_check):
         with Image.open(path).convert("RGB") as img:
             recon = img.filter(ImageFilter.GaussianBlur(radius=1.6 if index == 0 else 0.6))
             recon_arr = np.array(recon)
@@ -48,7 +47,7 @@ def _mock_vae_gate(
             "views": artifact["views"],
         })
 
-    check_cancel(cancel_check)
+    cancel_check()
     decisions = (
         interaction.vae_review(review_items)
         if "review_vae_artifacts" in enabled and interaction and review_items
@@ -58,7 +57,7 @@ def _mock_vae_gate(
         str(path): decision if decision in {"keep", "drop"} else "keep"
         for path, decision in decisions.items()
     }
-    check_cancel(cancel_check)
+    cancel_check()
     survivors = [
         path for path in images
         if "apply_vae_decisions" not in enabled
@@ -97,6 +96,6 @@ def _mock_vae_gate(
         },
     }
     reporter.info(f"Mock runtime: recorded deterministic VAE pass for {len(images)} image(s).")
-    check_cancel(cancel_check)
+    cancel_check()
     reporter.save_report(report_data, step_report_path(output_dir, "VaeGateStep"))
     return report_data

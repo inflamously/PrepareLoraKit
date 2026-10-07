@@ -7,7 +7,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-from prepare_lora_kit.cancellation import CancelCheck, CancelledRun, check_cancel
+from prepare_lora_kit.cancellation import CancelCheck, CancelledRun, cancellable, noop_cancel_check
 from prepare_lora_kit.pipeline.configs import UpscaleConfig
 from prepare_lora_kit.report import reporter, step_report_path
 from prepare_lora_kit.steps.context import StepRunContext
@@ -57,7 +57,7 @@ def run(
 ) -> dict:
     run_context = context or StepRunContext()
     reporter.step_header("Upscale (optional)")
-    check_cancel(run_context.cancel_check)
+    run_context.cancel_check()
     enabled = set(run_context.enabled_substeps or [
         "select_upscale_candidates",
         "upscale_images",
@@ -113,17 +113,16 @@ def run(
         and run_context.interaction is not None
         and flagged
     ):
-        check_cancel(run_context.cancel_check)
+        run_context.cancel_check()
         decisions = run_context.interaction.upscale_review(
             _build_review_items(flagged, config.upscale_highlight_threshold)
         )
         _apply_review_decisions(partitions, decisions)
-        check_cancel(run_context.cancel_check)
+        run_context.cancel_check()
 
     results["images"] = [_image_info_report(info) for info in partitions.images]
 
-    for info in partitions.with_action("pass_through"):
-        check_cancel(run_context.cancel_check)
+    for info in cancellable(partitions.with_action("pass_through"), run_context.cancel_check):
         _pass_through(output_context, info.path)
 
     if "upscale_images" not in enabled:
@@ -132,8 +131,7 @@ def run(
         results["skipped"] = [
             {"path": str(info.path), "reason": "upscale_images disabled"} for info in actionable
         ]
-        for info in actionable:
-            check_cancel(run_context.cancel_check)
+        for info in cancellable(actionable, run_context.cancel_check):
             _pass_through(output_context, info.path)
         return _save_report(results, output_context)
 
@@ -165,7 +163,7 @@ def run(
                 cancel_check=run_context.cancel_check,
             )
         if cleanup_candidates:
-            check_cancel(run_context.cancel_check)
+            run_context.cancel_check()
             _process_jpeg_cleanup_candidates(
                 infos=cleanup_candidates,
                 context=output_context,
@@ -178,7 +176,7 @@ def run(
                 cancel_check=run_context.cancel_check,
             )
 
-    check_cancel(run_context.cancel_check)
+    run_context.cancel_check()
     return _save_report(results, output_context)
 
 
@@ -224,7 +222,7 @@ def _upscale_candidates(
     seedvr2_kwargs: dict,
     hallucination_ssim_threshold: float,
     hallucination_check_enabled: bool,
-    cancel_check: CancelCheck | None,
+    cancel_check: CancelCheck,
 ) -> None:
     """Upscale the undersized images, or pass them through if no upscaler resolves.
 
@@ -234,7 +232,7 @@ def _upscale_candidates(
     reporter.info(
         f"{len(candidates)} images below {upscale_target}px min-side "
         f"will be upscaled.")
-    check_cancel(cancel_check)
+    cancel_check()
     resolved, skip_reason = _resolve_upscaler(
         upscale_model=upscale_model,
         upscaler=upscaler,
@@ -267,8 +265,7 @@ def _upscale_candidates(
         )
         return
 
-    for info in candidates:
-        check_cancel(cancel_check)
+    for info in cancellable(candidates, cancel_check):
         effective_upscaler = (
             _with_predownscale(resolved, scratch_dir)
             if info.path in pre_downscale_paths
@@ -507,7 +504,7 @@ def _process_seedvr2_candidates(
     results: dict,
     pre_downscale_paths: set[Path] | None = None,
     scratch_dir: Path | None = None,
-    cancel_check: CancelCheck | None = None,
+    cancel_check: CancelCheck = noop_cancel_check,
 ) -> None:
     pre_downscale_paths = pre_downscale_paths or set()
     tmp_by_source = {}
@@ -520,11 +517,11 @@ def _process_seedvr2_candidates(
             assert scratch_dir is not None
             sources_by_path[path] = _write_downscaled_copy(path, scratch_dir)
     try:
-        check_cancel(cancel_check)
+        cancel_check()
         failures = upscaler.process_many(
             tmp_by_source, sources_by_path=sources_by_path or None, cancel_check=cancel_check,
         )
-        check_cancel(cancel_check)
+        cancel_check()
     except CancelledRun:
         _cleanup_temp_files(tmp_by_source.values())
         raise
@@ -537,8 +534,7 @@ def _process_seedvr2_candidates(
             _pass_through(context, path)
         return
 
-    for path, tmp_path in tmp_by_source.items():
-        check_cancel(cancel_check)
+    for path, tmp_path in cancellable(tmp_by_source.items(), cancel_check):
         reason = failures.get(str(path))
         if reason is not None:
             reporter.error(f"Upscale failed for {path.name}: {reason} - keeping original.")
@@ -572,15 +568,14 @@ def _process_jpeg_cleanup_candidates(
     results: dict,
     seedvr2_kwargs: dict,
     scratch_dir: Path,
-    cancel_check: CancelCheck | None = None,
+    cancel_check: CancelCheck = noop_cancel_check,
 ) -> None:
     _probe, skip_reason = _build_seedvr2(resolution=upscale_target, **seedvr2_kwargs)
     if skip_reason is not None:
         reporter.warn(
             f"SeedVR2 unavailable for JPEG cleanup ({skip_reason}) "
             f"- leaving large JPEGs untouched.")
-        for info in infos:
-            check_cancel(cancel_check)
+        for info in cancellable(infos, cancel_check):
             results["skipped"].append({
                 "path": str(info.path),
                 "reason": f"jpeg_cleanup unavailable: {skip_reason}",
@@ -599,8 +594,7 @@ def _process_jpeg_cleanup_candidates(
         target = max(upscale_target, info.min_side or upscale_target)
         by_target.setdefault(target, []).append(info)
 
-    for target, group in sorted(by_target.items()):
-        check_cancel(cancel_check)
+    for target, group in cancellable(sorted(by_target.items()), cancel_check):
         seedvr2, build_reason = _build_seedvr2(resolution=target, **seedvr2_kwargs)
         if build_reason is not None:
             for info in group:
@@ -627,11 +621,10 @@ def _skip_candidates(
     context: OutputContext,
     results: dict,
     reason: str,
-    cancel_check: CancelCheck | None = None,
+    cancel_check: CancelCheck = noop_cancel_check,
 ) -> dict:
     reporter.warn(f"{reason} - skipping upscale candidates.")
-    for path in candidates:
-        check_cancel(cancel_check)
+    for path in cancellable(candidates, cancel_check):
         _pass_through(context, path)
         results["skipped"].append({"path": str(path), "reason": reason})
     return results
@@ -645,15 +638,15 @@ def _process_candidate(
     hallucination_ssim_threshold: float,
     hallucination_check_enabled: bool,
     results: dict,
-    cancel_check: CancelCheck | None = None,
+    cancel_check: CancelCheck = noop_cancel_check,
 ) -> None:
     out_path = _processed_dest_for(context, path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = _tmp_for(out_path, path)
     try:
-        check_cancel(cancel_check)
+        cancel_check()
         upscaler(path, tmp_path)
-        check_cancel(cancel_check)
+        cancel_check()
     except CancelledRun:
         tmp_path.unlink(missing_ok=True)
         raise

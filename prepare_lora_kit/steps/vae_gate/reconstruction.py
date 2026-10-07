@@ -6,7 +6,7 @@ from pathlib import Path
 
 import numpy as np
 
-from prepare_lora_kit.cancellation import CancelCheck, CancelledRun, check_cancel
+from prepare_lora_kit.cancellation import CancelCheck, CancelledRun, cancellable
 from prepare_lora_kit.report import reporter
 from prepare_lora_kit.steps.vae_gate.hf_loss import _hf_loss
 from prepare_lora_kit.steps.vae_gate.review import _save_review_artifacts
@@ -51,18 +51,17 @@ def _reconstruct_all(
     max_side: int | None,
     seed: int,
     hf_cutoff_fraction: float,
-    cancel_check: CancelCheck | None,
+    cancel_check: CancelCheck,
 ) -> _ReconstructionPass:
     """Encode/decode every image without letting one bad input abort the pass."""
     import torch
     from PIL import Image
 
     result = _ReconstructionPass()
-    for path in images:
-        check_cancel(cancel_check)
+    for path in cancellable(images, cancel_check):
         try:
             recon = _encode_decode(vae, device, dtype, path, max_side=max_side, seed=seed)
-            check_cancel(cancel_check)
+            cancel_check()
             orig_arr = np.array(Image.open(path).convert("RGB").resize(
                 (recon.shape[1], recon.shape[0]), Image.LANCZOS
             ))

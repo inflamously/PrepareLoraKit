@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from prepare_lora_kit.cancellation import CancelCheck, CancelledRun, check_cancel
+from prepare_lora_kit.cancellation import CancelCheck, CancelledRun
 from prepare_lora_kit.interaction import annotate_dataset_via_images
 from prepare_lora_kit.providers.interaction import InteractionProvider
 from prepare_lora_kit.report import reporter
@@ -38,7 +38,7 @@ def gather_decisions(
         provider: InteractionProvider | None,
         region_captioner: Callable[[Any, dict[str, Any] | None], dict[str, str]],
         result: CaptionWorkflowResult,
-        cancel_check: CancelCheck | None,
+        cancel_check: CancelCheck,
         verdicts: dict[Path, str] | None = None,
 ) -> dict[str, dict]:
     """Phase A: collect per-image caption decisions in one batch interaction.
@@ -80,7 +80,7 @@ def gather_decisions(
         decisions, result.skip_all = annotate_dataset_via_images(
             provider, descriptors, captioner=region_captioner,
         )
-    check_cancel(cancel_check)
+    cancel_check()
     return decisions
 
 
@@ -158,17 +158,17 @@ def _caption_full_image(
         concept_token: str | None,
         max_new_tokens: int,
         report_path: Path,
-        cancel_check: CancelCheck | None,
+        cancel_check: CancelCheck,
 ) -> str:
     try:
-        check_cancel(cancel_check)
+        cancel_check()
         caption = runtime.caption_image(
             path,
             annotations,
             concept_token,
             max_new_tokens=max_new_tokens,
         )
-        check_cancel(cancel_check)
+        cancel_check()
         return caption
     except CancelledRun:
         raise
@@ -194,7 +194,7 @@ def _write_caption(
         *,
         concept_token: str | None,
         style_mode: bool,
-        cancel_check: CancelCheck | None,
+        cancel_check: CancelCheck,
         annotations: list | tuple = (),
 ) -> None:
     caption = clean_caption_for_mode(
@@ -205,7 +205,7 @@ def _write_caption(
         annotations=annotations,
     )
 
-    check_cancel(cancel_check)
+    cancel_check()
     txt_path.write_text(caption, encoding="utf-8")
     captions[str(path)] = caption
     reporter.ok(f"{path.name} → {caption[:80]}…" if len(caption) > 80

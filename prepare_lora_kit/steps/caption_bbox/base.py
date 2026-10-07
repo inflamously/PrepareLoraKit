@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
 
-from prepare_lora_kit.cancellation import CancelCheck, check_cancel
+from prepare_lora_kit.cancellation import CancelCheck, cancellable, noop_cancel_check
 from prepare_lora_kit.project.pipeline.substeps import substep_ids_for
 from prepare_lora_kit.providers.interaction import InteractionProvider
 from prepare_lora_kit.report import reporter, step_report_path
@@ -51,7 +51,7 @@ class CaptionStep(ABC):
             max_new_tokens: int = 200,
             interaction: InteractionProvider | None = None,
             enabled_substeps: list[str] | None = None,
-            cancel_check: CancelCheck | None = None,
+            cancel_check: CancelCheck = noop_cancel_check,
     ) -> None:
         self.dataset_dir = dataset_dir
         self.concept_token = concept_token
@@ -143,7 +143,7 @@ class CaptionStep(ABC):
 
         self._log_caption_mode(images)
 
-        check_cancel(self.cancel_check)
+        self.cancel_check()
         img_utils.materialize(all_images, self.dataset_dir, output_dir)
 
         # Resume: only images that still lack a caption need work (``overwrite`` — set
@@ -208,8 +208,7 @@ class CaptionStep(ABC):
 
         # Phase B — caption each pending, non-skipped image with its annotations.
         try:
-            for path in pending:
-                check_cancel(self.cancel_check)
+            for path in cancellable(pending, self.cancel_check):
                 txt_path = txt_paths[path]
                 txt_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -275,7 +274,7 @@ class CaptionStep(ABC):
             *,
             output_dir: Path,
     ) -> dict:
-        check_cancel(self.cancel_check)
+        self.cancel_check()
         missing_token, short, long_, sample = self.validate(result.captions)
 
         report_data = build_success_report(
@@ -291,7 +290,7 @@ class CaptionStep(ABC):
             enabled=self.enabled,
             mock_runtime=self.mock_runtime,
         )
-        check_cancel(self.cancel_check)
+        self.cancel_check()
         save_success_report(report_data, self.report_path, output_dir)
         return report_data
 

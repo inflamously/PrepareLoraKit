@@ -7,7 +7,7 @@ import time
 import zlib
 from pathlib import Path
 
-from prepare_lora_kit.cancellation import check_cancel
+from prepare_lora_kit.cancellation import CancelCheck, noop_cancel_check
 
 # Long enough to exercise the modal's busy-lock and spinner, short enough that
 # clicking through a gallery stays pleasant.
@@ -24,7 +24,7 @@ def _make_mock_generator(preview_root: Path, generations: dict, cancel_check):
     from prepare_lora_kit.steps.caption_verifier.loader import preview_dir_for
 
     def _generator(prompt: str, options: dict | None = None) -> dict:
-        check_cancel(cancel_check)
+        cancel_check()
         opts = dict(options or {})
         source = Path(str(opts.get("source_path") or ""))
         seed = _seed_for(opts, generations.get(str(source), []))
@@ -53,7 +53,7 @@ def _mock_caption_verifier(
         *,
         interaction=None,
         enabled_substeps: list[str] | None = None,
-        cancel_check=None,
+        cancel_check: CancelCheck = noop_cancel_check,
 ) -> dict:
     from prepare_lora_kit.project.pipeline.substeps import substep_ids_for
     from prepare_lora_kit.report import reporter, step_report_path
@@ -88,7 +88,7 @@ def _mock_caption_verifier(
     elif verify is None:
         reason = "no interactive caption verification provider"
     else:
-        check_cancel(cancel_check)
+        cancel_check()
         results = verify(
             items,
             generator=_generator,
@@ -97,7 +97,7 @@ def _mock_caption_verifier(
                       "verdicts": list(reports.VERDICTS)},
         ) or {}
 
-    check_cancel(cancel_check)
+    cancel_check()
     applied: list[dict] = []
     rejected: list[dict] = []
     if results and "apply_caption_edits" in enabled:
@@ -137,7 +137,7 @@ def _mock_caption_verifier(
         f"Mock runtime: verified {len(items)} caption(s), "
         f"{sum(len(v) for v in generations.values())} render(s)."
     )
-    check_cancel(cancel_check)
+    cancel_check()
     reporter.save_report(report_data, report_path)
     return report_data
 

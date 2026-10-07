@@ -6,7 +6,7 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from prepare_lora_kit.cancellation import CancelCheck, check_cancel
+from prepare_lora_kit.cancellation import CancelCheck, cancellable
 from prepare_lora_kit.interaction import CliInteractionProvider
 from prepare_lora_kit.pipeline.configs import QualityGateConfig
 from prepare_lora_kit.providers.interaction import InteractionProvider
@@ -74,11 +74,11 @@ def run(
     reporter.summary_counts(kept, rejected, flagged)
 
     survivors = [path_str for path_str, info in report_data.items() if info.get("kept")]
-    check_cancel(context.cancel_check)
+    context.cancel_check()
     img_utils.materialize(survivors, input_dir, output_dir)
 
     report_path = context.report_path or step_report_path(output_dir, "QualityGateStep")
-    check_cancel(context.cancel_check)
+    context.cancel_check()
     reporter.save_report(report_data, report_path)
     return report_data
 
@@ -87,7 +87,7 @@ def _score_all(
     images: list[Path],
     thresholds: dict,
     scorers: list[dict],
-    cancel_check: CancelCheck | None,
+    cancel_check: CancelCheck,
 ) -> tuple[list[tuple[Path, dict]], dict]:
     """Score every image.
 
@@ -102,7 +102,7 @@ def _score_all(
             # Decode each image once; share it across all scorers. cv2/skimage
             # release the GIL so blur/noise/jpeg run in parallel across workers
             # (the CLIP watermark forward serializes on its own lock).
-            check_cancel(cancel_check)
+            cancel_check()
             try:
                 return _score_image(img_utils.ImageData(path), thresholds, scorers)
             except Exception as exc:
@@ -118,8 +118,7 @@ def _score_all(
             with ThreadPoolExecutor(max_workers=workers) as ex:
                 results.extend(ex.map(_score_one, images[1:]))
 
-        for path, result in zip(images, results, strict=True):
-            check_cancel(cancel_check)
+        for path, result in cancellable(zip(images, results, strict=True), cancel_check):
             if isinstance(result, Exception):
                 reporter.error(f"{path.name}: scoring failed — {result}")
                 failures[str(path)] = {
@@ -140,29 +139,28 @@ def _resolve_decisions(
     auto_only: bool,
     review_enabled: bool,
     interaction: InteractionProvider | None,
-    cancel_check: CancelCheck | None,
+    cancel_check: CancelCheck,
 ) -> dict[str, str]:
     """Keep/reject/flag per image — from the gallery, or straight from the gates."""
     if auto_only or not review_enabled:
         return {str(p): ("reject" if i["auto_reject"] else "keep") for p, i in scored}
 
-    check_cancel(cancel_check)
+    cancel_check()
     provider = interaction or CliInteractionProvider()
     decisions = provider.source_review(scored)
-    check_cancel(cancel_check)
+    cancel_check()
     return decisions
 
 
 def _apply_decisions(
     scored: list[tuple[Path, dict]],
     decisions: dict[str, str],
-    cancel_check: CancelCheck | None,
+    cancel_check: CancelCheck,
 ) -> tuple[dict, int, int, int]:
     """Fold decisions into report rows, returning them plus (kept, rejected, flagged)."""
     rows: dict = {}
     kept = rejected = flagged = 0
-    for path, info in scored:
-        check_cancel(cancel_check)
+    for path, info in cancellable(scored, cancel_check):
         key = str(path)
         decision = decisions.get(key, "reject" if info["auto_reject"] else "keep")
         kept_bool = decision == "keep"
