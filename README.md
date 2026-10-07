@@ -189,16 +189,22 @@ configured export folder for the next training step.
 Install the cross-platform core (the minimum to run the default pipeline):
 
 ```bash
-python -m pip install -r requirements.txt
+python -m pip install -e .
 ```
 
-The requirements are organized under `requirements/`:
+Dependencies are declared in `pyproject.toml` (package name `prepare-lora-kit`).
+Optional runtimes are extras:
 
-- `requirements/base.txt` — core/minimum, cross-platform. The root
-  `requirements.txt` is a thin shim that pulls this in.
-- `requirements/seedvr2.txt` — optional SeedVR2 upscaling runtime.
-- `requirements/seedvr2-windows.txt` / `requirements/seedvr2-linux.txt` —
-  SeedVR2 plus OS-specific GPU acceleration extras.
+- `.[seedvr2]` — optional SeedVR2 upscaling runtime.
+- `.[seedvr2-accel]` — SeedVR2 plus GPU acceleration (`sageattention`, and
+  `triton` / `triton-windows` picked per OS).
+- `.[caption-verifier]` — newer diffusers for the caption verifier step.
+
+The files under `requirements/` remain as thin shims over these extras, so
+`pip install -r requirements.txt` from the repo root still works.
+
+Dev tooling (`ruff`, `pytest`, `pip-audit`) is the `dev` dependency group, which
+`uv run` / `uv sync` install by default. With pip (25.1+): `pip install --group dev`.
 
 The core depends on image processing, ML, and CLI libraries, including:
 
@@ -219,7 +225,7 @@ SeedVR2 extras for your OS and the submodule itself:
 
 ```bash
 git submodule update --init --recursive third_party/seedvr2
-python -m pip install -r requirements/seedvr2-windows.txt   # or seedvr2-linux.txt
+python -m pip install -e ".[seedvr2-accel]"
 python -m pip install -e third_party/seedvr2
 ```
 

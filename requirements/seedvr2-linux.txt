@@ -1,4 +1,3 @@
--r seedvr2.txt
-# Optional GPU acceleration (Linux) — may require a manual/build install
-sageattention
-triton
+# Shim for pyproject.toml's `seedvr2-accel` extra (SeedVR2 + GPU acceleration;
+# the triton package is picked per OS by environment markers). Run from the repo root.
+-e .[seedvr2-accel]

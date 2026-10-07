@@ -1,7 +1,101 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "prepare-lora-kit"
+version = "0.1.0"
+description = "Prepare image datasets for LoRA training: import, caption, curate, upscale and export."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    # Core pipeline (always imported)
+    "click>=8.1",
+    "numpy>=1.24",
+    "Pillow>=10.0",
+    "pyyaml>=6.0",
+    "rich>=13.7",
+    "packaging>=24",                # runtime version guard for rapidly changing model implementations
+    "opencv-python-headless>=4.8",  # no cv2 GUI calls; the UI is pywebview, so skip the libxcb/libGL deps
+
+    # ML stack — loaded lazily by caption / vae-gate / curate / embedding steps.
+    # torch/torchvision are pinned loosely; install a CUDA-specific build first via
+    # --index-url (https://pytorch.org) if the default wheel doesn't match your GPU.
+    "torch>=2.1",
+    "torchvision>=0.16",
+    "transformers>=5.15.1",         # Qwen3.8 recurrent-cache fixes; Qwen2/2.5/3-VL + LLaVA Auto-classes
+    "accelerate>=0.27",             # required at runtime by transformers device_map
+    "diffusers>=0.30",
+    "huggingface_hub>=0.27",        # auth_check + get_token; used directly by settings/hub.py
+    "open_clip_torch>=2.24",
+    "sentence-transformers[image]>=5.4",  # Qwen3-VL multimodal coverage embeddings (Curate step)
+    "scikit-learn>=1.3",
+    "scikit-image>=0.22",
+    "umap-learn>=0.5",
+    "matplotlib>=3.8",
+    "imagehash>=4.3",
+    "easygui>=0.98",                # manual-review fallback dialogs
+    "pywebview>=5.0",               # desktop UI
+
+    # 4-bit/8-bit VLM quantization in CaptionStep (graceful fallback if absent)
+    "bitsandbytes>=0.43",
+]
+
+[project.optional-dependencies]
+# Optional runtime for CaptionVerifierStep (text-to-image caption probe). The core
+# keeps diffusers>=0.30 because VaeGateStep only needs AutoencoderKL; raising the
+# floor would force every user through a large upgrade for an optional step.
+# PipelineQuantizationConfig landed in 0.32; Flux2KleinPipeline needs 0.38; Krea 2
+# (Krea2Pipeline) needs a newer release. Too old a version makes the step report
+# "needs diffusers >= X" and skip rather than fail the pipeline.
+caption-verifier = [
+    "diffusers>=0.38",
+    "transformers>=4.57",           # Qwen3 text encoder used by FLUX.2 klein
+    "accelerate>=0.31",             # enable_model_cpu_offload / sequential offload hooks
+    "bitsandbytes>=0.43",           # nf4 quantization for the 16 GB and 24 GB tiers
+    "sentencepiece",                # tokenizers for the T5/Qwen-class text encoders
+    "protobuf",
+]
+# Optional SeedVR2 upscaling runtime (third_party/seedvr2 submodule).
+# Also run: pip install -e third_party/seedvr2
+seedvr2 = [
+    "diffusers>=0.33.1",            # SeedVR2 needs a higher floor than core
+    "safetensors",
+    "psutil",
+    "einops",
+    "omegaconf>=2.3.0",
+    "peft>=0.17.0",
+    "rotary_embedding_torch>=0.5.3",
+    "gguf",
+]
+# Optional SeedVR2 GPU acceleration; may require a manual/build install on Linux.
+seedvr2-accel = [
+    "prepare-lora-kit[seedvr2]",
+    "sageattention",
+    "triton; sys_platform == 'linux'",
+    "triton-windows; sys_platform == 'win32'",
+]
+
+[dependency-groups]
+# Development-only tooling, not needed to run the pipeline. A group rather than an
+# extra so `uv run`/`uv sync` install it by default; with pip use `pip install --group dev`.
+dev = [
+    "ruff>=0.16",                   # lint config lives below in [tool.ruff]
+    "pytest>=8.0",                  # test suite in tests/
+    "pip-audit>=2.7",               # known-vulnerability scan of the installed environment
+]
+
+[project.scripts]
+plk = "prepare_lora_kit.cli:cli"
+
+[tool.setuptools.packages.find]
+include = ["prepare_lora_kit*", "prepare_lora_kit_ui*"]
+
+[tool.setuptools.package-data]
+prepare_lora_kit_ui = ["*.css", "static/**/*"]
+
 [tool.ruff]
-# The package targets Python 3.10+; there is no [project] table for ruff to
-# infer this from, so it is pinned explicitly.
-target-version = "py310"
+# target-version is inferred from [project].requires-python (>=3.10).
 line-length = 100
 
 extend-exclude = [

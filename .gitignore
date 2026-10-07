@@ -8,3 +8,5 @@ outputs
 node_modules
 configs/projects/
 models
+build
+prepare_lora_kit.egg-info

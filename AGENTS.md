@@ -15,40 +15,35 @@ currently use pytest-style functions.
 
 ## Build, Test, and Development Commands
 
-- `python -m pip install -r requirements.txt`: installs the core runtime dependencies
-  (a shim for `requirements/base.txt`). Add SeedVR2 with
-  `pip install -r requirements/seedvr2-windows.txt` (or `-linux`).
-- `python -m pip install -e .`: installs the package locally and registers `plk`.
+- `python -m pip install -e .`: installs the package (`prepare-lora-kit`), its core
+  runtime dependencies, and registers `plk`. Dependencies are declared only in
+  `pyproject.toml`; the files under `requirements/` are thin `-e .[extra]` shims.
+  Add SeedVR2 with `pip install -e ".[seedvr2-accel]"` (or `.[seedvr2]` without
+  GPU acceleration).
 - `python main.py --help` or `plk --help`: lists available CLI commands.
 - `python main.py run -i /path/to/images -p my-project -t token`: runs the full
   local pipeline from the repo checkout.
 - `pytest`: runs the test suite in `tests/`.
 - `pytest tests/project/test_config.py`: runs one focused test module.
-- `python -m pip install -r requirements/dev.txt`: installs the dev tooling
-  (`ruff`, `pytest`) on top of the runtime deps.
+- `uv sync` (or `python -m pip install --group dev`, pip 25.1+): installs the dev
+  tooling (`ruff`, `pytest`, `pip-audit`) from the `dev` dependency group;
+  `uv run` includes it by default.
 - `ruff check .`: lints the repo. `ruff check --fix .` applies the safe fixes.
+- `pip-audit --skip-editable`: checks the active environment's installed packages
+  for known vulnerabilities (installed with the `dev` group).
 
-On Linux, keep an existing Windows `.venv` intact and create a separate local
-environment. This workspace may be mounted without symlink support, so use an
-uv-managed Python with copied venv files:
-
-```bash
-uv python install 3.12
-mkdir -p .venv-linux/lib64
-"$(uv python find 3.12)" -m venv --copies .venv-linux
-uv pip install --python .venv-linux/bin/python --link-mode copy -r requirements/dev.txt
-```
-
-In a headless Linux environment without `libxcb.so.1`, replace the GUI OpenCV
-wheel after installation:
+The repo may be shared between Windows and a Linux sandbox. `.venv` belongs to
+Windows: any `uv run`/`uv sync` on Linux that resolves to `.venv` deletes it as
+an incompatible environment. On Linux, point uv at its own environment **before
+running any uv project command** (the mount may also lack symlink support):
 
 ```bash
-uv pip uninstall --python .venv-linux/bin/python opencv-python
-uv pip install --python .venv-linux/bin/python --link-mode copy opencv-python-headless
+export UV_PROJECT_ENVIRONMENT=.venv-linux   # relative to the project root
+export UV_LINK_MODE=copy
+uv sync                                     # then: uv run pytest / ruff / pip-audit
 ```
 
-Run checks through `.venv-linux/bin/pytest` and `.venv-linux/bin/ruff`. The
-`.venv-linux/` directory is machine-local and ignored by Git.
+The `.venv-linux/` directory is machine-local and ignored by Git.
 
 ## Coding Style & Naming Conventions
 
@@ -108,9 +103,9 @@ intent is always written out. The rationale lives in
 
 Keep `prepare_lora_kit_ui/static/core/api.js` JSDoc in sync with the pywebview
 bridge whenever `prepare_lora_kit_ui/bridge.py`, UI bridge payloads, or frontend
-API call sites change. Update the files under `requirements/` (core deps in
-`base.txt`, SeedVR2 extras in `seedvr2*.txt`) whenever adding, removing, or
-changing runtime dependencies.
+API call sites change. Update `pyproject.toml` (core deps in `[project].dependencies`, optional
+runtimes such as SeedVR2 in `[project.optional-dependencies]`) whenever adding,
+removing, or changing runtime dependencies.
 
 ## Testing Guidelines
 
