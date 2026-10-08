@@ -756,6 +756,45 @@ def test_ui_interaction_provider_emits_vae_review_payload(tmp_path):
     assert decisions == {str(original.resolve()): "drop"}
 
 
+def test_ui_interaction_provider_emits_upscale_review_tiers(tmp_path):
+    original = tmp_path / "photo.jpg"
+    original.write_bytes(b"jpg")
+
+    class FakeJob:
+        def request_input(self, kind, payload):
+            self.kind = kind
+            self.payload = payload
+            return {"decisions": {payload["items"][0]["path"]: "cleanup"}}
+
+    from prepare_lora_kit_ui.runner import UiInteractionProvider
+
+    job = FakeJob()
+    provider = UiInteractionProvider(job, media_base_url="http://127.0.0.1:9999/media")
+
+    decisions = provider.upscale_review([
+        {
+            "path": str(original),
+            "name": original.name,
+            "width": 600,
+            "height": 800,
+            "min_side": 600,
+            "threshold": 1536,
+            "target": 3072,
+            "tier_lo": 512,
+            "tier_hi": 767,
+            "is_jpeg": True,
+            "planned_action": "upscale",
+            "flagged": True,
+            "initial_decision": "upscale",
+        }
+    ])
+
+    item = job.payload["items"][0]
+    assert job.kind == "upscale_review"
+    assert (item["tier_lo"], item["tier_hi"], item["target"]) == (512, 767, 3072)
+    assert decisions == {item["path"]: "cleanup"}
+
+
 def test_ui_interaction_provider_emits_curate_details_payload(tmp_path):
     coverage = tmp_path / "coverage_umap.png"
     coverage.write_bytes(b"png")

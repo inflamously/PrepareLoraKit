@@ -53,6 +53,10 @@ def test_mock_upscale_review_flags_and_converts_jpeg_to_png(tmp_path, monkeypatc
     assert items_by_name["mock_artifact_jpeg.jpg"]["is_jpeg"] is True
     assert items_by_name["mock_square.png"]["planned_action"] == "upscale"
     assert items_by_name["mock_square.png"]["is_jpeg"] is False
+    # Every candidate carries its 256px min-side review tier.
+    for item in captured["items"]:
+        assert item["tier_hi"] - item["tier_lo"] == 255
+        assert item["tier_lo"] <= item["min_side"] <= item["tier_hi"]
 
     dataset_dir = fixture.output_dir / "dataset"
     report = json.loads(

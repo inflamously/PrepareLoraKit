@@ -3,7 +3,11 @@ import {
   reviewCard,
   syncReviewCards,
 } from "../../../components/review_card.js";
-import { normalizeUpscaleDecision, UPSCALE_DECISIONS } from "../utils/decisions.js";
+import {
+  decisionsFor,
+  normalizeUpscaleDecision,
+  UPSCALE_DECISIONS,
+} from "../utils/decisions.js";
 
 export function upscaleReviewCard(
   item,
@@ -13,8 +17,8 @@ export function upscaleReviewCard(
   return reviewCard(item, decisions, {
     className: "upscale-review-card",
     title: "Left-click card to show details; right-click card to cycle decision",
-    decisionOptions: UPSCALE_DECISIONS,
-    normalizeDecision: normalizeUpscaleDecision,
+    decisionOptions: decisionsFor(item),
+    normalizeDecision: (decision) => normalizeUpscaleDecision(decision, item),
     renderBody: renderUpscaleReviewCardBody,
     onSelect,
     onDecisionChange,
@@ -22,9 +26,11 @@ export function upscaleReviewCard(
 }
 
 export function syncUpscaleCards(cardsByPath, decisions) {
+  // Decisions are already normalized per item when set; the full option list
+  // just lets the sync clear any previous decision class.
   syncReviewCards(cardsByPath, decisions, {
     decisionOptions: UPSCALE_DECISIONS,
-    normalizeDecision: normalizeUpscaleDecision,
+    normalizeDecision: (decision) => normalizeUpscaleDecision(decision),
   });
 }
 

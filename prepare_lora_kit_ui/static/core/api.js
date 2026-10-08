@@ -189,10 +189,16 @@
  * @property {number | null} height
  * @property {number | null} min_side
  * @property {number | null} threshold The configured upscale_highlight_threshold.
+ * @property {number | null} target The configured upscale_target; `upscale` only
+ *   applies below it.
+ * @property {number | null} tier_lo Inclusive start of the 256px min-side review tier.
+ * @property {number | null} tier_hi Inclusive end of the review tier.
  * @property {boolean} is_jpeg
  * @property {"upscale" | "jpeg_cleanup" | "pass_through"} planned_action
+ *   `jpeg_cleanup` converts a JPEG to a same-size PNG with artifact cleanup.
  * @property {boolean} flagged
- * @property {"upscale" | "skip"} initial_decision
+ * @property {"upscale" | "cleanup" | "skip"} initial_decision Submitted back as
+ *   `{decisions: {[path]: "upscale" | "cleanup" | "skip"}}`; `cleanup` is JPEG only.
  */
 
 /**

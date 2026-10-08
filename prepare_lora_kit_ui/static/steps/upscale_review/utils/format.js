@@ -10,12 +10,12 @@ export function formatPx(value) {
   return Number.isFinite(number) ? `${number}px` : "n/a";
 }
 
-export function formatPlannedAction(item) {
-  switch (item.planned_action) {
-    case "jpeg_cleanup":
-      return "JPEG cleanup (downscale then re-upscale)";
+export function formatDecisionAction(item, decision) {
+  switch (decision) {
+    case "cleanup":
+      return "JPEG cleanup → PNG, same size";
     case "upscale":
-      return "Upscale";
+      return item.is_jpeg ? "Upscale → PNG" : "Upscale";
     default:
       return "Skip (pass-through)";
   }

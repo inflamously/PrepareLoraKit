@@ -362,14 +362,15 @@ def test_partition_disables_cleanup_tricks_without_seedvr2(tmp_path):
     by_name = {info.path.name: info for info in partitions.images}
 
     # No shrink-then-regrow trick under a non-generative model: the mid JPEG is a
-    # plain upscale (no pre-downscale) and the large JPEG is left untouched.
+    # plain upscale (no pre-downscale). The large JPEG is still cleaned up to a
+    # same-size PNG (by denoise), just never pre-downscaled.
     assert by_name[mid_jpg.name].planned_action == "upscale"
     assert by_name[mid_jpg.name].needs_pre_downscale is False
     assert by_name[mid_jpg.name].flagged is False
 
-    assert by_name[large_jpg.name].planned_action == "pass_through"
+    assert by_name[large_jpg.name].planned_action == "jpeg_cleanup"
     assert by_name[large_jpg.name].needs_pre_downscale is False
-    assert by_name[large_jpg.name].flagged is False
+    assert by_name[large_jpg.name].flagged is True
 
 
 def test_lanczos_jpeg_source_converts_to_png_and_removes_original(tmp_path, monkeypatch):
@@ -449,8 +450,8 @@ def test_lanczos_does_not_pre_downscale_jpeg_candidates(tmp_path, monkeypatch):
     assert (tmp_path / "mid.png").exists()
 
 
-def test_lanczos_leaves_large_jpeg_untouched(tmp_path):
-    image_path = _image(tmp_path / "large.jpg", (200, 200))
+def test_lanczos_denoises_large_jpeg_to_same_size_png(tmp_path):
+    image_path = _image(tmp_path / "large.jpg", (200, 150))
 
     result = _run(
         tmp_path,
@@ -460,10 +461,14 @@ def test_lanczos_leaves_large_jpeg_untouched(tmp_path):
         upscale_model="lanczos",
     )
 
-    # Large JPEG, but Lanczos can't clean it, so it passes through unchanged.
-    assert result["upscaled"] == []
-    assert image_path.exists()
-    assert not (tmp_path / "large.png").exists()
+    # Lanczos can't restore it, but the JPEG still lands as a denoised PNG.
+    png_path = tmp_path / "large.png"
+    assert result["upscaled"] == [
+        {"original": str(image_path), "upscaled": str(png_path), "method": "denoise"},
+    ]
+    assert not image_path.exists()
+    with Image.open(png_path) as img:
+        assert img.size == (200, 150)
 
 
 def test_jpeg_cleanup_runs_under_seedvr2(tmp_path, monkeypatch):
@@ -498,11 +503,13 @@ def test_jpeg_cleanup_runs_under_seedvr2(tmp_path, monkeypatch):
     png_path = tmp_path / "large.png"
     assert len(result["upscaled"]) == 1
     assert result["upscaled"][0]["original"] == str(image_path)
-    assert png_path.exists()
     assert not image_path.exists()
+    # The model wrote 300x300; cleanup keeps the source resolution exactly.
+    with Image.open(png_path) as img:
+        assert img.size == (200, 200)
 
 
-def test_jpeg_cleanup_leaves_original_untouched_when_seedvr2_unavailable(tmp_path):
+def test_jpeg_cleanup_falls_back_to_denoise_when_seedvr2_unavailable(tmp_path):
     image_path = _image(tmp_path / "large.jpg", (200, 200))
 
     result = _run(
@@ -514,10 +521,11 @@ def test_jpeg_cleanup_leaves_original_untouched_when_seedvr2_unavailable(tmp_pat
         seedvr2_submodule_dir=str(tmp_path / "missing_seedvr2"),
     )
 
-    assert image_path.exists()
-    assert not (tmp_path / "large.png").exists()
-    assert result["skipped"][0]["path"] == str(image_path)
-    assert "jpeg_cleanup unavailable" in result["skipped"][0]["reason"]
+    assert not image_path.exists()
+    assert result["skipped"] == []
+    assert result["upscaled"][0]["method"] == "denoise"
+    with Image.open(tmp_path / "large.png") as img:
+        assert img.size == (200, 200)
 
 
 def test_dest_collision_keeps_jpeg_untouched(tmp_path, monkeypatch):
@@ -540,8 +548,7 @@ def test_dest_collision_keeps_jpeg_untouched(tmp_path, monkeypatch):
     assert {entry["original"] for entry in result["upscaled"]} == {str(png)}
 
 
-def test_upscale_review_called_only_when_flagged_and_skip_forces_pass_through(
-        tmp_path, monkeypatch):
+def test_upscale_review_skip_forces_pass_through(tmp_path, monkeypatch):
     flagged_image = _image(tmp_path / "flagged.png", (40, 40))
     _image(tmp_path / "ok.png", (4000, 4000))
     monkeypatch.setattr(upscale_step, "_hallucination_check", lambda *_args: 1.0)
@@ -569,12 +576,12 @@ def test_upscale_review_called_only_when_flagged_and_skip_forces_pass_through(
         assert img.size == (40, 40)
 
 
-def test_upscale_review_not_called_when_nothing_flagged(tmp_path):
+def test_upscale_review_not_called_without_candidates(tmp_path):
     image_path = _image(tmp_path / "ok.png", (4000, 4000))
 
     class FailingInteraction:
         def upscale_review(self, items):
-            raise AssertionError("upscale_review should not be called when nothing is flagged")
+            raise AssertionError("upscale_review should not be called without candidates")
 
     result = _run(
         tmp_path,
@@ -585,3 +592,194 @@ def test_upscale_review_not_called_when_nothing_flagged(tmp_path):
     )
 
     assert result["skipped"] == [str(image_path)]
+
+
+class _RecordingInteraction:
+    def __init__(self, decide=None):
+        self.items = None
+        self._decide = decide or (lambda _item: None)
+
+    def upscale_review(self, items):
+        self.items = items
+        return {
+            item["path"]: decision
+            for item in items
+            if (decision := self._decide(item)) is not None
+        }
+
+
+def _fake_seedvr2(output_size: tuple[int, int]):
+    class FakeSeedVR2Upscaler:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+        def prepare(self):
+            pass
+
+        def process_many(self, outputs_by_source, *, sources_by_path=None, cancel_check=None):
+            for output_path in outputs_by_source.values():
+                Image.new("RGB", output_size, "green").save(output_path)
+            return {}
+
+    return FakeSeedVR2Upscaler
+
+
+def test_upscale_review_lists_unflagged_candidates_with_tiers(tmp_path, monkeypatch):
+    _image(tmp_path / "low.png", (300, 400))
+    _image(tmp_path / "mid.png", (2000, 2100))
+    _image(tmp_path / "big.jpg", (3100, 3200))
+    _image(tmp_path / "done.png", (4000, 4000))
+    monkeypatch.setattr(upscale_step, "_hallucination_check", lambda *_args: 1.0)
+    interaction = _RecordingInteraction(lambda _item: "skip")
+
+    _run(
+        tmp_path,
+        output_dir=tmp_path / "out",
+        upscale_target=3072,
+        upscale_highlight_threshold=1536,
+        upscale_model="lanczos",
+        interaction=interaction,
+    )
+
+    by_name = {item["name"]: item for item in interaction.items}
+    # mid.png is not flagged (above the highlight threshold) but is still reviewable.
+    assert set(by_name) == {"low.png", "mid.png", "big.jpg"}
+    assert by_name["mid.png"]["flagged"] is False
+    assert (by_name["low.png"]["tier_lo"], by_name["low.png"]["tier_hi"]) == (256, 511)
+    assert (by_name["mid.png"]["tier_lo"], by_name["mid.png"]["tier_hi"]) == (1792, 2047)
+    assert by_name["big.jpg"]["tier_lo"] == 3072
+    assert by_name["big.jpg"]["target"] == 3072
+    assert by_name["big.jpg"]["initial_decision"] == "cleanup"
+    assert by_name["low.png"]["initial_decision"] == "upscale"
+
+
+def test_review_cleanup_converts_jpeg_to_same_size_png(tmp_path):
+    jpg = _image(tmp_path / "photo.jpg", (120, 90))
+
+    result = _run(
+        tmp_path,
+        output_dir=tmp_path,
+        upscale_target=256,
+        upscale_model="lanczos",
+        interaction=_RecordingInteraction(lambda _item: "cleanup"),
+    )
+
+    assert not jpg.exists()
+    with Image.open(tmp_path / "photo.png") as img:
+        assert img.size == (120, 90)
+    assert result["upscaled"][0]["method"] == "denoise"
+
+
+def test_review_cleanup_on_non_jpeg_keeps_planned_action(tmp_path, monkeypatch):
+    png = _image(tmp_path / "small.png", (32, 24))
+    monkeypatch.setattr(upscale_step, "_hallucination_check", lambda *_args: 1.0)
+
+    result = _run(
+        tmp_path,
+        output_dir=tmp_path,
+        upscale_target=64,
+        upscale_model="lanczos",
+        interaction=_RecordingInteraction(lambda _item: "cleanup"),
+    )
+
+    assert [entry["original"] for entry in result["upscaled"]] == [str(png)]
+    with Image.open(png) as img:
+        assert min(img.size) == 64
+
+
+def test_review_upscale_above_target_keeps_cleanup(tmp_path):
+    jpg = _image(tmp_path / "big.jpg", (200, 200))
+
+    _run(
+        tmp_path,
+        output_dir=tmp_path,
+        upscale_target=64,
+        upscale_model="lanczos",
+        interaction=_RecordingInteraction(lambda _item: "upscale"),
+    )
+
+    # "upscale" doesn't apply above the target, so the planned cleanup runs.
+    assert not jpg.exists()
+    with Image.open(tmp_path / "big.png") as img:
+        assert img.size == (200, 200)
+
+
+def test_review_skip_keeps_large_jpeg_as_is(tmp_path):
+    jpg = _image(tmp_path / "big.jpg", (200, 200))
+
+    _run(
+        tmp_path,
+        output_dir=tmp_path,
+        upscale_target=64,
+        upscale_model="lanczos",
+        interaction=_RecordingInteraction(lambda _item: "skip"),
+    )
+
+    assert jpg.exists()
+    assert not (tmp_path / "big.png").exists()
+
+
+def test_review_cleanup_collision_keeps_jpeg(tmp_path):
+    # big.jpg would become big.png and clobber the existing (also reviewed) PNG.
+    jpg = _image(tmp_path / "big.jpg", (200, 200))
+    png = _image(tmp_path / "big.png", (40, 40))
+    decisions = {str(jpg): "cleanup", str(png): "skip"}
+
+    _run(
+        tmp_path,
+        output_dir=tmp_path,
+        upscale_target=64,
+        upscale_model="lanczos",
+        interaction=_RecordingInteraction(lambda item: decisions.get(item["path"])),
+    )
+
+    assert jpg.exists()
+    with Image.open(png) as img:
+        assert img.size == (40, 40)
+
+
+def test_rejected_seedvr2_cleanup_falls_back_to_denoised_png(tmp_path, monkeypatch):
+    jpg = _image(tmp_path / "large.jpg", (200, 200))
+    monkeypatch.setattr(upscale_step, "_hallucination_check", lambda *_args: 0.0)
+    monkeypatch.setattr(upscale_step, "SeedVR2Upscaler", _fake_seedvr2((200, 200)))
+
+    result = _run(
+        tmp_path,
+        output_dir=tmp_path,
+        upscale_target=64,
+        upscale_highlight_threshold=64,
+        upscale_model="seedvr2",
+    )
+
+    assert [entry["path"] for entry in result["rejected_post"]] == [str(jpg)]
+    assert result["upscaled"][0]["method"] == "denoise"
+    assert not jpg.exists()
+    with Image.open(tmp_path / "large.png") as img:
+        assert img.size == (200, 200)
+
+
+def test_seedvr2_cleanup_targets_own_min_side(tmp_path, monkeypatch):
+    _image(tmp_path / "wide.jpg", (300, 200))
+    monkeypatch.setattr(upscale_step, "_hallucination_check", lambda *_args: 1.0)
+    built = []
+    fake = _fake_seedvr2((304, 208))
+
+    class Recording(fake):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            built.append(kwargs["resolution"])
+
+    monkeypatch.setattr(upscale_step, "SeedVR2Upscaler", Recording)
+
+    _run(
+        tmp_path,
+        output_dir=tmp_path,
+        upscale_target=64,
+        upscale_highlight_threshold=64,
+        upscale_model="seedvr2",
+    )
+
+    # Probe at the target, then the real worker at the image's own min-side.
+    assert built[-1] == 200
+    with Image.open(tmp_path / "wide.png") as img:
+        assert img.size == (300, 200)

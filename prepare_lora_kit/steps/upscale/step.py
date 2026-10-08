@@ -1,4 +1,7 @@
-"""UpscaleStep — upscale images below the target min-side, rejecting hallucinated texture."""
+"""UpscaleStep — upscale images below the target min-side, rejecting hallucinated texture.
+
+JPEGs that keep their size are still cleaned up and land as same-size PNGs.
+"""
 from __future__ import annotations
 
 import shutil
@@ -12,7 +15,13 @@ from prepare_lora_kit.pipeline.configs import UpscaleConfig
 from prepare_lora_kit.report import reporter, step_report_path
 from prepare_lora_kit.steps.context import StepRunContext
 from prepare_lora_kit.steps.upscale.hallucination import _hallucination_check
-from prepare_lora_kit.steps.upscale.jpeg_cleanup import _is_jpeg, _write_downscaled_copy
+from prepare_lora_kit.steps.upscale.jpeg_cleanup import (
+    _denoise_to_png,
+    _is_jpeg,
+    _match_source_size,
+    _write_downscaled_copy,
+)
+from prepare_lora_kit.steps.upscale.review_tiers import tier_for
 from prepare_lora_kit.steps.upscale.seedvr2_adapter import SeedVR2Unavailable, SeedVR2Upscaler
 from prepare_lora_kit.steps.upscale.upscalers import (
     _lanczos_upscale,
@@ -80,8 +89,8 @@ def run(
 
     # The shrink-then-regrow cleanup only makes sense with a generative upscaler
     # (SeedVR2) that can restore detail. Doing it with Lanczos just blurs the
-    # image (downscale + interpolated upscale = detail loss), so it is gated off
-    # for non-SeedVR2 models — those JPEGs get a plain upscale or pass through.
+    # image (downscale + interpolated upscale = detail loss), so without SeedVR2
+    # JPEGs get a plain upscale, or a same-size denoise to PNG.
     enable_seedvr2_cleanup = config.upscale_model == "seedvr2"
 
     partitions = _resolve_partitions(
@@ -108,16 +117,21 @@ def run(
             "or a JPEG due for artifact cleanup)."
         )
 
+    reviewable = [info for info in partitions.images if info.planned_action != "pass_through"]
     if (
         "select_upscale_candidates" in enabled
         and run_context.interaction is not None
-        and flagged
+        and reviewable
     ):
         run_context.cancel_check()
         decisions = run_context.interaction.upscale_review(
-            _build_review_items(flagged, config.upscale_highlight_threshold)
+            _build_review_items(
+                reviewable, config.upscale_highlight_threshold, config.upscale_target,
+            )
         )
-        _apply_review_decisions(partitions, decisions)
+        _apply_review_decisions(partitions, decisions, config.upscale_target)
+        # A JPEG moved to cleanup now targets a .png, which may collide.
+        _resolve_destination_collisions(partitions, output_context)
         run_context.cancel_check()
 
     results["images"] = [_image_info_report(info) for info in partitions.images]
@@ -167,6 +181,7 @@ def run(
             _process_jpeg_cleanup_candidates(
                 infos=cleanup_candidates,
                 context=output_context,
+                use_seedvr2=enable_seedvr2_cleanup,
                 upscale_target=config.upscale_target,
                 hallucination_ssim_threshold=config.hallucination_ssim_threshold,
                 hallucination_check_enabled="hallucination_check" in enabled,
@@ -330,14 +345,16 @@ def _partition_images(
     for path in images:
         min_side = img_utils.min_side(path)
         is_jpeg = _is_jpeg(path)
-        # The shrink-then-regrow trick (pre-downscale here, jpeg_cleanup below)
-        # is only safe with a generative upscaler; otherwise it would blur.
+        # The shrink-then-regrow trick before an upscale is only safe with a
+        # generative upscaler; otherwise it would blur.
         needs_pre_downscale = (
             is_jpeg and min_side >= upscale_highlight_threshold and enable_seedvr2_cleanup
         )
         if min_side < upscale_target:
             planned_action = "upscale"
-        elif needs_pre_downscale:
+        elif is_jpeg:
+            # Large enough already, but a JPEG never leaves as a raw JPEG: it is
+            # cleaned up to a same-size PNG (SeedVR2, or a denoise without it).
             planned_action = "jpeg_cleanup"
         else:
             planned_action = "pass_through"
@@ -345,7 +362,11 @@ def _partition_images(
             path=path,
             min_side=min_side,
             is_jpeg=is_jpeg,
-            flagged=min_side <= upscale_highlight_threshold or needs_pre_downscale,
+            flagged=(
+                min_side <= upscale_highlight_threshold
+                or needs_pre_downscale
+                or planned_action == "jpeg_cleanup"
+            ),
             planned_action=planned_action,
             needs_pre_downscale=needs_pre_downscale,
         ))
@@ -397,13 +418,16 @@ def _image_info_report(info: ImageInfo) -> dict:
     }
 
 
-def _build_review_items(flagged: list[ImageInfo], threshold: int) -> list[dict]:
+def _build_review_items(
+    candidates: list[ImageInfo], threshold: int, target: int,
+) -> list[dict]:
     items = []
-    for info in flagged:
+    for info in candidates:
         try:
             width, height = img_utils.image_size(info.path)
         except Exception:
             width = height = None
+        tier = tier_for(info.min_side)
         items.append({
             "path": str(info.path),
             "name": info.path.name,
@@ -411,19 +435,34 @@ def _build_review_items(flagged: list[ImageInfo], threshold: int) -> list[dict]:
             "height": height,
             "min_side": info.min_side,
             "threshold": threshold,
+            "target": target,
+            "tier_lo": tier[0] if tier else None,
+            "tier_hi": tier[1] if tier else None,
             "is_jpeg": info.is_jpeg,
             "planned_action": info.planned_action,
             "flagged": info.flagged,
-            "initial_decision": "upscale",
+            "initial_decision": "cleanup" if info.planned_action == "jpeg_cleanup" else "upscale",
         })
     return items
 
 
-def _apply_review_decisions(partitions: ImagePartitions, decisions: dict[str, str]) -> None:
+def _apply_review_decisions(
+    partitions: ImagePartitions, decisions: dict[str, str], target: int,
+) -> None:
+    """Map review decisions onto planned actions.
+
+    ``skip`` keeps the original untouched, ``cleanup`` (JPEG only) converts it
+    to a same-size PNG, ``upscale`` (only below the target) upscales it. Any
+    decision that does not apply to the image keeps the planned action.
+    """
     for info in partitions.images:
         decision = decisions.get(str(info.path)) or decisions.get(str(info.path.resolve()))
         if decision == "skip":
             info.planned_action = "pass_through"
+        elif decision == "cleanup" and info.is_jpeg:
+            info.planned_action = "jpeg_cleanup"
+        elif decision == "upscale" and info.min_side is not None and info.min_side < target:
+            info.planned_action = "upscale"
 
 
 def _resolve_upscaler(
@@ -505,7 +544,13 @@ def _process_seedvr2_candidates(
     pre_downscale_paths: set[Path] | None = None,
     scratch_dir: Path | None = None,
     cancel_check: CancelCheck = noop_cancel_check,
+    keep_size: bool = False,
 ) -> None:
+    """Run SeedVR2 over ``candidates`` in one batch and accept each result.
+
+    ``keep_size`` marks a same-size JPEG cleanup: outputs are matched to the
+    source dimensions and any failure falls back to a denoised PNG.
+    """
     pre_downscale_paths = pre_downscale_paths or set()
     tmp_by_source = {}
     sources_by_path = {}
@@ -530,23 +575,20 @@ def _process_seedvr2_candidates(
         reporter.error(f"SeedVR2 upscale failed: {reason} - keeping originals.")
         for path, tmp_path in tmp_by_source.items():
             tmp_path.unlink(missing_ok=True)
-            results["skipped"].append({"path": str(path), "reason": reason})
-            _pass_through(context, path)
+            _keep_original(context, path, results, reason, keep_size=keep_size)
         return
 
     for path, tmp_path in cancellable(tmp_by_source.items(), cancel_check):
         reason = failures.get(str(path))
         if reason is not None:
             reporter.error(f"Upscale failed for {path.name}: {reason} - keeping original.")
-            results["skipped"].append({"path": str(path), "reason": reason})
             tmp_path.unlink(missing_ok=True)
-            _pass_through(context, path)
+            _keep_original(context, path, results, reason, keep_size=keep_size)
             continue
         if not tmp_path.exists():
             reason = f"SeedVR2 did not write expected output: {tmp_path}"
             reporter.error(f"Upscale failed for {path.name}: {reason} - keeping original.")
-            results["skipped"].append({"path": str(path), "reason": reason})
-            _pass_through(context, path)
+            _keep_original(context, path, results, reason, keep_size=keep_size)
             continue
         _accept_candidate(
             path=path,
@@ -555,6 +597,7 @@ def _process_seedvr2_candidates(
             hallucination_ssim_threshold=hallucination_ssim_threshold,
             hallucination_check_enabled=hallucination_check_enabled,
             results=results,
+            keep_size=keep_size,
         )
 
 
@@ -562,6 +605,7 @@ def _process_jpeg_cleanup_candidates(
     *,
     infos: list[ImageInfo],
     context: OutputContext,
+    use_seedvr2: bool,
     upscale_target: int,
     hallucination_ssim_threshold: float,
     hallucination_check_enabled: bool,
@@ -570,37 +614,39 @@ def _process_jpeg_cleanup_candidates(
     scratch_dir: Path,
     cancel_check: CancelCheck = noop_cancel_check,
 ) -> None:
+    """Convert JPEGs to PNG at their own size, shedding compression artifacts.
+
+    SeedVR2 restores them (downscale then re-upscale to the original min-side);
+    without it, or when it is unavailable, each gets a mild same-size denoise.
+    """
+    if not use_seedvr2:
+        reporter.info(f"{len(infos)} JPEG(s) will be denoised to same-size PNG.")
+        _denoise_all(infos, context, results, cancel_check)
+        return
+
     _probe, skip_reason = _build_seedvr2(resolution=upscale_target, **seedvr2_kwargs)
     if skip_reason is not None:
         reporter.warn(
             f"SeedVR2 unavailable for JPEG cleanup ({skip_reason}) "
-            f"- leaving large JPEGs untouched.")
-        for info in cancellable(infos, cancel_check):
-            results["skipped"].append({
-                "path": str(info.path),
-                "reason": f"jpeg_cleanup unavailable: {skip_reason}",
-            })
-            _pass_through(context, info.path)
+            f"- denoising JPEGs to same-size PNG instead.")
+        _denoise_all(infos, context, results, cancel_check)
         return
 
     reporter.info(
-        f"{len(infos)} large JPEG(s) will be cleaned up via SeedVR2 "
-        f"(downscale then re-upscale).")
-    # Each image is re-upscaled to its own min-side so it never ends up smaller
-    # than it started. Group by that target so same-size images share one worker
-    # (the model is loaded once per group, not once per image).
+        f"{len(infos)} JPEG(s) will be cleaned up via SeedVR2 "
+        f"(downscale then re-upscale to their own size).")
+    # Group by min-side so same-size images share one worker (the model is
+    # loaded once per group, not once per image).
     by_target: dict[int, list[ImageInfo]] = {}
     for info in infos:
-        target = max(upscale_target, info.min_side or upscale_target)
+        target = info.min_side or upscale_target
         by_target.setdefault(target, []).append(info)
 
     for target, group in cancellable(sorted(by_target.items()), cancel_check):
         seedvr2, build_reason = _build_seedvr2(resolution=target, **seedvr2_kwargs)
         if build_reason is not None:
-            for info in group:
-                results["skipped"].append(
-                    {"path": str(info.path), "reason": f"jpeg_cleanup: {build_reason}"})
-                _pass_through(context, info.path)
+            reporter.warn(f"SeedVR2 unavailable at {target}px ({build_reason}) - denoising.")
+            _denoise_all(group, context, results, cancel_check)
             continue
         group_paths = [info.path for info in group]
         _process_seedvr2_candidates(
@@ -613,7 +659,47 @@ def _process_jpeg_cleanup_candidates(
             pre_downscale_paths=set(group_paths),
             scratch_dir=scratch_dir,
             cancel_check=cancel_check,
+            keep_size=True,
         )
+
+
+def _denoise_all(
+    infos: list[ImageInfo], context: OutputContext, results: dict, cancel_check: CancelCheck,
+) -> None:
+    for info in cancellable(infos, cancel_check):
+        _write_denoised_png(context, info.path, results)
+
+
+def _write_denoised_png(context: OutputContext, path: Path, results: dict) -> None:
+    """Land a JPEG at its PNG slot as a same-size denoised copy."""
+    out_path = _processed_dest_for(context, path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = _tmp_for(out_path, path)
+    try:
+        _denoise_to_png(path, tmp_path)
+    except Exception as exc:
+        reason = _format_exception(exc)
+        reporter.error(f"JPEG denoise failed for {path.name}: {reason} - keeping original.")
+        tmp_path.unlink(missing_ok=True)
+        results["skipped"].append({"path": str(path), "reason": reason})
+        _pass_through(context, path)
+        return
+    _commit_output(context, path, tmp_path, out_path)
+    reporter.ok(f"Denoised {path.name} -> {out_path.name} (same size)")
+    results["upscaled"].append({
+        "original": str(path), "upscaled": str(out_path), "method": "denoise",
+    })
+
+
+def _keep_original(
+    context: OutputContext, path: Path, results: dict, reason: str, *, keep_size: bool,
+) -> None:
+    """Fallback after a failed upscale: a same-size cleanup still gets denoised."""
+    if keep_size:
+        _write_denoised_png(context, path, results)
+        return
+    results["skipped"].append({"path": str(path), "reason": reason})
+    _pass_through(context, path)
 
 
 def _skip_candidates(
@@ -676,23 +762,33 @@ def _accept_candidate(
     hallucination_ssim_threshold: float,
     hallucination_check_enabled: bool,
     results: dict,
+    keep_size: bool = False,
 ) -> None:
     out_path = _processed_dest_for(context, path)
+    if keep_size:
+        _match_source_size(tmp_path, path)
     hall_ssim = _hallucination_check(path, tmp_path) if hallucination_check_enabled else 1.0
     if hallucination_check_enabled and hall_ssim < hallucination_ssim_threshold:
         reporter.warn(f"REJECT upscale {path.name} (SSIM={hall_ssim:.3f}) - keeping original size.")
         results["rejected_post"].append({"path": str(path), "hall_ssim": hall_ssim})
         tmp_path.unlink(missing_ok=True)
-        _pass_through(context, path)
+        if keep_size:
+            _write_denoised_png(context, path, results)
+        else:
+            _pass_through(context, path)
         return
 
     reporter.ok(f"Upscaled {path.name} -> {out_path.name} (hall_ssim={hall_ssim:.3f})")
+    _commit_output(context, path, tmp_path, out_path)
+    results["upscaled"].append({"original": str(path), "upscaled": str(out_path)})
+
+
+def _commit_output(context: OutputContext, path: Path, tmp_path: Path, out_path: Path) -> None:
     tmp_path.replace(out_path)
     if context.in_place and out_path != path:
         # The original sat at the same path/dir as out_path under a different
         # (pre-conversion) suffix - e.g. a JPEG source converted to PNG.
         path.unlink(missing_ok=True)
-    results["upscaled"].append({"original": str(path), "upscaled": str(out_path)})
 
 
 def _cleanup_temp_files(paths) -> None:

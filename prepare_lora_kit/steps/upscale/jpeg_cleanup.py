@@ -64,3 +64,34 @@ def _write_downscaled_copy(path: Path, scratch_dir: Path) -> Path:
     out_path = scratch_dir / _scratch_name(path, ".predownscale.png")
     small.save(out_path)
     return out_path
+
+
+def _match_source_size(output_path: Path, source_path: Path) -> None:
+    """Resize ``output_path`` in place to ``source_path``'s exact dimensions.
+
+    A same-size JPEG cleanup must not change resolution, but SeedVR2 rounds its
+    output to model-friendly dimensions, so the result can be a few px off.
+    """
+    from PIL import Image
+
+    with Image.open(source_path) as src:
+        size = src.size
+    with Image.open(output_path) as out:
+        if out.size == size:
+            return
+        resized = out.convert("RGB").resize(size, Image.LANCZOS)
+    resized.save(output_path)
+
+
+def _denoise_to_png(source_path: Path, output_path: Path) -> Path:
+    """Write a mildly denoised, same-size copy of a JPEG to ``output_path``.
+
+    The fallback cleanup when no generative model is available (or its result
+    was rejected): it still sheds some blocking and lands the image as PNG.
+    """
+    from PIL import Image
+
+    with Image.open(source_path) as img:
+        cleaned = _denoise(img)
+    cleaned.save(output_path)
+    return output_path

@@ -1,11 +1,11 @@
-export function upscaleReviewModal(itemCount) {
+export function upscaleReviewModal(itemCount, tierCount) {
   const modal = document.createElement("div");
   modal.className = "modal upscale-review-modal";
   modal.innerHTML = `
     <div class="modal-header">
       <div>
         <h2>Upscale Review</h2>
-        <p>${itemCount} images flagged · review resolution and JPEG cleanup decisions</p>
+        <p>${itemCount} candidates in ${tierCount} min-side tier${tierCount === 1 ? "" : "s"} · decide per tier or per image</p>
       </div>
       <div class="modal-actions">
         <button class="primary" id="finishUpscaleReview">Continue</button>
