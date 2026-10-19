@@ -812,7 +812,9 @@ class CaptionRuntime:
             concept_token: str | None,
             *,
             max_new_tokens: int = 200,
+            trace: dict[str, Any] | None = None,
     ) -> str:
+        """Caption one full image; ``trace`` optionally collects per-pass outputs."""
         self._emit_status("captioning", f"Captioning {Path(image_path).name}",
                           current_image=str(image_path))
         ann_lines = []
@@ -841,6 +843,7 @@ class CaptionRuntime:
                     emit=lambda _stage, message: self._emit_status(
                         "captioning", message, current_image=str(image_path)
                     ),
+                    trace=trace,
                 )
             else:
                 prompt_text = cap_utils.build_full_image_prompt(
@@ -848,6 +851,8 @@ class CaptionRuntime:
                     domain_brief=self.domain_brief,
                 )
                 text = self._run(image, prompt_text, max_new_tokens)
+                if trace is not None:
+                    trace["draft"] = text
                 if self._loaded is not None and not self._loaded.supports_prompt:
                     text = _compose_classic_caption(text, annotations, concept_token)
             self._emit_status("ready", f"Caption model ready: {self.model_id}")

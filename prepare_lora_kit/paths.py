@@ -15,3 +15,5 @@ CONFIGS_DIR = PROJECT_ROOT / "configs"
 USER_CONFIG_DIR = Path.home() / ".prepare_lora_kit"
 SETTINGS_PATH = USER_CONFIG_DIR / "settings.yaml"
 PROJECTS_DIR = USER_CONFIG_DIR / "projects"
+# Caption benchmark suites addressed by bare name (`plk caption-bench run food`).
+BENCH_DIR = USER_CONFIG_DIR / "bench"

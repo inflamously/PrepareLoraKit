@@ -70,12 +70,19 @@ def generate_grounded_caption(
         max_new_tokens: int = 200,
         cancel_check: CancelCheck = noop_cancel_check,
         emit: Callable[[str, str], None] | None = None,
+        trace: dict[str, Any] | None = None,
 ) -> str:
     """Run the observe → compose → verify pipeline and return the final caption.
 
     ``runtime`` must expose ``run_prompt(image, prompt, *, max_new_tokens)`` and a
     ``caption_prompt`` attribute (the optional custom compose template).
+
+    ``trace``, when given, receives each pass's raw output (``facts``, ``draft``,
+    ``gap_raw``, ``gap_phrases``) so a benchmark can show *why* a caption came out
+    the way it did. It never changes what is generated.
     """
+    trace = trace if trace is not None else {}
+
     def _emit(stage: str, message: str) -> None:
         if emit is not None:
             emit(stage, message)
@@ -95,6 +102,7 @@ def generate_grounded_caption(
             max_new_tokens=max(max_new_tokens, _OBSERVE_MIN_TOKENS),
         )
         _note_pass(runtime, "observe")
+        trace["facts"] = facts
         cancel_check()
 
     # B. COMPOSE — fluent caption from the observed or annotated facts.
@@ -124,6 +132,7 @@ def generate_grounded_caption(
             max_new_tokens=max_new_tokens,
         )
         _note_pass(runtime, "compose_fallback")
+    trace["draft"] = draft
     cancel_check()
 
     # C. GAP-FILL — additive, and only when the draft looks thin. A good draft skips
@@ -139,4 +148,7 @@ def generate_grounded_caption(
         max_new_tokens=_GAP_MAX_TOKENS,
     )
     _note_pass(runtime, "gap")
-    return gap_fill.merge_missing_phrases(draft, gap_fill.parse_gap_phrases(missing))
+    phrases = gap_fill.parse_gap_phrases(missing)
+    trace["gap_raw"] = missing
+    trace["gap_phrases"] = phrases
+    return gap_fill.merge_missing_phrases(draft, phrases)

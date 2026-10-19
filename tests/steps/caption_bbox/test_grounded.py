@@ -307,3 +307,20 @@ def test_no_verifying_status_is_emitted_when_the_gap_pass_is_skipped():
     )
 
     assert stages == ["observing", "composing"]
+
+
+def test_trace_records_each_pass_output_without_changing_the_result():
+    runtime = _FakeRuntime(["FACTS", "A brass telescope", "a red velvet curtain\nNONE"])
+    trace = {}
+
+    result = grounded.generate_grounded_caption(
+        runtime, _IMAGE, [], "tok", style_mode=False, trace=trace,
+    )
+
+    assert result == "A brass telescope, a red velvet curtain"
+    assert trace == {
+        "facts": "FACTS",
+        "draft": "A brass telescope",
+        "gap_raw": "a red velvet curtain\nNONE",
+        "gap_phrases": ["a red velvet curtain"],
+    }

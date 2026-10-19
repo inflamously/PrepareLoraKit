@@ -12,6 +12,30 @@ from prepare_lora_kit.steps.caption_bbox.workflow import CaptionWorkflowResult
 from prepare_lora_kit.steps.context import StepRunContext
 
 
+def make_caption_runtime(
+    config: CaptionBboxConfig,
+    options: CaptionBboxRunOptions | None = None,
+) -> vlm.CaptionRuntime:
+    """Build the (unloaded) caption runtime a project config describes.
+
+    Shared by the step and the caption benchmark, so a benchmark run captions with
+    exactly the settings a real run would.
+    """
+    options = options or CaptionBboxRunOptions()
+    return vlm.CaptionRuntime(
+        str(config.caption_model_id or "").strip(),
+        task=config.caption_model_task,
+        quantization=options.quantization or config.quantization,
+        dtype=config.dtype,
+        max_pixels=options.max_pixels,
+        status_callback=options.status_callback,
+        caption_prompt=config.caption_prompt,
+        region_prompt=config.region_prompt,
+        caption_strategy=config.caption_strategy,
+        domain_brief=config.domain_brief,
+    )
+
+
 class RealCaptionStep(CaptionStep):
     """Captions with a Hugging Face VLM runtime (:class:`vlm.CaptionRuntime`)."""
 
@@ -42,18 +66,7 @@ class RealCaptionStep(CaptionStep):
         self.model_id = str(config.caption_model_id or "").strip()
         # Constructed up front (never loaded until there is captioning work) so the
         # region-caption callback and the full-image loop share one runtime instance.
-        self.runtime = vlm.CaptionRuntime(
-            self.model_id,
-            task=config.caption_model_task,
-            quantization=options.quantization or config.quantization,
-            dtype=config.dtype,
-            max_pixels=options.max_pixels,
-            status_callback=options.status_callback,
-            caption_prompt=config.caption_prompt,
-            region_prompt=config.region_prompt,
-            caption_strategy=config.caption_strategy,
-            domain_brief=config.domain_brief,
-        )
+        self.runtime = make_caption_runtime(config, options)
 
     def prepare_runtime(self, needs_captioning: bool) -> None:
         if needs_captioning:

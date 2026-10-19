@@ -1,0 +1,2 @@
+# Shim for pyproject.toml's `bench` extra; run from the repo root.
+-e .[bench]

@@ -215,9 +215,12 @@ The core depends on image processing, ML, and CLI libraries, including:
 - easygui for fallback manual review flows
 - bitsandbytes for optional 4-bit or 8-bit VLM quantization
 
-`torch`/`torchvision` are pinned loosely; install a CUDA-specific build first
-(see `--index-url` on https://pytorch.org) if the default wheel does not match
-your GPU.
+`torch`/`torchvision` are pinned loosely. On Windows, uv takes them from the
+PyTorch CUDA 13.2 index (`[tool.uv.index]` in `pyproject.toml`), because PyPI's
+Windows wheels are CPU-only and `uv run`/`uv sync` would otherwise replace a
+hand-installed CUDA build with them. To target another CUDA version, change that
+index URL and run `uv lock`. With pip, install the CUDA build first via
+`--index-url https://download.pytorch.org/whl/cu132`.
 
 SeedVR2 upscaling is optional and uses the pinned submodule at
 `third_party/seedvr2`. Before using `upscale_model: seedvr2`, install the

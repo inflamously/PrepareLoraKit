@@ -31,6 +31,7 @@ bespoke live-progress channel that bypasses the normal `ExecutionHooks` system.
 | [prompts.md](prompts.md) | Built-in templates, the user prompt library, domain brief, abstention, region-label enforcement. |
 | [artifacts.md](artifacts.md) | Files written to disk and the report payload. |
 | [ui-plumbing.md](ui-plumbing.md) | Lifecycle hooks, live caption status, interaction requests, frontend. |
+| [benchmark.md](benchmark.md) | `plk caption-bench`: caption a fixed suite per config variant and diff runs. |
 
 ## Known sharp edges
 
