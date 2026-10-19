@@ -2,16 +2,9 @@
 
 ## Project Structure & Module Organization
 
-PrepareLoraKit is a Python 3.10+ package with a Click CLI exposed as `plk`.
-Core package code lives in `prepare_lora_kit/`. CLI entry points are in
-`prepare_lora_kit/cli/`, pipeline orchestration is in `pipeline.py`, project
-models are in `project/`, and dataset pipeline stages are split under named
-packages such as `steps/import_step`, `steps/caption_bbox`, and
-`steps/bucket_pools_check`. The browser UI assets live in
-`prepare_lora_kit_ui/static/`. Projects are folders under
-`~/.prepare_lora_kit/projects/<name>/` — one `index.yaml` plus one `<step>.yaml`
-per pipeline step; see `docs/project-config.md`. Tests are in `tests/` and
-currently use pytest-style functions.
+Projects are folders under `~/.prepare_lora_kit/projects/<name>/` — one
+`index.yaml` plus one `<step>.yaml` per pipeline step; see
+`docs/project-config.md`.
 
 ## Build, Test, and Development Commands
 
@@ -20,15 +13,11 @@ currently use pytest-style functions.
   `pyproject.toml`; the files under `requirements/` are thin `-e .[extra]` shims.
   Add SeedVR2 with `pip install -e ".[seedvr2-accel]"` (or `.[seedvr2]` without
   GPU acceleration).
-- `python main.py --help` or `plk --help`: lists available CLI commands.
 - `python main.py run -i /path/to/images -p my-project -t token`: runs the full
   local pipeline from the repo checkout.
-- `pytest`: runs the test suite in `tests/`.
-- `pytest tests/project/test_config.py`: runs one focused test module.
 - `uv sync` (or `python -m pip install --group dev`, pip 25.1+): installs the dev
   tooling (`ruff`, `pytest`, `pip-audit`) from the `dev` dependency group;
   `uv run` includes it by default.
-- `ruff check .`: lints the repo. `ruff check --fix .` applies the safe fixes.
 - `pip-audit --skip-editable`: checks the active environment's installed packages
   for known vulnerabilities (installed with the `dev` group).
 
@@ -80,26 +69,7 @@ A `PostToolUse` hook in `.claude/settings.json` runs `.claude/hooks/ruff_check.p
 after any Python file is written, so violations surface immediately instead of at
 review time. It no-ops silently when ruff is not installed.
 
-### Scrolling and overflow (CSS)
-
-A box that scrolls on one axis must state the other axis too. Omitting it is not
-"no scrolling": when one axis is not `visible`, the other computes from `visible`
-to `auto`, so a lone `overflow-y: auto` silently makes the box a horizontal
-scroll container as well. Clamp the idle axis with the pair
-
-```css
-overflow-x: hidden;
-overflow-x: clip;   /* engines below Chromium 90 / WebKitGTK 2.38 drop this */
-```
-
-`clip` rather than `hidden` because `hidden` still leaves a scroll container:
-it only removes the scrollbar while the browser goes on scrolling the box on
-focus and on `scrollIntoView`, stranding a pane offset with no way to scroll it
-back. Make content fit *before* clamping an axis — clamping first only trades a
-visible scrollbar for invisible clipping. `tests/ui/static/css_overflow.test.js`
-enforces both halves of this and rejects the `overflow: auto` shorthand, so
-intent is always written out. The rationale lives in
-`prepare_lora_kit_ui/static/core/foundation.css`.
+CSS conventions for the browser UI live in `prepare_lora_kit_ui/static/AGENTS.md`.
 
 Keep `prepare_lora_kit_ui/static/core/api.js` JSDoc in sync with the pywebview
 bridge whenever `prepare_lora_kit_ui/bridge.py`, UI bridge payloads, or frontend
@@ -121,7 +91,7 @@ Recent history uses short conventional-style prefixes such as `feat:`, `fix:`,
 and `refactor:`. Follow that style with an imperative summary, for example
 `fix: preserve project input dir`. Pull requests should describe the user-facing
 change, list tests run, call out config or dependency changes, and include UI
-screenshots when modifying `prepare_lora_kit/ui/static/`.
+screenshots when modifying `prepare_lora_kit_ui/static/`.
 
 ## Security & Configuration Tips
 
@@ -136,3 +106,29 @@ reuses the token `hf auth login` writes, via `huggingface_hub.get_token()`.
 - Avoid global runtime installation in sandboxes. Keep an existing `.venv`
   intact; when it is platform-incompatible, use the separate `.venv-linux`
   workflow documented above.
+
+<!-- bubble-tracks:start -->
+## bubble-tracks (fog-of-war planning)
+
+This repo plans work as linear tracks of task bubbles in `.bubble-tracks/` (one `.json` per track; `.bubble-tracks/current` names the active one).
+Manage it only through the CLI, never by hand-editing the JSON:
+
+    node ".agents/skills/bubble/scripts/cli/bubble.js" show | switch <name> | tracks | fork [N] <name> | diverge [N] <name> | init <title>
+                   | add <title> | add ? | insert at N <title|?> | remove N[:M]
+                   | move N[:M] to M | rename N <title> | title <text> | hint N <text> | fog [N[:M]] [TYPE]
+                   | type [N] <TYPE> | fill [N] <title> | done
+
+Full instructions: `.agents/skills/bubble/SKILL.md`.
+
+Rules:
+- Before editing project files, run `node ".agents/skills/bubble/scripts/cli/bubble.js" show`. If it exits 3, the active bubble is fog, so do not edit.
+- At fog, never plan it yourself. Ask the human to classify it (known-known, known-unknown, unknown-known, unknown-unknown) and wait for their content before running `fill`.
+- When the active bubble is a known task, read its hint, implement it, then run `done`.
+- Keep each track to one domain. If the human asks for something that doesn't belong to the active bubble, don't `add` it: run `fork <name>` if it builds on the bubble (the bubble waits for it), or `diverge <name>` if it goes a different direction (nothing waits). Ask the human first (suggest one: fork / diverge / keep here), run it only after they pick, then treat the new track as fresh: ask, sketch, classify all fog.
+- `bubble switch <name>` resumes a track (read all bubbles and hints, then continue at the active one) or creates it. Apply it right away without asking why. If you see a better name (e.g. `single commit` -> `single-commit`), use it and say so in one line.
+- After sketching a track, always list every fog bubble by number and ask the human to answer each one as `N: <their content>` (then `fill`) or `N:kk|ku|uk|uu` (then `type`).
+- When the chat gets long, save `handoff <note>` (what's half done, the decisions made, the next step) and suggest a fresh chat with `bubble switch <name>`.
+- After `done`, stop (⏸): show the track and wait for the human before starting the next bubble.
+- When the human writes `bubble <command>`, run exactly that command through the CLI and show the result.
+- After every change, show the user the rendered track line.
+<!-- bubble-tracks:end -->

@@ -1,0 +1,35 @@
+{
+  "title": "Commit hours guard",
+  "bubbles": [
+    {
+      "title": "Pre-push hook choice",
+      "state": "done",
+      "id": 1,
+      "hint": "git pre-push hook in versioned .githooks/, enabled per clone via 'git config core.hooksPath .githooks' (Windows + Linux sandbox). Client-side only: GitHub can't enforce time windows."
+    },
+    {
+      "title": "Time-window check",
+      "state": "todo",
+      "id": 2,
+      "hint": "Check the current time at push only (commit times ignored): blocked when local time is Mon-Fri 08:00-16:59. Window configurable; pure function so it's testable."
+    },
+    {
+      "title": "Wire up hook",
+      "state": "todo",
+      "id": 3
+    },
+    {
+      "title": "No-verify bypass",
+      "state": "todo",
+      "id": 4,
+      "hint": "Escape hatch is 'git push --no-verify'; document it, no custom override."
+    },
+    {
+      "title": "Tests",
+      "state": "todo",
+      "id": 5,
+      "hint": "Cover boundaries: Fri 16:59 blocked, Fri 17:00 ok, Sat ok, Mon 07:59 ok, Mon 08:00 blocked."
+    }
+  ],
+  "nextId": 6
+}

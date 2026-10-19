@@ -1,0 +1,6 @@
+#!/bin/sh
+# Blocks `git push` during working hours; see bubble track "commit-hours".
+# Enabled per clone with: git config core.hooksPath .githooks
+# Bypass with: git push --no-verify
+
+exit 0
