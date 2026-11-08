@@ -18,8 +18,8 @@ def make_caption_runtime(
 ) -> vlm.CaptionRuntime:
     """Build the (unloaded) caption runtime a project config describes.
 
-    Shared by the step and the caption benchmark, so a benchmark run captions with
-    exactly the settings a real run would.
+    Kept separate from the step so other callers caption with exactly the settings
+    a real run would.
     """
     options = options or CaptionBboxRunOptions()
     return vlm.CaptionRuntime(

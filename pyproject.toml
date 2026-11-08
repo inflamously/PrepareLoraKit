@@ -57,10 +57,6 @@ caption-verifier = [
     "sentencepiece",                # tokenizers for the T5/Qwen-class text encoders
     "protobuf",
 ]
-# Interactive viewer for `plk caption-bench view` (the --plain view needs nothing extra).
-bench = [
-    "textual>=1.0",
-]
 # Optional SeedVR2 upscaling runtime (third_party/seedvr2 submodule).
 # Also run: pip install -e third_party/seedvr2
 seedvr2 = [

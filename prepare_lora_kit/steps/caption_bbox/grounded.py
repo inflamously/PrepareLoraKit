@@ -78,7 +78,7 @@ def generate_grounded_caption(
     ``caption_prompt`` attribute (the optional custom compose template).
 
     ``trace``, when given, receives each pass's raw output (``facts``, ``draft``,
-    ``gap_raw``, ``gap_phrases``) so a benchmark can show *why* a caption came out
+    ``gap_raw``, ``gap_phrases``) so a caller can show *why* a caption came out
     the way it did. It never changes what is generated.
     """
     trace = trace if trace is not None else {}

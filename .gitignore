@@ -10,3 +10,5 @@ configs/projects/
 models
 build
 prepare_lora_kit.egg-info
+.agents/skills/bubble
+.bubble-tracks
